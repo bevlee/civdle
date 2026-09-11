@@ -1,8 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { RESOURCES, SKILLS, SkillId } from "@/lib/gameData";
-import { GameState, computeActionResult, xpForLevel } from "@/lib/gameEngine";
+import { CONSUMABLES, RESOURCES, ResourceId, SKILLS, SkillId } from "@/lib/gameData";
+import {
+  GameState,
+  aggregateConsumableEffects,
+  computeActionResult,
+  getActiveConsumableDefs,
+  xpForLevel,
+} from "@/lib/gameEngine";
 
 export function TrainingView({
   skillId,
@@ -13,6 +19,7 @@ export function TrainingView({
   onStart,
   onStop,
   onSelectRecipe,
+  onToggleConsumable,
 }: {
   skillId: SkillId;
   state: GameState;
@@ -22,6 +29,7 @@ export function TrainingView({
   onStart: () => void;
   onStop: () => void;
   onSelectRecipe: (recipeId: string) => void;
+  onToggleConsumable: (resourceId: ResourceId) => void;
 }) {
   const def = SKILLS[skillId];
   const skillState = state.skills[skillId];
@@ -33,7 +41,13 @@ export function TrainingView({
   const xpSpan = Math.max(1, xpNext - xpBase);
   const xpPct = level >= 99 ? 100 : Math.min(100, ((skillState.xp - xpBase) / xpSpan) * 100);
 
-  const result = computeActionResult(skillId, level, skillState.upgrades, ageIndex, skillState.selectedRecipeId);
+  const activeDefs = getActiveConsumableDefs(state.activeConsumables, state.resources, def.category);
+  const ce = aggregateConsumableEffects(activeDefs);
+  const result = computeActionResult(skillId, level, skillState.upgrades, ageIndex, skillState.selectedRecipeId, state.globalUpgrades, ce);
+
+  const applicableConsumables = CONSUMABLES.filter(
+    (c) => !c.appliesTo || c.appliesTo === def.category
+  );
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -111,6 +125,41 @@ export function TrainingView({
           )}
         </div>
       </div>
+
+      {applicableConsumables.length > 0 && (
+        <>
+          <Separator />
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-semibold text-muted-foreground">Consumables</h3>
+            <div className="flex flex-col gap-2">
+              {applicableConsumables.map((c) => {
+                const owned = Math.floor(state.resources[c.resource] ?? 0);
+                const isActive = state.activeConsumables.includes(c.resource);
+                const canActivate = owned >= 1;
+                return (
+                  <button
+                    key={c.resource}
+                    disabled={!canActivate && !isActive}
+                    onClick={() => onToggleConsumable(c.resource)}
+                    className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors ${
+                      isActive ? "border-primary bg-accent" : "border-border"
+                    } ${!canActivate && !isActive ? "cursor-not-allowed opacity-40" : "hover:bg-accent"}`}
+                  >
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span className="font-medium">
+                        {RESOURCES[c.resource].name}
+                        {isActive && <span className="ml-1 text-green-500">●</span>}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{c.description}</span>
+                    </div>
+                    <span className="text-xs tabular-nums text-muted-foreground">{owned.toLocaleString()}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

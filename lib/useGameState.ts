@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SKILLS, SkillId } from "./gameData";
+import { CONSUMABLES, ResourceId, SKILLS, SkillId } from "./gameData";
 import {
   ApplyActionOutcome,
   GameState,
+  aggregateConsumableEffects,
   applyAction,
   computeActionResult,
   createInitialState,
+  getActiveConsumableDefs,
   getAgeBonus,
   getCurrentAgeIndex,
   getSkillLevels,
@@ -26,6 +28,7 @@ function loadFromStorage(): GameState {
     const parsed = JSON.parse(raw) as GameState;
     if (!parsed || !parsed.skills) return createInitialState();
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
+    if (!parsed.activeConsumables) parsed.activeConsumables = [];
     return parsed;
   } catch {
     return createInitialState();
@@ -111,7 +114,10 @@ export function useGameState() {
     const level = levels[skillId];
     const ageIndex = getCurrentAgeIndex(levels);
     const skillState = state.skills[skillId];
-    const result = computeActionResult(skillId, level, skillState.upgrades, ageIndex, skillState.selectedRecipeId, state.globalUpgrades);
+    const skillCategory = SKILLS[skillId].category;
+    const activeDefs = getActiveConsumableDefs(state.activeConsumables, state.resources, skillCategory);
+    const ce = aggregateConsumableEffects(activeDefs);
+    const result = computeActionResult(skillId, level, skillState.upgrades, ageIndex, skillState.selectedRecipeId, state.globalUpgrades, ce);
 
     if (!result) {
       // Defensive: a persisted save could reference a recipe that's no longer valid.
@@ -186,15 +192,26 @@ export function useGameState() {
     });
   }, []);
 
-  const toggleGlobalUpgrade = useCallback((upgradeId: string) => {
+  const toggleConsumable = useCallback((resourceId: ResourceId) => {
     setState((prev) => {
-      const has = prev.globalUpgrades.includes(upgradeId);
-      return {
-        ...prev,
-        globalUpgrades: has
-          ? prev.globalUpgrades.filter((id) => id !== upgradeId)
-          : [...prev.globalUpgrades, upgradeId],
-      };
+      const isActive = prev.activeConsumables.includes(resourceId);
+      if (isActive) {
+        return { ...prev, activeConsumables: prev.activeConsumables.filter((id) => id !== resourceId) };
+      }
+      const def = CONSUMABLES.find((c) => c.resource === resourceId);
+      if (!def || (prev.resources[resourceId] ?? 0) < 1) return prev;
+      const withoutGroup = prev.activeConsumables.filter((id) => {
+        const other = CONSUMABLES.find((c) => c.resource === id);
+        return !other || other.group !== def.group;
+      });
+      return { ...prev, activeConsumables: [...withoutGroup, resourceId] };
+    });
+  }, []);
+
+  const buyGlobalUpgrade = useCallback((upgradeId: string) => {
+    setState((prev) => {
+      if (prev.globalUpgrades.includes(upgradeId)) return prev;
+      return { ...prev, globalUpgrades: [...prev.globalUpgrades, upgradeId] };
     });
   }, []);
 
@@ -217,6 +234,7 @@ export function useGameState() {
     stopTraining,
     selectRecipe,
     buyUpgrade,
-    toggleGlobalUpgrade,
+    buyGlobalUpgrade,
+    toggleConsumable,
   };
 }

@@ -24,7 +24,8 @@ export default function Home() {
     stopTraining,
     selectRecipe,
     buyUpgrade,
-    toggleGlobalUpgrade,
+    buyGlobalUpgrade,
+    toggleConsumable,
   } = useGameState();
 
   const [clickedSkill, setClickedSkill] = useState<SkillId | null>(null);
@@ -68,6 +69,7 @@ export default function Home() {
               onStart={() => startTraining(selectedSkill)}
               onStop={stopTraining}
               onSelectRecipe={(recipeId) => selectRecipe(selectedSkill, recipeId)}
+              onToggleConsumable={toggleConsumable}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -90,7 +92,7 @@ export default function Home() {
               <Inventory resources={state.resources} />
             </TabsContent>
             <TabsContent value="shop">
-              <Shop state={state} onBuy={buyUpgrade} onToggleGlobal={toggleGlobalUpgrade} />
+              <Shop state={state} onBuy={buyUpgrade} onBuyGlobal={buyGlobalUpgrade} />
             </TabsContent>
           </Tabs>
         </aside>

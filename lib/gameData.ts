@@ -22,7 +22,10 @@ export type ResourceId =
   | "preparedMeal"
   | "copperBar"
   | "ironBar"
-  | "steelBar";
+  | "steelBar"
+  | "copperTools"
+  | "ironTools"
+  | "steelTools";
 
 export const RESOURCES: Record<ResourceId, { name: string }> = {
   food: { name: "Food" },
@@ -47,6 +50,9 @@ export const RESOURCES: Record<ResourceId, { name: string }> = {
   copperBar: { name: "Copper Bar" },
   ironBar: { name: "Iron Bar" },
   steelBar: { name: "Steel Bar" },
+  copperTools: { name: "Copper Tools" },
+  ironTools: { name: "Iron Tools" },
+  steelTools: { name: "Steel Tools" },
 };
 
 export type SkillId =
@@ -382,6 +388,36 @@ export const SKILLS: Record<SkillId, SkillDef> = {
         ],
         outputs: [{ resource: "steelBar", amount: 1 }],
       },
+      {
+        id: "copperTools",
+        name: "Copper Tools",
+        requiredLevel: 5,
+        inputs: [
+          { resource: "copperBar", amount: 2 },
+          { resource: "logs", amount: 1 },
+        ],
+        outputs: [{ resource: "copperTools", amount: 1 }],
+      },
+      {
+        id: "ironTools",
+        name: "Iron Tools",
+        requiredLevel: 25,
+        inputs: [
+          { resource: "ironBar", amount: 2 },
+          { resource: "logs", amount: 1 },
+        ],
+        outputs: [{ resource: "ironTools", amount: 1 }],
+      },
+      {
+        id: "steelTools",
+        name: "Steel Tools",
+        requiredLevel: 45,
+        inputs: [
+          { resource: "steelBar", amount: 2 },
+          { resource: "logs", amount: 1 },
+        ],
+        outputs: [{ resource: "steelTools", amount: 1 }],
+      },
     ],
     upgrades: [
       { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
@@ -455,3 +491,33 @@ export const AGES: AgeDef[] = [
 export const BASE_ACTION_TIME = 2; // seconds
 export const XP_PER_ACTION = 5;
 export const MAX_LEVEL = 99;
+
+// ---------- Consumables ----------
+
+export type ConsumableGroup = "tool" | "food" | "clothing" | "container" | "vessel";
+
+export interface ConsumableDef {
+  resource: ResourceId;
+  group: ConsumableGroup;
+  consumeChance: number;
+  effects: {
+    timeReduction?: number;
+    xpBonus?: number;
+    xpMultiplier?: number;
+    outputMultiplier?: number;
+  };
+  appliesTo?: SkillCategory;
+  description: string;
+}
+
+export const CONSUMABLES: ConsumableDef[] = [
+  { resource: "tools", group: "tool", consumeChance: 0.2, effects: { timeReduction: 0.3 }, appliesTo: "gathering", description: "-0.3s gathering (20%/action)" },
+  { resource: "copperTools", group: "tool", consumeChance: 0.15, effects: { timeReduction: 0.5 }, appliesTo: "gathering", description: "-0.5s gathering (15%/action)" },
+  { resource: "ironTools", group: "tool", consumeChance: 0.1, effects: { timeReduction: 0.7 }, appliesTo: "gathering", description: "-0.7s gathering (10%/action)" },
+  { resource: "steelTools", group: "tool", consumeChance: 0.05, effects: { timeReduction: 1.0 }, appliesTo: "gathering", description: "-1.0s gathering (5%/action)" },
+  { resource: "cookedFish", group: "food", consumeChance: 0.5, effects: { xpBonus: 3 }, description: "+3 XP (50%/action)" },
+  { resource: "preparedMeal", group: "food", consumeChance: 0.2, effects: { xpBonus: 5 }, description: "+5 XP (20%/action)" },
+  { resource: "clothing", group: "clothing", consumeChance: 0.05, effects: { xpMultiplier: 1.1 }, description: "+10% XP (5%/action)" },
+  { resource: "baskets", group: "container", consumeChance: 0.05, effects: { outputMultiplier: 1.2 }, appliesTo: "gathering", description: "+20% gathering output (5%/action)" },
+  { resource: "potteryVessel", group: "vessel", consumeChance: 0.05, effects: { outputMultiplier: 1.2 }, appliesTo: "crafting", description: "+20% crafting output (5%/action)" },
+];
