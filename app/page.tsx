@@ -5,6 +5,7 @@ import { AgeDisplay } from "@/components/AgeDisplay";
 import { Inventory } from "@/components/Inventory";
 import { Shop } from "@/components/Shop";
 import { SkillPanel } from "@/components/SkillPanel";
+import { SkillUnlockModal } from "@/components/SkillUnlockModal";
 import { TrainingView } from "@/components/TrainingView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SKILL_ORDER, SkillId } from "@/lib/gameData";
@@ -20,6 +21,8 @@ export default function Home() {
     progress,
     message,
     dismissMessage,
+    pendingUnlocks,
+    dismissUnlock,
     startTraining,
     stopTraining,
     selectRecipe,
@@ -97,6 +100,14 @@ export default function Home() {
           </Tabs>
         </aside>
       </div>
+
+      {pendingUnlocks.length > 0 && (
+        <SkillUnlockModal
+          key={pendingUnlocks[0]}
+          skillId={pendingUnlocks[0]}
+          onDismiss={dismissUnlock}
+        />
+      )}
     </div>
   );
 }

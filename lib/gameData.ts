@@ -105,6 +105,7 @@ export interface SkillUpgrade {
 export interface SkillDef {
   id: SkillId;
   name: string;
+  description: string;
   category: SkillCategory;
   prereqs: SkillPrereq[];
   recipes: Recipe[];
@@ -115,6 +116,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   foraging: {
     id: "foraging",
     name: "Foraging",
+    description: "Forage for berries, roots and useful fibres. Repeated gathering reveals new materials hidden in the undergrowth.",
     category: "gathering",
     prereqs: [],
     recipes: [
@@ -144,6 +146,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   woodcutting: {
     id: "woodcutting",
     name: "Woodcutting",
+    description: "Experience gathering wood reveals how to fell whole trees. Timber becomes the backbone of construction, tools, and fuel.",
     category: "gathering",
     prereqs: [{ skill: "foraging", level: 10 }],
     recipes: [
@@ -167,6 +170,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   mining: {
     id: "mining",
     name: "Mining",
+    description: "Gather loose stones from outcrops and riverbeds. Deeper excavation reveals ores that will shape the ages to come.",
     category: "gathering",
     prereqs: [{ skill: "woodcutting", level: 10 }],
     recipes: [
@@ -192,6 +196,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   fishing: {
     id: "fishing",
     name: "Fishing",
+    description: "A water source offers another food supply. Assign fishers to catch food continuously; later discoveries improve catches.",
     category: "gathering",
     prereqs: [{ skill: "foraging", level: 10 }],
     recipes: [
@@ -212,6 +217,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   hunting: {
     id: "hunting",
     name: "Hunting",
+    description: "Track wild game beyond the camp. The hunt provides raw hides and meat to sustain and equip your growing people.",
     category: "gathering",
     prereqs: [{ skill: "foraging", level: 10 }],
     recipes: [
@@ -235,6 +241,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   crafting: {
     id: "crafting",
     name: "Crafting",
+    description: "Shape stone and fit wooden handles to make useful items. Tools, cordage, and baskets transform how your people work and live.",
     category: "crafting",
     prereqs: [
       { skill: "woodcutting", level: 10 },
@@ -281,6 +288,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   pottery: {
     id: "pottery",
     name: "Pottery",
+    description: "Clay and controlled fire reveal pottery. Shape and fire clay into vessels for storage that will anchor a settled life.",
     category: "crafting",
     prereqs: [{ skill: "foraging", level: 10 }],
     recipes: [
@@ -301,6 +309,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   leatherworking: {
     id: "leatherworking",
     name: "Leatherworking",
+    description: "Practice preparing hides reveals how to make durable coverings. Warm clothing improves life and opens new possibilities.",
     category: "crafting",
     prereqs: [{ skill: "hunting", level: 10 }],
     recipes: [
@@ -328,6 +337,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   cooking: {
     id: "cooking",
     name: "Cooking",
+    description: "Controlled fire and fresh catches reveal the art of cooking. Prepared meals nourish your people and fuel greater ambitions.",
     category: "crafting",
     prereqs: [{ skill: "fishing", level: 10 }],
     recipes: [
@@ -355,6 +365,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   smithing: {
     id: "smithing",
     name: "Smithing",
+    description: "The secrets of the forge are revealed. Smelting ore into metal bars unlocks the march toward a new age of civilization.",
     category: "crafting",
     prereqs: [
       { skill: "mining", level: 10 },

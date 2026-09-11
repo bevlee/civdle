@@ -48,6 +48,7 @@ export function useGameState() {
   const [state, setState] = useState<GameState>(() => createInitialState());
   const [loaded, setLoaded] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingUnlocks, setPendingUnlocks] = useState<SkillId[]>([]);
   const [progress, setProgress] = useState(0);
 
   const stateRef = useRef(state);
@@ -95,7 +96,11 @@ export function useGameState() {
 
   const handleOutcome = useCallback((outcome: ApplyActionOutcome) => {
     if (outcome.newlyUnlockedSkills.length > 0) {
-      setMessage(`Unlocked: ${outcome.newlyUnlockedSkills.map((id) => SKILLS[id].name).join(", ")}!`);
+      setPendingUnlocks((prev) => {
+        const existing = new Set(prev);
+        const fresh = outcome.newlyUnlockedSkills.filter((id) => !existing.has(id));
+        return fresh.length > 0 ? [...prev, ...fresh] : prev;
+      });
     }
     if (outcome.outOfMaterials) {
       setMessage("Out of materials — training stopped.");
@@ -217,6 +222,10 @@ export function useGameState() {
 
   const dismissMessage = useCallback(() => setMessage(null), []);
 
+  const dismissUnlock = useCallback(() => {
+    setPendingUnlocks((prev) => prev.slice(1));
+  }, []);
+
   const levels = getSkillLevels(state);
   const ageIndex = getCurrentAgeIndex(levels);
   const ageBonus = getAgeBonus(ageIndex);
@@ -230,6 +239,8 @@ export function useGameState() {
     progress: displayProgress,
     message,
     dismissMessage,
+    pendingUnlocks,
+    dismissUnlock,
     startTraining,
     stopTraining,
     selectRecipe,

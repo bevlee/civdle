@@ -21,7 +21,7 @@ const LEVEL_XP_THRESHOLDS: number[] = (() => {
   const arr = [0];
   let total = 0;
   for (let i = 1; i <= MAX_LEVEL; i++) {
-    total += Math.floor((i + 300 * Math.pow(2, i / 7)) / 8);
+    total += Math.floor(50 * Math.pow(1.15, i - 1));
     arr.push(total);
   }
   return arr;
@@ -350,12 +350,7 @@ export function applyAction(state: GameState, skillId: SkillId): ApplyActionOutc
     resources[input.resource] = (resources[input.resource] ?? 0) - input.amount;
   }
   for (const output of result.outputs) {
-    const whole = Math.floor(output.amount);
-    const frac = output.amount - whole;
-    const resolved = whole + (frac > 0 && Math.random() < frac ? 1 : 0);
-    if (resolved > 0) {
-      resources[output.resource] = (resources[output.resource] ?? 0) + resolved;
-    }
+    resources[output.resource] = (resources[output.resource] ?? 0) + output.amount;
   }
 
   // Consume active consumables (probabilistic)

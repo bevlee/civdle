@@ -165,10 +165,5 @@ export function TrainingView({
 }
 
 function formatAmount(amount: number): string {
-  const whole = Math.floor(amount);
-  const frac = amount - whole;
-  const pct = Math.round(frac * 100);
-  if (pct === 0) return String(whole);
-  if (whole === 0) return `${pct}%`;
-  return `${whole} + ${pct}%`;
+  return Number.isInteger(amount) ? String(amount) : amount.toFixed(1);
 }
