@@ -189,12 +189,25 @@ function getActionEffects(skillId: SkillId, owned: string[]): ActionEffects {
       if (has("swiftHunt")) effects.flatTimeReduction += 0.2;
       if (has("masterHunter")) effects.outputBonuses.food = (effects.outputBonuses.food ?? 0) + 1;
       break;
-    // Crafting-style skills share the generic efficiency/betterRecipes/mastery trio.
+    case "farming":
+      if (has("greenThumb")) effects.outputBonuses.grain = (effects.outputBonuses.grain ?? 0) + 1;
+      if (has("irrigation")) effects.flatTimeReduction += 0.2;
+      if (has("masterFarmer")) effects.outputBonuses.vegetables = (effects.outputBonuses.vegetables ?? 0) + 1;
+      break;
+    case "herding":
+      if (has("gentleHand")) effects.outputBonuses.wool = (effects.outputBonuses.wool ?? 0) + 1;
+      if (has("swiftShepherd")) effects.flatTimeReduction += 0.2;
+      if (has("masterHerder")) effects.outputBonuses.milk = (effects.outputBonuses.milk ?? 0) + 1;
+      break;
     case "crafting":
     case "pottery":
     case "leatherworking":
     case "cooking":
     case "smithing":
+    case "weaving":
+    case "carpentry":
+    case "brewing":
+    case "construction":
       if (has("efficiency")) effects.flatTimeReduction += 0.2;
       if (has("mastery")) effects.flatTimeReduction += 0.4;
       break;

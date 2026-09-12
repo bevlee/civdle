@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CONSUMABLES, ResourceId, SKILLS, SkillId } from "./gameData";
+import { CONSUMABLES, ResourceId, SKILLS, SKILL_ORDER, SkillId } from "./gameData";
 import {
   ApplyActionOutcome,
   GameState,
   aggregateConsumableEffects,
   applyAction,
   computeActionResult,
+  computeUnlocks,
   createInitialState,
   getActiveConsumableDefs,
   getAgeBonus,
@@ -29,6 +30,12 @@ function loadFromStorage(): GameState {
     if (!parsed || !parsed.skills) return createInitialState();
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
     if (!parsed.activeConsumables) parsed.activeConsumables = [];
+    for (const id of SKILL_ORDER) {
+      if (!parsed.skills[id]) {
+        const def = SKILLS[id];
+        parsed.skills[id] = { xp: 0, unlocked: def.prereqs.length === 0, upgrades: [], selectedRecipeId: def.recipes[0].id };
+      }
+    }
     return parsed;
   } catch {
     return createInitialState();
@@ -65,8 +72,9 @@ export function useGameState() {
   // system (localStorage), which can only happen after mount.
   useEffect(() => {
     const loadedState = loadFromStorage();
-    const elapsedSeconds = (Date.now() - loadedState.lastSavedAt) / 1000;
-    const offline = processOfflineProgress(loadedState, elapsedSeconds);
+    const { state: withUnlocks } = computeUnlocks(loadedState);
+    const elapsedSeconds = (Date.now() - withUnlocks.lastSavedAt) / 1000;
+    const offline = processOfflineProgress(withUnlocks, elapsedSeconds);
     const finalState: GameState = { ...offline.state, lastSavedAt: Date.now() };
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage
     setState(finalState);

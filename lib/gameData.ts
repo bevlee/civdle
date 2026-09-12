@@ -25,7 +25,21 @@ export type ResourceId =
   | "steelBar"
   | "copperTools"
   | "ironTools"
-  | "steelTools";
+  | "steelTools"
+  | "grain"
+  | "vegetables"
+  | "wool"
+  | "milk"
+  | "thread"
+  | "cloth"
+  | "fineClothing"
+  | "planks"
+  | "furniture"
+  | "bow"
+  | "ale"
+  | "mead"
+  | "bricks"
+  | "shelter";
 
 export const RESOURCES: Record<ResourceId, { name: string }> = {
   food: { name: "Food" },
@@ -53,6 +67,20 @@ export const RESOURCES: Record<ResourceId, { name: string }> = {
   copperTools: { name: "Copper Tools" },
   ironTools: { name: "Iron Tools" },
   steelTools: { name: "Steel Tools" },
+  grain: { name: "Grain" },
+  vegetables: { name: "Vegetables" },
+  wool: { name: "Wool" },
+  milk: { name: "Milk" },
+  thread: { name: "Thread" },
+  cloth: { name: "Cloth" },
+  fineClothing: { name: "Fine Clothing" },
+  planks: { name: "Planks" },
+  furniture: { name: "Furniture" },
+  bow: { name: "Bow" },
+  ale: { name: "Ale" },
+  mead: { name: "Mead" },
+  bricks: { name: "Bricks" },
+  shelter: { name: "Shelter" },
 };
 
 export type SkillId =
@@ -65,7 +93,13 @@ export type SkillId =
   | "pottery"
   | "leatherworking"
   | "cooking"
-  | "smithing";
+  | "smithing"
+  | "farming"
+  | "herding"
+  | "weaving"
+  | "carpentry"
+  | "brewing"
+  | "construction";
 
 export type SkillCategory = "gathering" | "crafting";
 
@@ -436,6 +470,240 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
     ],
   },
+  farming: {
+    id: "farming",
+    name: "Farming",
+    description: "Seeds scattered in fertile soil reveal a truth: food need not be found — it can be grown. Agriculture transforms wanderers into settlers.",
+    category: "gathering",
+    prereqs: [
+      { skill: "foraging", level: 15 },
+      { skill: "cooking", level: 5 },
+    ],
+    recipes: [
+      {
+        id: "harvestGrain",
+        name: "Harvest Grain",
+        requiredLevel: 0,
+        inputs: [],
+        outputs: [
+          { resource: "grain", amount: 2 },
+          { resource: "food", amount: 0.5 },
+        ],
+      },
+      {
+        id: "harvestVegetables",
+        name: "Harvest Vegetables",
+        requiredLevel: 15,
+        inputs: [],
+        outputs: [
+          { resource: "vegetables", amount: 1 },
+          { resource: "food", amount: 1 },
+        ],
+      },
+    ],
+    upgrades: [
+      { id: "greenThumb", name: "Green Thumb", cost: 5, description: "+1 Grain per action" },
+      { id: "irrigation", name: "Irrigation", cost: 10, description: "-0.2s action time" },
+      { id: "masterFarmer", name: "Master Farmer", cost: 20, description: "+1 Vegetables per action" },
+    ],
+  },
+  herding: {
+    id: "herding",
+    name: "Herding",
+    description: "A captured beast need not be slain at once. Patient tending reveals the wealth of wool, milk, and a bond between keeper and herd.",
+    category: "gathering",
+    prereqs: [{ skill: "hunting", level: 15 }],
+    recipes: [
+      {
+        id: "tendHerd",
+        name: "Tend Herd",
+        requiredLevel: 0,
+        inputs: [],
+        outputs: [
+          { resource: "wool", amount: 1 },
+          { resource: "milk", amount: 1 },
+        ],
+      },
+      {
+        id: "butcher",
+        name: "Butcher",
+        requiredLevel: 10,
+        inputs: [],
+        outputs: [
+          { resource: "food", amount: 2 },
+          { resource: "rawHides", amount: 1 },
+        ],
+      },
+    ],
+    upgrades: [
+      { id: "gentleHand", name: "Gentle Hand", cost: 5, description: "+1 Wool per action" },
+      { id: "swiftShepherd", name: "Swift Shepherd", cost: 10, description: "-0.2s action time" },
+      { id: "masterHerder", name: "Master Herder", cost: 20, description: "+1 Milk per action" },
+    ],
+  },
+  weaving: {
+    id: "weaving",
+    name: "Weaving",
+    description: "Twisted fibres become thread; thread becomes cloth. The loom transforms raw material into fabric that shields against cold and marks identity.",
+    category: "crafting",
+    prereqs: [
+      { skill: "crafting", level: 10 },
+      { skill: "herding", level: 5 },
+    ],
+    recipes: [
+      {
+        id: "thread",
+        name: "Thread",
+        requiredLevel: 0,
+        inputs: [{ resource: "plantFibres", amount: 2 }],
+        outputs: [{ resource: "thread", amount: 1 }],
+      },
+      {
+        id: "cloth",
+        name: "Cloth",
+        requiredLevel: 10,
+        inputs: [
+          { resource: "thread", amount: 1 },
+          { resource: "wool", amount: 1 },
+        ],
+        outputs: [{ resource: "cloth", amount: 1 }],
+      },
+      {
+        id: "fineClothing",
+        name: "Fine Clothing",
+        requiredLevel: 25,
+        inputs: [
+          { resource: "cloth", amount: 2 },
+          { resource: "preparedHides", amount: 1 },
+        ],
+        outputs: [{ resource: "fineClothing", amount: 1 }],
+      },
+    ],
+    upgrades: [
+      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
+      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
+      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+    ],
+  },
+  carpentry: {
+    id: "carpentry",
+    name: "Carpentry",
+    description: "Beyond rough-hewn timber lies the craft of precise joinery. Shaped planks and fitted beams raise structures that shelter and define a people.",
+    category: "crafting",
+    prereqs: [
+      { skill: "woodcutting", level: 20 },
+      { skill: "crafting", level: 10 },
+    ],
+    recipes: [
+      {
+        id: "planks",
+        name: "Planks",
+        requiredLevel: 0,
+        inputs: [{ resource: "logs", amount: 2 }],
+        outputs: [{ resource: "planks", amount: 3 }],
+      },
+      {
+        id: "bow",
+        name: "Bow",
+        requiredLevel: 10,
+        inputs: [
+          { resource: "planks", amount: 1 },
+          { resource: "cordage", amount: 1 },
+        ],
+        outputs: [{ resource: "bow", amount: 1 }],
+      },
+      {
+        id: "furniture",
+        name: "Furniture",
+        requiredLevel: 20,
+        inputs: [
+          { resource: "planks", amount: 3 },
+          { resource: "tools", amount: 1 },
+        ],
+        outputs: [{ resource: "furniture", amount: 1 }],
+      },
+    ],
+    upgrades: [
+      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
+      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
+      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+    ],
+  },
+  brewing: {
+    id: "brewing",
+    name: "Brewing",
+    description: "Grain left to ferment reveals an ancient secret. Brewed drink warms the body, strengthens spirits, and brings cheer to gathering halls.",
+    category: "crafting",
+    prereqs: [
+      { skill: "cooking", level: 15 },
+      { skill: "farming", level: 10 },
+    ],
+    recipes: [
+      {
+        id: "ale",
+        name: "Ale",
+        requiredLevel: 0,
+        inputs: [
+          { resource: "grain", amount: 3 },
+          { resource: "potteryVessel", amount: 1 },
+        ],
+        outputs: [{ resource: "ale", amount: 2 }],
+      },
+      {
+        id: "mead",
+        name: "Mead",
+        requiredLevel: 15,
+        inputs: [
+          { resource: "food", amount: 2 },
+          { resource: "potteryVessel", amount: 1 },
+        ],
+        outputs: [{ resource: "mead", amount: 1 }],
+      },
+    ],
+    upgrades: [
+      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
+      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
+      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+    ],
+  },
+  construction: {
+    id: "construction",
+    name: "Construction",
+    description: "Stone and timber together become walls; walls become shelter. The art of building transforms a camp into a settlement that endures.",
+    category: "crafting",
+    prereqs: [
+      { skill: "carpentry", level: 15 },
+      { skill: "mining", level: 15 },
+    ],
+    recipes: [
+      {
+        id: "bricks",
+        name: "Bricks",
+        requiredLevel: 0,
+        inputs: [
+          { resource: "clay", amount: 3 },
+          { resource: "coal", amount: 1 },
+        ],
+        outputs: [{ resource: "bricks", amount: 2 }],
+      },
+      {
+        id: "shelter",
+        name: "Shelter",
+        requiredLevel: 15,
+        inputs: [
+          { resource: "planks", amount: 3 },
+          { resource: "bricks", amount: 2 },
+          { resource: "stone", amount: 2 },
+        ],
+        outputs: [{ resource: "shelter", amount: 1 }],
+      },
+    ],
+    upgrades: [
+      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
+      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
+      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+    ],
+  },
 };
 
 export const SKILL_ORDER: SkillId[] = [
@@ -449,6 +717,12 @@ export const SKILL_ORDER: SkillId[] = [
   "leatherworking",
   "cooking",
   "smithing",
+  "farming",
+  "herding",
+  "weaving",
+  "carpentry",
+  "brewing",
+  "construction",
 ];
 
 export type AgeId = "stoneAge" | "bronzeAge" | "ironAge" | "medieval" | "renaissance";
@@ -505,7 +779,7 @@ export const MAX_LEVEL = 99;
 
 // ---------- Consumables ----------
 
-export type ConsumableGroup = "tool" | "food" | "clothing" | "container" | "vessel";
+export type ConsumableGroup = "tool" | "food" | "clothing" | "container" | "vessel" | "drink" | "shelter";
 
 export interface ConsumableDef {
   resource: ResourceId;
@@ -531,4 +805,10 @@ export const CONSUMABLES: ConsumableDef[] = [
   { resource: "clothing", group: "clothing", consumeChance: 0.05, effects: { xpMultiplier: 1.1 }, description: "+10% XP (5%/action)" },
   { resource: "baskets", group: "container", consumeChance: 0.05, effects: { outputMultiplier: 1.2 }, appliesTo: "gathering", description: "+20% gathering output (5%/action)" },
   { resource: "potteryVessel", group: "vessel", consumeChance: 0.05, effects: { outputMultiplier: 1.2 }, appliesTo: "crafting", description: "+20% crafting output (5%/action)" },
+  { resource: "bow", group: "tool", consumeChance: 0.1, effects: { timeReduction: 0.4 }, appliesTo: "gathering", description: "-0.4s gathering (10%/action)" },
+  { resource: "fineClothing", group: "clothing", consumeChance: 0.03, effects: { xpMultiplier: 1.15 }, description: "+15% XP (3%/action)" },
+  { resource: "ale", group: "drink", consumeChance: 0.3, effects: { xpBonus: 4 }, description: "+4 XP (30%/action)" },
+  { resource: "mead", group: "drink", consumeChance: 0.1, effects: { xpBonus: 7 }, description: "+7 XP (10%/action)" },
+  { resource: "furniture", group: "shelter", consumeChance: 0.02, effects: { outputMultiplier: 1.1 }, appliesTo: "crafting", description: "+10% crafting output (2%/action)" },
+  { resource: "shelter", group: "shelter", consumeChance: 0.01, effects: { xpMultiplier: 1.2, outputMultiplier: 1.1 }, description: "+20% XP, +10% output (1%/action)" },
 ];
