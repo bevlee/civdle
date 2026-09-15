@@ -184,6 +184,18 @@ export function useGameState() {
     };
   }, [state.activeSkill]);
 
+  // Combat tick: advance battle simulation at 500ms intervals while a wave is playing.
+  useEffect(() => {
+    if (state.combat.activeWave?.status !== "playing") return;
+    const interval = setInterval(() => {
+      setState((prev) => {
+        const newCombat = tickCombat(prev.combat);
+        return { ...prev, combat: newCombat };
+      });
+    }, 500);
+    return () => clearInterval(interval);
+  }, [state.combat.activeWave?.status]);
+
   const displayProgress = state.activeSkill ? progress : 0;
 
   const startTraining = useCallback((skillId: SkillId) => {
