@@ -14,6 +14,7 @@ import {
   SKILL_ORDER,
   XP_PER_ACTION,
 } from "./gameData";
+import { CombatState, createInitialCombatState } from "./combatEngine";
 
 // ---------- XP / level math ----------
 
@@ -62,6 +63,7 @@ export interface GameState {
   lastSavedAt: number;
   globalUpgrades: string[];
   activeConsumables: ResourceId[];
+  combat: CombatState;
 }
 
 export function createInitialState(): GameState {
@@ -83,6 +85,7 @@ export function createInitialState(): GameState {
     lastSavedAt: Date.now(),
     globalUpgrades: [],
     activeConsumables: [],
+    combat: createInitialCombatState(),
   };
 }
 

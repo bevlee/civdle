@@ -16,6 +16,8 @@ import {
   getSkillLevels,
   processOfflineProgress,
 } from "./gameEngine";
+import { createInitialCombatState, placeUnit, removeUnit, startWave, tickCombat } from "./combatEngine";
+import { generateWave, UnitId, UNITS } from "./combatData";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
@@ -30,6 +32,7 @@ function loadFromStorage(): GameState {
     if (!parsed || !parsed.skills) return createInitialState();
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
     if (!parsed.activeConsumables) parsed.activeConsumables = [];
+    if (!parsed.combat) parsed.combat = createInitialCombatState();
     for (const id of SKILL_ORDER) {
       if (!parsed.skills[id]) {
         const def = SKILLS[id];
@@ -75,7 +78,14 @@ export function useGameState() {
     const { state: withUnlocks } = computeUnlocks(loadedState);
     const elapsedSeconds = (Date.now() - withUnlocks.lastSavedAt) / 1000;
     const offline = processOfflineProgress(withUnlocks, elapsedSeconds);
-    const finalState: GameState = { ...offline.state, lastSavedAt: Date.now() };
+    let finalState: GameState = { ...offline.state, lastSavedAt: Date.now() };
+    if (!finalState.combat.unlocked) {
+      const lvls = getSkillLevels(finalState);
+      const ageIdx = getCurrentAgeIndex(lvls);
+      if (ageIdx >= 1) {
+        finalState = { ...finalState, combat: { ...finalState.combat, unlocked: true } };
+      }
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage
     setState(finalState);
     setLoaded(true);
@@ -234,6 +244,39 @@ export function useGameState() {
     setPendingUnlocks((prev) => prev.slice(1));
   }, []);
 
+  const placeUnitOnGrid = useCallback((lane: number, col: number, unitId: UnitId) => {
+    setState((prev) => {
+      const unitDef = UNITS[unitId];
+      if ((prev.resources[unitDef.resource] ?? 0) < 1) return prev;
+      const newCombat = placeUnit(prev.combat, lane, col, unitId);
+      if (newCombat === prev.combat) return prev;
+      const resources = { ...prev.resources };
+      resources[unitDef.resource] = (resources[unitDef.resource] ?? 0) - 1;
+      return { ...prev, combat: newCombat, resources };
+    });
+  }, []);
+
+  const removeUnitFromGrid = useCallback((lane: number, col: number) => {
+    setState((prev) => {
+      const result = removeUnit(prev.combat, lane, col);
+      if (result.state === prev.combat) return prev;
+      const resources = { ...prev.resources };
+      if (result.returned) {
+        const unitDef = UNITS[result.returned];
+        resources[unitDef.resource] = (resources[unitDef.resource] ?? 0) + 1;
+      }
+      return { ...prev, combat: result.state, resources };
+    });
+  }, []);
+
+  const sendWave = useCallback(() => {
+    setState((prev) => {
+      const wave = generateWave(prev.combat.waveNumber);
+      const newCombat = startWave(prev.combat, wave.lanes);
+      return { ...prev, combat: newCombat };
+    });
+  }, []);
+
   const levels = getSkillLevels(state);
   const ageIndex = getCurrentAgeIndex(levels);
   const ageBonus = getAgeBonus(ageIndex);
@@ -255,5 +298,8 @@ export function useGameState() {
     buyUpgrade,
     buyGlobalUpgrade,
     toggleConsumable,
+    placeUnitOnGrid,
+    removeUnitFromGrid,
+    sendWave,
   };
 }
