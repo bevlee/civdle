@@ -53,7 +53,7 @@ export function CombatGrid({
 
   return (
     <div className="relative select-none">
-      <div className="grid grid-cols-5 grid-rows-3 gap-1">
+      <div className="grid grid-cols-5 grid-rows-3 gap-1 max-w-lg">
         {grid.map((laneRow, lane) =>
           laneRow.map((cell, col) => {
             const showPicker =
@@ -152,12 +152,18 @@ export function CombatGrid({
                   return (
                     <div
                       key={enemy.id}
-                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
+                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5"
                       style={{ left: `${Math.max(0, Math.min(100, pct))}%` }}
                     >
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
                         {enemyDef.name[0]}
                       </span>
+                      <div className="h-0.5 w-5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-red-500"
+                          style={{ width: `${Math.max(0, (enemy.hp / enemy.maxHp) * 100)}%` }}
+                        />
+                      </div>
                     </div>
                   );
                 })}
