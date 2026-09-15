@@ -72,3 +72,56 @@ export function getDamageMultiplier(attackerType: UnitId, defenderType: UnitId):
   if (def.weakAgainst === defenderType) return DAMAGE_WEAK;
   return 1;
 }
+
+export interface WaveLaneSpawn {
+  enemyId: EnemyId;
+  hp: number;
+  atk: number;
+  speed: number;
+}
+
+export interface WaveDef {
+  waveNumber: number;
+  lanes: WaveLaneSpawn[][]; // lanes[laneIndex] = array of enemies in that lane
+}
+
+function seededRandom(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    return s / 0x7fffffff;
+  };
+}
+
+const ENEMY_IDS: EnemyId[] = ["raider", "pikeman", "scout"];
+
+export function generateWave(waveNumber: number): WaveDef {
+  const rand = seededRandom(waveNumber * 7919);
+  const hpScale = 1 + waveNumber * 0.15;
+  const atkScale = 1 + waveNumber * 0.1;
+  const speedBonus = Math.floor(waveNumber / 10) * 0.05;
+
+  const lanes: WaveLaneSpawn[][] = Array.from({ length: GRID_LANES }, () => []);
+
+  // Available enemy types based on wave progression
+  const availableEnemies: EnemyId[] = ["raider"];
+  if (waveNumber >= 3) availableEnemies.push("pikeman");
+  if (waveNumber >= 5) availableEnemies.push("scout");
+
+  // Total enemies: starts at 2, grows with wave
+  const totalEnemies = Math.min(2 + Math.floor(waveNumber / 3), GRID_LANES * 3);
+
+  for (let i = 0; i < totalEnemies; i++) {
+    const lane = Math.floor(rand() * GRID_LANES);
+    const enemyId = availableEnemies[Math.floor(rand() * availableEnemies.length)];
+    const base = ENEMIES[enemyId];
+    lanes[lane].push({
+      enemyId,
+      hp: Math.floor(base.baseHp * hpScale),
+      atk: Math.floor(base.baseAtk * atkScale),
+      speed: Math.min(base.baseSpeed + speedBonus, 1),
+    });
+  }
+
+  return { waveNumber, lanes };
+}
