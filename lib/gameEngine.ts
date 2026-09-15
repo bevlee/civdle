@@ -92,7 +92,7 @@ export function createInitialState(): GameState {
 export function getSkillLevels(state: GameState): Record<SkillId, number> {
   const levels = {} as Record<SkillId, number>;
   for (const id of SKILL_ORDER) {
-    levels[id] = levelForXp(state.skills[id].xp);
+    levels[id] = levelForXp(state.skills[id]?.xp ?? 0);
   }
   return levels;
 }
@@ -134,7 +134,7 @@ export function computeUnlocks(state: GameState): { state: GameState; newlyUnloc
   const newlyUnlocked: SkillId[] = [];
   const skills = { ...state.skills };
   for (const id of SKILL_ORDER) {
-    if (skills[id].unlocked) continue;
+    if (!skills[id] || skills[id].unlocked) continue;
     const def = SKILLS[id];
     const met = def.prereqs.every((p) => (levels[p.skill] ?? 0) >= p.level);
     if (met) {
