@@ -157,6 +157,16 @@ export function useGameState() {
         if (prev.activeSkill !== skillId) return prev;
         const outcome = applyAction(prev, skillId);
         handleOutcome(outcome);
+        if (!prev.combat.unlocked) {
+          const lvls = getSkillLevels(outcome.state);
+          const ageIdx = getCurrentAgeIndex(lvls);
+          if (ageIdx >= 1) {
+            outcome.state = {
+              ...outcome.state,
+              combat: { ...outcome.state.combat, unlocked: true },
+            };
+          }
+        }
         if (outcome.outOfMaterials) {
           return { ...outcome.state, activeSkill: null };
         }
