@@ -318,16 +318,6 @@ export const SKILLS: Record<SkillId, SkillDef> = {
         ],
         outputs: [{ resource: "baskets", amount: 1 }],
       },
-      {
-        id: "unitSpearman",
-        name: "Spearman",
-        requiredLevel: 5,
-        inputs: [
-          { resource: "planks", amount: 2 },
-          { resource: "cordage", amount: 1 },
-        ],
-        outputs: [{ resource: "unitSpearman", amount: 1, ageRequired: "bronzeAge" }],
-      },
     ],
     upgrades: [
       { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
@@ -478,16 +468,6 @@ export const SKILLS: Record<SkillId, SkillDef> = {
           { resource: "logs", amount: 1 },
         ],
         outputs: [{ resource: "steelTools", amount: 1 }],
-      },
-      {
-        id: "unitSwordsman",
-        name: "Swordsman",
-        requiredLevel: 5,
-        inputs: [
-          { resource: "copperBar", amount: 1 },
-          { resource: "preparedHides", amount: 1 },
-        ],
-        outputs: [{ resource: "unitSwordsman", amount: 1, ageRequired: "bronzeAge" }],
       },
     ],
     upgrades: [
@@ -647,16 +627,6 @@ export const SKILLS: Record<SkillId, SkillDef> = {
           { resource: "tools", amount: 1 },
         ],
         outputs: [{ resource: "furniture", amount: 1 }],
-      },
-      {
-        id: "unitArcher",
-        name: "Archer",
-        requiredLevel: 15,
-        inputs: [
-          { resource: "bow", amount: 1 },
-          { resource: "cordage", amount: 1 },
-        ],
-        outputs: [{ resource: "unitArcher", amount: 1, ageRequired: "bronzeAge" }],
       },
     ],
     upgrades: [

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AgeDisplay } from "@/components/AgeDisplay";
 import { CombatView } from "@/components/CombatView";
 import { Inventory } from "@/components/Inventory";
@@ -9,7 +9,7 @@ import { SkillPanel } from "@/components/SkillPanel";
 import { SkillUnlockModal } from "@/components/SkillUnlockModal";
 import { TrainingView } from "@/components/TrainingView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SKILL_ORDER, SkillId } from "@/lib/gameData";
+import { ResourceId, SKILL_ORDER, SKILLS, SkillId } from "@/lib/gameData";
 import { useGameState } from "@/lib/useGameState";
 
 export default function Home() {
@@ -32,6 +32,7 @@ export default function Home() {
     toggleConsumable,
     placeUnitOnGrid,
     removeUnitFromGrid,
+    craftBarracksUnit,
     sendWave,
   } = useGameState();
 
@@ -41,6 +42,16 @@ export default function Home() {
     clickedSkill && state.skills[clickedSkill].unlocked
       ? clickedSkill
       : (SKILL_ORDER.find((id) => state.skills[id].unlocked) ?? null);
+
+  const highlightedResources = useMemo(() => {
+    if (activeTab !== "skills" || !selectedSkill) return undefined;
+    const skillState = state.skills[selectedSkill];
+    const recipe = SKILLS[selectedSkill].recipes.find(
+      (r) => r.id === skillState.selectedRecipeId
+    );
+    if (!recipe || recipe.inputs.length === 0) return undefined;
+    return new Set<ResourceId>(recipe.inputs.map((i) => i.resource));
+  }, [activeTab, selectedSkill, selectedSkill && state.skills[selectedSkill]?.selectedRecipeId]);
 
   if (!loaded) {
     return (
@@ -62,7 +73,7 @@ export default function Home() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="inventory">
-          <Inventory resources={state.resources} />
+          <Inventory resources={state.resources} highlightedResources={highlightedResources} />
         </TabsContent>
         <TabsContent value="shop">
           <Shop state={state} onBuy={buyUpgrade} onBuyGlobal={buyGlobalUpgrade} />
@@ -143,6 +154,7 @@ export default function Home() {
               onPlace={placeUnitOnGrid}
               onRemove={removeUnitFromGrid}
               onSendWave={sendWave}
+              onCraftUnit={craftBarracksUnit}
             />
           </main>
 

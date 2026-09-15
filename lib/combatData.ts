@@ -60,6 +60,41 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   scout: { id: "scout", name: "Scout", unitType: "archer", baseHp: 10, baseAtk: 10, baseSpeed: 0.5 },
 };
 
+// ---------- Barracks recipes ----------
+
+export interface BarracksRecipe {
+  unitId: UnitId;
+  name: string;
+  inputs: { resource: import("./gameData").ResourceId; amount: number }[];
+}
+
+export const BARRACKS_RECIPES: BarracksRecipe[] = [
+  {
+    unitId: "swordsman",
+    name: "Swordsman",
+    inputs: [
+      { resource: "copperBar", amount: 1 },
+      { resource: "preparedHides", amount: 1 },
+    ],
+  },
+  {
+    unitId: "spearman",
+    name: "Spearman",
+    inputs: [
+      { resource: "planks", amount: 2 },
+      { resource: "cordage", amount: 1 },
+    ],
+  },
+  {
+    unitId: "archer",
+    name: "Archer",
+    inputs: [
+      { resource: "bow", amount: 1 },
+      { resource: "cordage", amount: 1 },
+    ],
+  },
+];
+
 export const GRID_LANES = 3;
 export const GRID_COLUMNS = 5;
 

@@ -17,7 +17,7 @@ import {
   processOfflineProgress,
 } from "./gameEngine";
 import { createInitialCombatState, placeUnit, removeUnit, startWave, tickCombat } from "./combatEngine";
-import { generateWave, UnitId, UNITS } from "./combatData";
+import { BARRACKS_RECIPES, generateWave, UnitId, UNITS } from "./combatData";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
@@ -65,6 +65,7 @@ export function useGameState() {
   useEffect(() => {
     stateRef.current = state;
   });
+
 
   const actionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -291,6 +292,24 @@ export function useGameState() {
     });
   }, []);
 
+  const craftBarracksUnit = useCallback((unitId: string) => {
+    setState((prev) => {
+      const recipe = BARRACKS_RECIPES.find((r) => r.unitId === unitId);
+      if (!recipe) return prev;
+      const canAfford = recipe.inputs.every(
+        (inp) => (prev.resources[inp.resource] ?? 0) >= inp.amount
+      );
+      if (!canAfford) return prev;
+      const resources = { ...prev.resources };
+      for (const inp of recipe.inputs) {
+        resources[inp.resource] = (resources[inp.resource] ?? 0) - inp.amount;
+      }
+      const outputResource = UNITS[recipe.unitId].resource;
+      resources[outputResource] = (resources[outputResource] ?? 0) + 1;
+      return { ...prev, resources };
+    });
+  }, []);
+
   const sendWave = useCallback(() => {
     setState((prev) => {
       const wave = generateWave(prev.combat.waveNumber);
@@ -322,6 +341,7 @@ export function useGameState() {
     toggleConsumable,
     placeUnitOnGrid,
     removeUnitFromGrid,
+    craftBarracksUnit,
     sendWave,
   };
 }

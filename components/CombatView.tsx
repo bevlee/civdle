@@ -1,6 +1,7 @@
 import { UnitId, UNITS, ENEMIES, generateWave } from "@/lib/combatData";
 import { CombatState } from "@/lib/combatEngine";
 import { ResourceId } from "@/lib/gameData";
+import { Barracks } from "./Barracks";
 import { CombatGrid } from "./CombatGrid";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +20,7 @@ export function CombatView({
   onPlace,
   onRemove,
   onSendWave,
+  onCraftUnit,
 }: {
   combat: CombatState;
   resources: Partial<Record<ResourceId, number>>;
@@ -26,6 +28,7 @@ export function CombatView({
   onPlace: (lane: number, col: number, unitId: UnitId) => void;
   onRemove: (lane: number, col: number) => void;
   onSendWave: () => void;
+  onCraftUnit: (unitId: string) => void;
 }) {
   const isPlaying = combat.activeWave?.status === "playing";
   const wavePreview = generateWave(combat.waveNumber);
@@ -83,6 +86,9 @@ export function CombatView({
         onPlace={onPlace}
         onRemove={onRemove}
       />
+
+      {/* Barracks */}
+      <Barracks resources={resources} onCraft={onCraftUnit} />
 
       {/* Result banner */}
       {combat.activeWave?.status === "won" && (
