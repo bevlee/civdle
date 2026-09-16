@@ -1,22 +1,25 @@
-import {
-  AGES,
-  AGE_ADVANCE_COSTS,
+import type {
   AgeDef,
   AgeId,
-  BASE_ACTION_TIME,
-  CONSUMABLES,
   ConsumableDef,
   ConditionalOutput,
-  MAX_LEVEL,
   Recipe,
   ResourceId,
   SkillCategory,
-  SKILLS,
   SkillId,
+} from "./gameData";
+import {
+  AGES,
+  AGE_ADVANCE_COSTS,
+  BASE_ACTION_TIME,
+  CONSUMABLES,
+  MAX_LEVEL,
+  SKILLS,
   SKILL_ORDER,
   XP_PER_ACTION,
 } from "./gameData";
-import { CombatState, createInitialCombatState } from "./combatEngine";
+import type { CombatState } from "./combatEngine";
+import { createInitialCombatState } from "./combatEngine";
 
 // ---------- XP / level math ----------
 

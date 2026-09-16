@@ -1,12 +1,10 @@
+import type { UnitId, EnemyId, WaveLaneSpawn } from "./combatData";
 import {
-  UnitId,
-  EnemyId,
   UNITS,
   ENEMIES,
   GRID_LANES,
   GRID_COLUMNS,
   getDamageMultiplier,
-  WaveLaneSpawn,
 } from "./combatData";
 
 export interface PlacedUnit {
