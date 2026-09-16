@@ -1,5 +1,7 @@
 import {
   AGES,
+  AGE_ADVANCE_COSTS,
+  AgeDef,
   AgeId,
   BASE_ACTION_TIME,
   CONSUMABLES,
@@ -64,6 +66,9 @@ export interface GameState {
   globalUpgrades: string[];
   activeConsumables: ResourceId[];
   combat: CombatState;
+  // Index into AGES for the age the player has actively advanced into — no
+  // longer derived live from skill levels; see advanceAge/getAgeAdvanceStatus.
+  ageIndex: number;
 }
 
 export function createInitialState(): GameState {
@@ -86,6 +91,7 @@ export function createInitialState(): GameState {
     globalUpgrades: [],
     activeConsumables: [],
     combat: createInitialCombatState(),
+    ageIndex: 0,
   };
 }
 
@@ -99,7 +105,10 @@ export function getSkillLevels(state: GameState): Record<SkillId, number> {
 
 // ---------- Ages ----------
 
-export function getCurrentAgeIndex(skillLevels: Record<SkillId, number>): number {
+// The highest age whose skill-level condition is satisfied — used only to
+// migrate saves from before ages were resource-gated (see loadFromStorage)
+// and is otherwise NOT the player's actual current age (that's state.ageIndex).
+export function getSkillEligibleAgeIndex(skillLevels: Record<SkillId, number>): number {
   let best = 0;
   for (let i = 0; i < AGES.length; i++) {
     const age = AGES[i];
@@ -143,6 +152,40 @@ export function computeUnlocks(state: GameState): { state: GameState; newlyUnloc
     }
   }
   return { state: { ...state, skills }, newlyUnlocked };
+}
+
+// ---------- Age advancement ----------
+
+export interface AgeAdvanceStatus {
+  nextAge: AgeDef | null;
+  cost: ResourceAmount[];
+  skillsMet: boolean;
+  resourcesMet: boolean;
+  canAdvance: boolean;
+}
+
+export function getAgeAdvanceStatus(state: GameState, skillLevels: Record<SkillId, number>): AgeAdvanceStatus {
+  const nextIndex = state.ageIndex + 1;
+  if (nextIndex >= AGES.length) {
+    return { nextAge: null, cost: [], skillsMet: false, resourcesMet: false, canAdvance: false };
+  }
+  const nextAge = AGES[nextIndex];
+  const cost = AGE_ADVANCE_COSTS[nextAge.id] ?? [];
+  const skillsMet = nextAge.condition.every((c) => (skillLevels[c.skill] ?? 0) >= c.level);
+  const resourcesMet = canAffordInputs(state.resources, cost);
+  return { nextAge, cost, skillsMet, resourcesMet, canAdvance: skillsMet && resourcesMet };
+}
+
+// Consumes the next age's resource cost and advances state.ageIndex by one.
+// Returns the unchanged state if the requirements aren't met.
+export function advanceAge(state: GameState, skillLevels: Record<SkillId, number>): GameState {
+  const status = getAgeAdvanceStatus(state, skillLevels);
+  if (!status.canAdvance || !status.nextAge) return state;
+  const resources = { ...state.resources };
+  for (const c of status.cost) {
+    resources[c.resource] = (resources[c.resource] ?? 0) - c.amount;
+  }
+  return { ...state, resources, ageIndex: state.ageIndex + 1 };
 }
 
 // ---------- Upgrade effects ----------
@@ -345,7 +388,7 @@ export interface ApplyActionOutcome {
 export function applyAction(state: GameState, skillId: SkillId): ApplyActionOutcome {
   const levels = getSkillLevels(state);
   const level = levels[skillId];
-  const ageIndex = getCurrentAgeIndex(levels);
+  const ageIndex = state.ageIndex;
   const skillState = state.skills[skillId];
   const skillCategory = SKILLS[skillId].category;
 
@@ -430,7 +473,7 @@ export function processOfflineProgress(state: GameState, elapsedSeconds: number)
   while (actionsProcessed < MAX_OFFLINE_ACTIONS) {
     const levels = getSkillLevels(working);
     const level = levels[skillId];
-    const ageIndex = getCurrentAgeIndex(levels);
+    const ageIndex = working.ageIndex;
     const skillState = working.skills[skillId];
     const result = computeActionResult(skillId, level, skillState.upgrades, ageIndex, skillState.selectedRecipeId, working.globalUpgrades);
     if (!result || result.time > remaining) break;

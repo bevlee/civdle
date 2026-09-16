@@ -223,7 +223,11 @@ export const SKILLS: Record<SkillId, SkillDef> = {
           { resource: "stone", amount: 1 },
           { resource: "copperOre", amount: 1, ageRequired: "bronzeAge" },
           { resource: "ironOre", amount: 1, ageRequired: "ironAge" },
-          { resource: "coal", amount: 1, ageRequired: "medieval" },
+          // Coal unlocks alongside Iron Age (not Medieval) so Iron Bar/Tools
+          // (which consume coal, requiredLevel 20/25) are actually craftable
+          // during Iron Age — needed to earn the resources that pay for the
+          // Iron Age -> Medieval advance below.
+          { resource: "coal", amount: 1, ageRequired: "ironAge" },
         ],
       },
     ],
@@ -778,6 +782,31 @@ export const AGES: AgeDef[] = [
     bonus: { timeMult: 0.85, outputMult: 1.15 },
   },
 ];
+
+// Resources consumed to advance INTO the given age (stoneAge has none — it's
+// the starting age). Costs use materials actually obtainable in the age being
+// left (e.g. Iron Ore/Coal aren't mineable until Iron Age itself, so the Iron
+// Age -> Medieval cost uses Iron Bar instead of raw Iron Ore); "Bronze Bar"
+// and "Gold Ore" don't exist as distinct resources, so Copper Bar and Fine
+// Clothing stand in as the equivalent tier-appropriate materials.
+export const AGE_ADVANCE_COSTS: Partial<Record<AgeId, ResourceAmount[]>> = {
+  bronzeAge: [
+    { resource: "stone", amount: 150 },
+    { resource: "wood", amount: 100 },
+  ],
+  ironAge: [
+    { resource: "copperOre", amount: 150 },
+    { resource: "copperBar", amount: 75 },
+  ],
+  medieval: [
+    { resource: "ironBar", amount: 200 },
+    { resource: "coal", amount: 100 },
+  ],
+  renaissance: [
+    { resource: "steelBar", amount: 300 },
+    { resource: "fineClothing", amount: 150 },
+  ],
+};
 
 export const BASE_ACTION_TIME = 2; // seconds
 export const XP_PER_ACTION = 5;

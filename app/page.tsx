@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AgeDisplay } from "@/components/AgeDisplay";
+import { AnimationOverlay } from "@/components/AnimationOverlay";
 import { CombatView } from "@/components/CombatView";
 import { Inventory } from "@/components/Inventory";
 import { Shop } from "@/components/Shop";
@@ -19,11 +20,15 @@ export default function Home() {
     levels,
     ageIndex,
     ageBonus,
+    ageAdvanceStatus,
+    advanceAge,
     progress,
     message,
     dismissMessage,
     pendingUnlocks,
     dismissUnlock,
+    events,
+    dismissEvent,
     startTraining,
     stopTraining,
     selectRecipe,
@@ -73,7 +78,12 @@ export default function Home() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="inventory">
-          <Inventory resources={state.resources} highlightedResources={highlightedResources} />
+          <Inventory
+            resources={state.resources}
+            highlightedResources={highlightedResources}
+            events={events}
+            onDismissEvent={dismissEvent}
+          />
         </TabsContent>
         <TabsContent value="shop">
           <Shop state={state} onBuy={buyUpgrade} onBuyGlobal={buyGlobalUpgrade} />
@@ -84,7 +94,18 @@ export default function Home() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <AgeDisplay ageIndex={ageIndex} ageBonus={ageBonus} skillPoints={state.skillPoints} />
+      <AnimationOverlay events={events} onDismiss={dismissEvent} />
+      <AgeDisplay
+        ageIndex={ageIndex}
+        ageBonus={ageBonus}
+        skillPoints={state.skillPoints}
+        levels={levels}
+        resources={state.resources}
+        ageAdvanceStatus={ageAdvanceStatus}
+        onAdvance={advanceAge}
+        events={events}
+        onDismissEvent={dismissEvent}
+      />
 
       <div className="flex border-b border-border px-4">
         <button
@@ -118,7 +139,14 @@ export default function Home() {
 
       {activeTab === "skills" && (
         <div className="flex flex-1 overflow-hidden">
-          <SkillPanel state={state} levels={levels} selectedSkill={selectedSkill} onSelect={setClickedSkill} />
+          <SkillPanel
+            state={state}
+            levels={levels}
+            selectedSkill={selectedSkill}
+            onSelect={setClickedSkill}
+            events={events}
+            onDismissEvent={dismissEvent}
+          />
 
           <main className="flex-1 overflow-y-auto">
             {selectedSkill ? (

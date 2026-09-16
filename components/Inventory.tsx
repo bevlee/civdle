@@ -1,5 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { FloatingText } from "@/components/FloatingText";
 import { RESOURCES, ResourceId } from "@/lib/gameData";
+import { QueuedEvent } from "@/lib/useEventQueue";
 import { cn } from "@/lib/utils";
 
 const RESOURCE_SECTIONS: { label: string; resources: ResourceId[] }[] = [
@@ -39,13 +41,25 @@ const RESOURCE_SECTIONS: { label: string; resources: ResourceId[] }[] = [
   },
 ];
 
+interface ResourceGainData {
+  resource: ResourceId;
+  amount: number;
+}
+
 export function Inventory({
   resources,
   highlightedResources,
+  events = [],
+  onDismissEvent,
 }: {
   resources: Partial<Record<ResourceId, number>>;
   highlightedResources?: Set<ResourceId>;
+  events?: QueuedEvent[];
+  onDismissEvent?: (id: string) => void;
 }) {
+  const gainEvents = events.filter(
+    (e): e is QueuedEvent<ResourceGainData> => e.type === "resourceGain"
+  );
   const hasAny = Object.values(resources).some((v) => (v ?? 0) >= 1);
 
   if (!hasAny) {
@@ -69,11 +83,12 @@ export function Inventory({
             <div className="grid grid-cols-2 gap-1.5">
               {entries.map(({ id, amount }) => {
                 const highlighted = highlightedResources?.has(id);
+                const gainEvent = gainEvents.find((e) => e.data.resource === id);
                 return (
                   <Card
                     key={id}
                     className={cn(
-                      "gap-0 py-1.5 transition-colors",
+                      "relative gap-0 overflow-visible py-1.5 transition-colors",
                       highlighted && "border-amber-500/60 bg-amber-500/10"
                     )}
                   >
@@ -83,6 +98,16 @@ export function Inventory({
                       </span>
                       <span className="font-mono font-semibold">{amount.toLocaleString()}</span>
                     </CardContent>
+                    {gainEvent && onDismissEvent && (
+                      <FloatingText
+                        key={gainEvent.id}
+                        id={gainEvent.id}
+                        text={`+${formatGain(gainEvent.data.amount)}`}
+                        className="text-xs text-emerald-400"
+                        duration={900}
+                        onDone={onDismissEvent}
+                      />
+                    )}
                   </Card>
                 );
               })}
@@ -92,4 +117,9 @@ export function Inventory({
       })}
     </div>
   );
+}
+
+function formatGain(amount: number): string {
+  const rounded = Math.round(amount * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }

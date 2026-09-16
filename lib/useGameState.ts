@@ -5,19 +5,22 @@ import { CONSUMABLES, ResourceId, SKILLS, SKILL_ORDER, SkillId } from "./gameDat
 import {
   ApplyActionOutcome,
   GameState,
+  advanceAge,
   aggregateConsumableEffects,
   applyAction,
   computeActionResult,
   computeUnlocks,
   createInitialState,
   getActiveConsumableDefs,
+  getAgeAdvanceStatus,
   getAgeBonus,
-  getCurrentAgeIndex,
+  getSkillEligibleAgeIndex,
   getSkillLevels,
   processOfflineProgress,
 } from "./gameEngine";
 import { createInitialCombatState, placeUnit, removeUnit, startWave, tickCombat } from "./combatEngine";
 import { BARRACKS_RECIPES, generateWave, UnitId, UNITS } from "./combatData";
+import { useEventQueue } from "./useEventQueue";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
@@ -38,6 +41,11 @@ function loadFromStorage(): GameState {
         const def = SKILLS[id];
         parsed.skills[id] = { xp: 0, unlocked: def.prereqs.length === 0, upgrades: [], selectedRecipeId: def.recipes[0].id };
       }
+    }
+    // Migrate saves from before ages were resource-gated: grandfather the
+    // player into the highest age their skill levels already qualified for.
+    if (typeof parsed.ageIndex !== "number") {
+      parsed.ageIndex = getSkillEligibleAgeIndex(getSkillLevels(parsed));
     }
     return parsed;
   } catch {
@@ -60,6 +68,7 @@ export function useGameState() {
   const [message, setMessage] = useState<string | null>(null);
   const [pendingUnlocks, setPendingUnlocks] = useState<SkillId[]>([]);
   const [progress, setProgress] = useState(0);
+  const { events, emit, dismiss: dismissEvent } = useEventQueue();
 
   const stateRef = useRef(state);
   useEffect(() => {
@@ -80,12 +89,8 @@ export function useGameState() {
     const elapsedSeconds = (Date.now() - withUnlocks.lastSavedAt) / 1000;
     const offline = processOfflineProgress(withUnlocks, elapsedSeconds);
     let finalState: GameState = { ...offline.state, lastSavedAt: Date.now() };
-    if (!finalState.combat.unlocked) {
-      const lvls = getSkillLevels(finalState);
-      const ageIdx = getCurrentAgeIndex(lvls);
-      if (ageIdx >= 1) {
-        finalState = { ...finalState, combat: { ...finalState.combat, unlocked: true } };
-      }
+    if (!finalState.combat.unlocked && finalState.ageIndex >= 1) {
+      finalState = { ...finalState, combat: { ...finalState.combat, unlocked: true } };
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage
     setState(finalState);
@@ -136,7 +141,7 @@ export function useGameState() {
 
     const levels = getSkillLevels(state);
     const level = levels[skillId];
-    const ageIndex = getCurrentAgeIndex(levels);
+    const ageIndex = state.ageIndex;
     const skillState = state.skills[skillId];
     const skillCategory = SKILLS[skillId].category;
     const activeDefs = getActiveConsumableDefs(state.activeConsumables, state.resources, skillCategory);
@@ -156,29 +161,47 @@ export function useGameState() {
     actionTimeoutRef.current = setTimeout(() => {
       setState((prev) => {
         if (prev.activeSkill !== skillId) return prev;
+        const prevLevel = getSkillLevels(prev)[skillId];
         const outcome = applyAction(prev, skillId);
         handleOutcome(outcome);
-        if (!prev.combat.unlocked) {
-          const lvls = getSkillLevels(outcome.state);
-          const ageIdx = getCurrentAgeIndex(lvls);
-          if (ageIdx >= 1) {
-            outcome.state = {
-              ...outcome.state,
-              combat: { ...outcome.state.combat, unlocked: true },
-            };
+
+        let nextState = outcome.state;
+        if (!prev.combat.unlocked && nextState.ageIndex >= 1) {
+          nextState = { ...nextState, combat: { ...nextState.combat, unlocked: true } };
+        }
+
+        // Punchy feedback events — only for live ticks (never offline catch-up,
+        // which calls applyAction directly and never runs through this callback).
+        if (outcome.leveledUp) {
+          const newLevel = getSkillLevels(nextState)[skillId];
+          emit("levelUp", { skillId, newLevel });
+          emit("skillPoint", { amount: Math.max(1, newLevel - prevLevel) });
+        }
+        for (const unlockedSkillId of outcome.newlyUnlockedSkills) {
+          emit("skillUnlock", { skillId: unlockedSkillId });
+        }
+        const changedResources = new Set<ResourceId>([
+          ...(Object.keys(prev.resources) as ResourceId[]),
+          ...(Object.keys(nextState.resources) as ResourceId[]),
+        ]);
+        for (const resource of changedResources) {
+          const delta = (nextState.resources[resource] ?? 0) - (prev.resources[resource] ?? 0);
+          if (delta > 0.0001) {
+            emit("resourceGain", { resource, amount: delta });
           }
         }
+
         if (outcome.outOfMaterials) {
-          return { ...outcome.state, activeSkill: null };
+          return { ...nextState, activeSkill: null };
         }
-        return outcome.state;
+        return nextState;
       });
     }, result.time * 1000);
 
     return () => {
       if (actionTimeoutRef.current) clearTimeout(actionTimeoutRef.current);
     };
-  }, [state, loaded, handleOutcome]);
+  }, [state, loaded, handleOutcome, emit]);
 
   // Smooth progress bar, decoupled from the heavier action-scheduling effect.
   // Only subscribes to the ticking timer while a skill is active; when idle,
@@ -318,9 +341,29 @@ export function useGameState() {
     });
   }, []);
 
+  const advanceAgeAction = useCallback(() => {
+    setState((prev) => {
+      const prevLevels = getSkillLevels(prev);
+      const status = getAgeAdvanceStatus(prev, prevLevels);
+      if (!status.canAdvance || !status.nextAge) return prev;
+      const nextState = advanceAge(prev, prevLevels);
+      if (nextState.ageIndex === prev.ageIndex) return prev;
+      const speedPct = Math.round((1 - status.nextAge.bonus.timeMult) * 100);
+      const outputPct = Math.round((status.nextAge.bonus.outputMult - 1) * 100);
+      emit("ageAdvance", {
+        ageId: status.nextAge.id,
+        ageName: status.nextAge.name,
+        speedPct,
+        outputPct,
+      });
+      return nextState;
+    });
+  }, [emit]);
+
   const levels = getSkillLevels(state);
-  const ageIndex = getCurrentAgeIndex(levels);
+  const ageIndex = state.ageIndex;
   const ageBonus = getAgeBonus(ageIndex);
+  const ageAdvanceStatus = getAgeAdvanceStatus(state, levels);
 
   return {
     state,
@@ -328,11 +371,15 @@ export function useGameState() {
     levels,
     ageIndex,
     ageBonus,
+    ageAdvanceStatus,
+    advanceAge: advanceAgeAction,
     progress: displayProgress,
     message,
     dismissMessage,
     pendingUnlocks,
     dismissUnlock,
+    events,
+    dismissEvent,
     startTraining,
     stopTraining,
     selectRecipe,
