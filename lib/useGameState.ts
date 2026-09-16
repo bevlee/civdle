@@ -159,43 +159,54 @@ export function useGameState() {
     actionDurationRef.current = result.time * 1000;
 
     actionTimeoutRef.current = setTimeout(() => {
-      setState((prev) => {
-        if (prev.activeSkill !== skillId) return prev;
-        const prevLevel = getSkillLevels(prev)[skillId];
-        const outcome = applyAction(prev, skillId);
-        handleOutcome(outcome);
+      // Deliberately NOT `setState(prev => {...})` here: React (Strict Mode,
+      // dev-only) invokes functional updaters twice per call to surface
+      // impurities. This callback has real side effects (emit -> setEvents,
+      // Math.random() inside applyAction), so a functional updater would
+      // queue two slightly different "resourceGain"/"levelUp" events per
+      // tick — at the 100x debug speed those pile up far faster than the
+      // floating-text UI can dismiss them, which is what showed up as
+      // resource numbers flickering between stale values. Reading the ref
+      // and computing the outcome as a plain synchronous step, then calling
+      // setState with a concrete value, makes this run exactly once per
+      // real tick regardless of Strict Mode.
+      const prev = stateRef.current;
+      if (prev.activeSkill !== skillId) return;
 
-        let nextState = outcome.state;
-        if (!prev.combat.unlocked && nextState.ageIndex >= 1) {
-          nextState = { ...nextState, combat: { ...nextState.combat, unlocked: true } };
-        }
+      const prevLevel = getSkillLevels(prev)[skillId];
+      const outcome = applyAction(prev, skillId);
+      handleOutcome(outcome);
 
-        // Punchy feedback events — only for live ticks (never offline catch-up,
-        // which calls applyAction directly and never runs through this callback).
-        if (outcome.leveledUp) {
-          const newLevel = getSkillLevels(nextState)[skillId];
-          emit("levelUp", { skillId, newLevel });
-          emit("skillPoint", { amount: Math.max(1, newLevel - prevLevel) });
-        }
-        for (const unlockedSkillId of outcome.newlyUnlockedSkills) {
-          emit("skillUnlock", { skillId: unlockedSkillId });
-        }
-        const changedResources = new Set<ResourceId>([
-          ...(Object.keys(prev.resources) as ResourceId[]),
-          ...(Object.keys(nextState.resources) as ResourceId[]),
-        ]);
-        for (const resource of changedResources) {
-          const delta = (nextState.resources[resource] ?? 0) - (prev.resources[resource] ?? 0);
-          if (delta > 0.0001) {
-            emit("resourceGain", { resource, amount: delta });
-          }
-        }
+      let nextState = outcome.state;
+      if (!prev.combat.unlocked && nextState.ageIndex >= 1) {
+        nextState = { ...nextState, combat: { ...nextState.combat, unlocked: true } };
+      }
 
-        if (outcome.outOfMaterials) {
-          return { ...nextState, activeSkill: null };
+      // Punchy feedback events — only for live ticks (never offline catch-up,
+      // which calls applyAction directly and never runs through this callback).
+      if (outcome.leveledUp) {
+        const newLevel = getSkillLevels(nextState)[skillId];
+        emit("levelUp", { skillId, newLevel });
+        emit("skillPoint", { amount: Math.max(1, newLevel - prevLevel) });
+      }
+      for (const unlockedSkillId of outcome.newlyUnlockedSkills) {
+        emit("skillUnlock", { skillId: unlockedSkillId });
+      }
+      const changedResources = new Set<ResourceId>([
+        ...(Object.keys(prev.resources) as ResourceId[]),
+        ...(Object.keys(nextState.resources) as ResourceId[]),
+      ]);
+      for (const resource of changedResources) {
+        const delta = (nextState.resources[resource] ?? 0) - (prev.resources[resource] ?? 0);
+        if (delta > 0.0001) {
+          emit("resourceGain", { resource, amount: delta });
         }
-        return nextState;
-      });
+      }
+
+      if (outcome.outOfMaterials) {
+        nextState = { ...nextState, activeSkill: null };
+      }
+      setState(nextState);
     }, result.time * 1000);
 
     return () => {
@@ -342,21 +353,23 @@ export function useGameState() {
   }, []);
 
   const advanceAgeAction = useCallback(() => {
-    setState((prev) => {
-      const prevLevels = getSkillLevels(prev);
-      const status = getAgeAdvanceStatus(prev, prevLevels);
-      if (!status.canAdvance || !status.nextAge) return prev;
-      const nextState = advanceAge(prev, prevLevels);
-      if (nextState.ageIndex === prev.ageIndex) return prev;
-      const speedPct = Math.round((1 - status.nextAge.bonus.timeMult) * 100);
-      const outputPct = Math.round((status.nextAge.bonus.outputMult - 1) * 100);
-      emit("ageAdvance", {
-        ageId: status.nextAge.id,
-        ageName: status.nextAge.name,
-        speedPct,
-        outputPct,
-      });
-      return nextState;
+    // Same reasoning as the action-tick callback above: compute the outcome
+    // as a plain step and emit exactly once, instead of side-effecting from
+    // inside a `setState` functional updater that Strict Mode double-invokes.
+    const prev = stateRef.current;
+    const prevLevels = getSkillLevels(prev);
+    const status = getAgeAdvanceStatus(prev, prevLevels);
+    if (!status.canAdvance || !status.nextAge) return;
+    const nextState = advanceAge(prev, prevLevels);
+    if (nextState.ageIndex === prev.ageIndex) return;
+    const speedPct = Math.round((1 - status.nextAge.bonus.timeMult) * 100);
+    const outputPct = Math.round((status.nextAge.bonus.outputMult - 1) * 100);
+    setState(nextState);
+    emit("ageAdvance", {
+      ageId: status.nextAge.id,
+      ageName: status.nextAge.name,
+      speedPct,
+      outputPct,
     });
   }, [emit]);
 
