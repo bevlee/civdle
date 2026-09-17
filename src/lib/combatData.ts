@@ -215,6 +215,8 @@ export function createCard(unitId: UnitId, stars = UNITS[unitId].baseStars): Uni
 // ---------- Gacha ----------
 
 export const GACHA_COST = 1;
+export const PACK_SIZE = 10;
+export const PACK_COST = 95;
 export const STARTING_GOLD = 10;
 
 // Ordered rarest-first so cumulative rolling is straightforward.

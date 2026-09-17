@@ -1,9 +1,10 @@
 <script lang="ts">
   import type { AgeId } from "$lib/gameData";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
-  import type { StarUpEventData, SummonEventData } from "$lib/gameState.svelte";
+  import type { StarUpEventData, SummonEventData, SummonPackEventData } from "$lib/gameState.svelte";
   import AgeAdvanceEffect from "./AgeAdvanceEffect.svelte";
   import SummonReveal from "./SummonReveal.svelte";
+  import PackReveal from "./PackReveal.svelte";
   import StarUpEffect from "./StarUpEffect.svelte";
 
   interface AgeAdvanceEventData {
@@ -36,12 +37,15 @@
   let summonEvent = $derived(
     events.find((e): e is QueuedEvent<SummonEventData> => e.type === "summon") ?? null,
   );
+  let packEvent = $derived(
+    events.find((e): e is QueuedEvent<SummonPackEventData> => e.type === "summonPack") ?? null,
+  );
   let starUpEvent = $derived(
     events.find((e): e is QueuedEvent<StarUpEventData> => e.type === "starUp") ?? null,
   );
 </script>
 
-{#if ageEvents.length > 0 || summonEvent || starUpEvent}
+{#if ageEvents.length > 0 || summonEvent || packEvent || starUpEvent}
   <div class="pointer-events-none fixed inset-0 z-[100] overflow-hidden">
     {#each ageEvents as event (event.id)}
       <AgeAdvanceEffect {event} color={AGE_FLASH_COLOR[event.data.ageId]} {onDismiss} />
@@ -49,6 +53,10 @@
     {#if starUpEvent}
       {#key starUpEvent.id}
         <StarUpEffect event={starUpEvent} {onDismiss} />
+      {/key}
+    {:else if packEvent}
+      {#key packEvent.id}
+        <PackReveal event={packEvent} {onDismiss} />
       {/key}
     {:else if summonEvent}
       {#key summonEvent.id}

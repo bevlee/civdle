@@ -20,6 +20,8 @@ import type { GachaState } from "./combatEngine";
 import {
   GACHA_COST,
   MAX_ENEMY_LEVEL,
+  PACK_COST,
+  PACK_SIZE,
   MAX_STARS,
   PARTY_SIZE,
   STARTING_GOLD,
@@ -42,6 +44,10 @@ export const ULT_STEP_MS = 1800;
 
 export interface SummonEventData {
   card: UnitCard;
+}
+
+export interface SummonPackEventData {
+  cards: UnitCard[];
 }
 
 export interface StarUpEventData {
@@ -439,6 +445,16 @@ export class CivdleGame {
       cards: [...this.state.gacha.cards, card],
     });
     this.eventQueue.emit<SummonEventData>("summon", { card });
+  }
+
+  rollPack(): void {
+    if (this.state.gacha.gold < PACK_COST) return;
+    const cards = Array.from({ length: PACK_SIZE }, () => rollCard());
+    this.#setGacha({
+      gold: this.state.gacha.gold - PACK_COST,
+      cards: [...this.state.gacha.cards, ...cards],
+    });
+    this.eventQueue.emit<SummonPackEventData>("summonPack", { cards });
   }
 
   /** Cards that could be merged into `cardId` (same unit, same stars). */

@@ -11,17 +11,21 @@
     partyIds,
     gold,
     rollCost,
-    disabled = false,
+    packCost,
+    locked = false,
     onSelect,
     onSummon,
+    onOpenPack,
   }: {
     cards: UnitCardT[];
     partyIds: Set<string>;
     gold: number;
     rollCost: number;
-    disabled?: boolean;
+    packCost: number;
+    locked?: boolean;
     onSelect: (cardId: string) => void;
     onSummon: () => void;
+    onOpenPack: () => void;
   } = $props();
 
   let sortKey = $state<SortKey>("stars");
@@ -98,8 +102,17 @@
       >
         {sortDesc ? "▼" : "▲"}
       </button>
-      <Button size="sm" {disabled} onclick={onSummon} class="ml-1">
+      <Button size="sm" disabled={locked || gold < rollCost} onclick={onSummon} class="ml-1">
         🎲 Summon ({rollCost} ⚔)
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={locked || gold < packCost}
+        onclick={onOpenPack}
+        title="Open 10 cards at once"
+      >
+        🎁 Open 10 ({packCost} ⚔)
       </Button>
     </div>
   </div>

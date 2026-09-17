@@ -4,7 +4,7 @@
   import type { SummonEventData } from "$lib/gameState.svelte";
   import { UNITS } from "$lib/combatData";
   import { RARITY_NAMES, rarityColor } from "$lib/rarity";
-  import UnitCard from "./UnitCard.svelte";
+  import FlipCard from "./FlipCard.svelte";
 
   let {
     event,
@@ -22,7 +22,7 @@
 
   // Escalating suspense: higher rarity charges longer, shakes, flashes, showers confetti.
   const CHARGE_MS: Record<number, number> = { 1: 350, 2: 650, 3: 1000, 4: 1500, 5: 2200 };
-  const FLIP_MS = 600;
+  const FLIP_MS = 650;
   const HOLD_MS: Record<number, number> = { 1: 1400, 2: 1600, 3: 2000, 4: 2600, 5: 3400 };
 
   let phase = $state<"charge" | "flip" | "revealed">("charge");
@@ -30,24 +30,25 @@
 
   const PALETTE = ["oklch(0.85 0.18 85)", "oklch(0.8 0.2 340)", "oklch(0.85 0.18 200)", "oklch(0.9 0.18 100)", "oklch(0.75 0.2 280)"];
 
+  function makeConfetti(n: number) {
+    return Array.from({ length: n }, () => ({
+      x: Math.random() * 100,
+      drift: (Math.random() - 0.5) * 200,
+      dur: 1.6 + Math.random() * 1.4,
+      delay: Math.random() * 0.5,
+      c: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+    }));
+  }
+
   onMount(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
     timers.push(
       setTimeout(() => {
         phase = "flip";
-        if (rarity >= 4) {
-          const n = rarity === 5 ? 70 : 24;
-          confetti = Array.from({ length: n }, () => ({
-            x: Math.random() * 100,
-            drift: (Math.random() - 0.5) * 200,
-            dur: 1.6 + Math.random() * 1.4,
-            delay: Math.random() * 0.5,
-            c: PALETTE[Math.floor(Math.random() * PALETTE.length)],
-          }));
-        }
+        if (rarity >= 4) confetti = makeConfetti(rarity === 5 ? 70 : 24);
       }, CHARGE_MS[rarity]),
     );
-    timers.push(setTimeout(() => (phase = "revealed"), CHARGE_MS[rarity] + FLIP_MS * 0.5));
+    timers.push(setTimeout(() => (phase = "revealed"), CHARGE_MS[rarity] + FLIP_MS));
     timers.push(setTimeout(() => onDismiss(event.id), CHARGE_MS[rarity] + FLIP_MS + HOLD_MS[rarity]));
     return () => timers.forEach(clearTimeout);
   });
@@ -88,22 +89,17 @@
   {/each}
 
   <div class="relative flex flex-col items-center gap-4">
-    <div class="relative" style="perspective: 900px">
-      {#if phase === "charge"}
-        <div
-          class="summon-charge flex h-60 w-48 items-center justify-center rounded-xl border-4 bg-gradient-to-br from-zinc-800 to-zinc-950"
-          style:border-color={color}
-          style:--glow={`color-mix(in oklch, ${color} 80%, transparent)`}
-          style:--charge-speed={`${Math.max(0.25, 0.9 - rarity * 0.12)}s`}
-        >
-          <span class="text-6xl opacity-70" style:color>?</span>
-        </div>
-      {:else}
-        <div class={phase === "flip" ? "summon-flip" : ""}>
-          <UnitCard unitId={card.unitId} stars={card.stars} size="lg" showTraits animate />
-        </div>
-      {/if}
-    </div>
+    <FlipCard
+      unitId={card.unitId}
+      stars={card.stars}
+      size="lg"
+      {color}
+      flipped={phase !== "charge"}
+      charging={phase === "charge"}
+      chargeSpeed={`${Math.max(0.25, 0.9 - rarity * 0.12)}s`}
+      showTraits
+      animate
+    />
 
     {#if phase === "revealed"}
       <div class="animate-zoom-text text-center">

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ENEMY_ARCHETYPES, GACHA_COST, PARTY_SIZE, UNITS } from "$lib/combatData";
+  import { ENEMY_ARCHETYPES, GACHA_COST, PACK_COST, PARTY_SIZE, UNITS } from "$lib/combatData";
   import type { Fighter, Hit } from "$lib/combatEngine";
   import { activeSynergies, TRAIT_SYNERGIES } from "$lib/traits";
   import type { CivdleGame } from "$lib/gameState.svelte";
@@ -284,9 +284,11 @@
     {partyIds}
     gold={gacha.gold}
     rollCost={GACHA_COST}
-    disabled={isPlaying || gacha.gold < GACHA_COST}
+    packCost={PACK_COST}
+    locked={isPlaying}
     onSelect={(id) => (selectedCardId = id)}
     onSummon={() => game.rollCard()}
+    onOpenPack={() => game.rollPack()}
   />
 </div>
 
