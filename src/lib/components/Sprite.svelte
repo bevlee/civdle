@@ -27,7 +27,7 @@
   <div
     class="sprite {className}"
     class:animated={animate || pose !== "idle"}
-    class:play-once={pose === "death"}
+    class:play-once={pose !== "idle"}
     style="background-image:url('{UNIT_SPRITES[unitId]}'); --row:{POSE_ROW[pose]}; --dur:{POSE_MS[pose]}ms"
     aria-hidden="true"
   ></div>
