@@ -50,6 +50,37 @@ export function levelForXp(xp: number): number {
 
 // ---------- Game state ----------
 
+/** Counters that a state snapshot alone can't reconstruct; used by achievements. */
+export interface GameStats {
+  actions: number;
+  outOfMaterials: number;
+  battlesWon: number;
+  battlesLost: number;
+  bestWinLevel: number;
+  cardsSummoned: number;
+  packsOpened: number;
+  bestSummonStars: number;
+  merges: number;
+  cardsDiscarded: number;
+  bestOfflineHaul: number;
+}
+
+export function createInitialStats(): GameStats {
+  return {
+    actions: 0,
+    outOfMaterials: 0,
+    battlesWon: 0,
+    battlesLost: 0,
+    bestWinLevel: 0,
+    cardsSummoned: 0,
+    packsOpened: 0,
+    bestSummonStars: 0,
+    merges: 0,
+    cardsDiscarded: 0,
+    bestOfflineHaul: 0,
+  };
+}
+
 export interface SkillState {
   xp: number;
   unlocked: boolean;
@@ -66,6 +97,9 @@ export interface GameState {
   globalUpgrades: string[];
   gacha: GachaState;
   ageIndex: number;
+  /** Unlocked achievement ids mapped to their unlock timestamp (ms). */
+  achievements: Record<string, number>;
+  stats: GameStats;
 }
 
 export function createInitialState(): GameState {
@@ -88,6 +122,8 @@ export function createInitialState(): GameState {
     globalUpgrades: [],
     gacha: createInitialGachaState(),
     ageIndex: 0,
+    achievements: {},
+    stats: createInitialStats(),
   };
 }
 
@@ -287,13 +323,16 @@ interface ResourceAmount {
 
 export interface ActionResult {
   time: number;
+  // Expected (average) amounts; may be fractional. See rollOutputs.
   outputs: ResourceAmount[];
   inputs: ResourceAmount[];
   recipe: Recipe;
+  oreDoubleChance: number;
 }
 
-// Computes the timing/outputs/inputs for one action of a skill's currently
-// selected recipe, given the skill's level, owned upgrades, and current age.
+// Computes the timing/expected outputs/inputs for one action of a skill's
+// currently selected recipe, given the skill's level, owned upgrades, and
+// current age. Deterministic: randomness is applied by rollOutputs.
 export function computeActionResult(
   skillId: SkillId,
   level: number,
@@ -313,21 +352,54 @@ export function computeActionResult(
   const time = Math.max(0.2, (BASE_ACTION_TIME - effects.flatTimeReduction) * ageBonus.timeMult) * speedMult;
 
   let outputs = resolveOutputs(recipe.outputs, level, ageIndex, effects.clayLevelOverride);
-  outputs = outputs.map((o) => {
-    let amount = o.amount + (effects.outputBonuses[o.resource] ?? 0);
-    const isOre = o.resource === "copperOre" || o.resource === "ironOre" || o.resource === "coal";
-    if (isOre && effects.oreDoubleChance > 0 && Math.random() < effects.oreDoubleChance) {
-      amount *= 2;
-    }
-    amount *= ageBonus.outputMult;
-    return { resource: o.resource, amount };
-  });
+  outputs = outputs.map((o) => ({
+    resource: o.resource,
+    amount: (o.amount + (effects.outputBonuses[o.resource] ?? 0)) * ageBonus.outputMult,
+  }));
 
   if (recipe.inputs.length > 0 && owned.includes("betterRecipes") && outputs.length > 0) {
     outputs = outputs.map((o, i) => (i === 0 ? { ...o, amount: o.amount + 1 * ageBonus.outputMult } : o));
   }
 
-  return { time, outputs, inputs: recipe.inputs, recipe };
+  return { time, outputs, inputs: recipe.inputs, recipe, oreDoubleChance: effects.oreDoubleChance };
+}
+
+// ---------- Rolling outputs ----------
+
+export interface RolledOutput {
+  resource: ResourceId;
+  // Whole number actually gained this action.
+  amount: number;
+  // The average this roll was drawn from.
+  expected: number;
+  // True when the roll beat the guaranteed floor(expected).
+  bonus: boolean;
+}
+
+const ORE_RESOURCES: ReadonlySet<ResourceId> = new Set(["copperOre", "ironOre", "coal"]);
+
+export function isOreResource(resource: ResourceId): boolean {
+  return ORE_RESOURCES.has(resource);
+}
+
+// Chance rounding: a fractional expectation becomes a probability of one extra
+// unit, so 1.1 pays 1 with a 10% chance of 2 and 0.3 pays 1 on 30% of actions.
+// The long-run average equals the expected amount. Outputs that roll 0 are
+// dropped. Ore Sense's double roll is applied here too.
+export function rollOutputs(result: ActionResult, rng: () => number = Math.random): RolledOutput[] {
+  const rolled: RolledOutput[] = [];
+  for (const o of result.outputs) {
+    const expected = Math.round(o.amount * 1000) / 1000;
+    const base = Math.floor(expected);
+    const fraction = expected - base;
+    let amount = base + (fraction > 0 && rng() < fraction ? 1 : 0);
+    if (amount > 0 && result.oreDoubleChance > 0 && isOreResource(o.resource) && rng() < result.oreDoubleChance) {
+      amount *= 2;
+    }
+    if (amount <= 0) continue;
+    rolled.push({ resource: o.resource, amount, expected, bonus: amount > base });
+  }
+  return rolled;
 }
 
 export function canAffordInputs(resources: Partial<Record<ResourceId, number>>, inputs: ResourceAmount[]): boolean {
@@ -341,9 +413,14 @@ export interface ApplyActionOutcome {
   leveledUp: boolean;
   newlyUnlockedSkills: SkillId[];
   outOfMaterials: boolean;
+  gains: RolledOutput[];
 }
 
-export function applyAction(state: GameState, skillId: SkillId): ApplyActionOutcome {
+export function applyAction(
+  state: GameState,
+  skillId: SkillId,
+  rng: () => number = Math.random,
+): ApplyActionOutcome {
   const levels = getSkillLevels(state);
   const level = levels[skillId];
   const ageIndex = state.ageIndex;
@@ -351,19 +428,20 @@ export function applyAction(state: GameState, skillId: SkillId): ApplyActionOutc
 
   const result = computeActionResult(skillId, level, skillState.upgrades, ageIndex, skillState.selectedRecipeId, state.globalUpgrades);
   if (!result) {
-    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: false };
+    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: false, gains: [] };
   }
 
   if (!canAffordInputs(state.resources, result.inputs)) {
-    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: true };
+    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: true, gains: [] };
   }
 
+  const gains = rollOutputs(result, rng);
   const resources = { ...state.resources };
   for (const input of result.inputs) {
     resources[input.resource] = (resources[input.resource] ?? 0) - input.amount;
   }
-  for (const output of result.outputs) {
-    resources[output.resource] = (resources[output.resource] ?? 0) + output.amount;
+  for (const gain of gains) {
+    resources[gain.resource] = (resources[gain.resource] ?? 0) + gain.amount;
   }
 
   const oldXp = skillState.xp;
@@ -377,6 +455,7 @@ export function applyAction(state: GameState, skillId: SkillId): ApplyActionOutc
     resources,
     skills: { ...state.skills, [skillId]: { ...skillState, xp: newXp } },
     skillPoints: state.skillPoints + levelsGained,
+    stats: { ...state.stats, actions: state.stats.actions + 1 },
   };
 
   let newlyUnlockedSkills: SkillId[] = [];
@@ -386,7 +465,7 @@ export function applyAction(state: GameState, skillId: SkillId): ApplyActionOutc
     newlyUnlockedSkills = unlockResult.newlyUnlocked;
   }
 
-  return { state: nextState, leveledUp: levelsGained > 0, newlyUnlockedSkills, outOfMaterials: false };
+  return { state: nextState, leveledUp: levelsGained > 0, newlyUnlockedSkills, outOfMaterials: false, gains };
 }
 
 // ---------- Offline catch-up ----------

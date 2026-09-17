@@ -10,6 +10,7 @@
   import {
     type GameState,
     computeActionResult,
+    isOreResource,
     xpForLevel,
   } from "$lib/gameEngine";
 
@@ -60,8 +61,23 @@
     ),
   );
 
-  function formatAmount(amount: number): string {
-    return Number.isInteger(amount) ? String(amount) : amount.toFixed(1);
+  // Describes an expected (average) amount as the guaranteed whole number plus
+  // the chance of one more, e.g. "1 Wood (+1 at 10%)" or "Clay (30%)".
+  function describeOutput(resource: keyof typeof RESOURCES, expected: number): string {
+    const name = RESOURCES[resource].name;
+    const base = Math.floor(expected + 1e-9);
+    const chance = Math.round((expected - base) * 100);
+    const notes: string[] = [];
+    if (base === 0) {
+      notes.push(`${chance}%`);
+    } else if (chance > 0) {
+      notes.push(`+1 at ${chance}%`);
+    }
+    if (result && result.oreDoubleChance > 0 && isOreResource(resource)) {
+      notes.push(`×2 at ${Math.round(result.oreDoubleChance * 100)}%`);
+    }
+    const label = base === 0 ? name : `${base} ${name}`;
+    return notes.length > 0 ? `${label} (${notes.join(", ")})` : label;
   }
 </script>
 
@@ -120,7 +136,7 @@
         <p>
           <span class="text-muted-foreground">Produces: </span>
           {result.outputs
-            .map((o) => `${formatAmount(o.amount)} ${RESOURCES[o.resource].name}`)
+            .map((o) => describeOutput(o.resource, o.amount))
             .join(", ")}
         </p>
         <p class="text-muted-foreground">Time: {result.time.toFixed(2)}s</p>
