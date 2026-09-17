@@ -2,6 +2,8 @@
   import { Button } from "$lib/components/ui/button";
   import { Progress } from "$lib/components/ui/progress";
   import { Separator } from "$lib/components/ui/separator";
+  import * as Tooltip from "$lib/components/ui/tooltip";
+  import BuffTooltip from "./BuffTooltip.svelte";
   import {
     RESOURCES,
     SKILLS,
@@ -60,9 +62,35 @@
     ),
   );
 
-  function formatAmount(amount: number): string {
-    return Number.isInteger(amount) ? String(amount) : amount.toFixed(1);
+  // Describes an expected (average) amount as the guaranteed whole number plus
+  // the chance of one more, e.g. "1 Wood (+1 at 10%)" or "Clay (30%)".
+  function describeOutput(resource: keyof typeof RESOURCES, expected: number): string {
+    const name = RESOURCES[resource].name;
+    const base = Math.floor(expected + 1e-9);
+    const chance = Math.round((expected - base) * 100);
+    const notes: string[] = [];
+    if (base === 0) {
+      notes.push(`${chance}%`);
+    } else if (chance > 0) {
+      notes.push(`+1 at ${chance}%`);
+    }
+    if (
+      result &&
+      result.doubleChance > 0 &&
+      (result.doubleResources === null || result.doubleResources.includes(resource))
+    ) {
+      notes.push(`×2 at ${Math.round(result.doubleChance * 100)}%`);
+    }
+    const label = base === 0 ? name : `${base} ${name}`;
+    return notes.length > 0 ? `${label} (${notes.join(", ")})` : label;
   }
+
+  function formatPct(chance: number): string {
+    return `${Math.round(chance * 100)}%`;
+  }
+
+  const formatTime = (t: number) => `${t.toFixed(2)}s`;
+  const formatXp = (xp: number) => `+${xp} XP`;
 </script>
 
 <div class="flex flex-1 flex-col gap-6 p-6">
@@ -120,10 +148,48 @@
         <p>
           <span class="text-muted-foreground">Produces: </span>
           {result.outputs
-            .map((o) => `${formatAmount(o.amount)} ${RESOURCES[o.resource].name}`)
+            .map((o) => describeOutput(o.resource, o.amount))
             .join(", ")}
+          {#each result.chancedOutputs as bonus (bonus.resource)}
+            <span class="text-muted-foreground">
+              · {formatPct(bonus.chance)} chance of
+            </span>
+            {describeOutput(bonus.resource, bonus.amount)}
+          {/each}
         </p>
-        <p class="text-muted-foreground">Time: {result.time.toFixed(2)}s</p>
+        {#if result.refundChance > 0}
+          <p class="text-xs text-muted-foreground">
+            {formatPct(result.refundChance)} chance to keep materials
+          </p>
+        {/if}
+        <Tooltip.Provider>
+          <p class="flex items-center gap-3 text-muted-foreground">
+            <span>
+              Time:
+              <BuffTooltip
+                label="time"
+                base={result.baseTime}
+                final={result.time}
+                modifiers={result.timeModifiers}
+                format={formatTime}
+              >
+                <span class="text-foreground">{formatTime(result.time)}</span>
+              </BuffTooltip>
+            </span>
+            <span>
+              XP:
+              <BuffTooltip
+                label="XP"
+                base={result.baseXp}
+                final={result.xp}
+                modifiers={result.xpModifiers}
+                format={formatXp}
+              >
+                <span class="text-foreground">{formatXp(result.xp)}</span>
+              </BuffTooltip>
+            </span>
+          </p>
+        </Tooltip.Provider>
       </div>
     {:else}
       <p class="text-sm text-muted-foreground">

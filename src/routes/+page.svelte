@@ -10,6 +10,10 @@
   import CombatView from "$lib/components/CombatView.svelte";
   import SkillUnlockModal from "$lib/components/SkillUnlockModal.svelte";
   import AnimationOverlay from "$lib/components/AnimationOverlay.svelte";
+  import GainToastStack from "$lib/components/GainToastStack.svelte";
+  import AchievementsView from "$lib/components/AchievementsView.svelte";
+  import AchievementToasts from "$lib/components/AchievementToasts.svelte";
+  import { ACHIEVEMENTS } from "$lib/achievements";
   import DebugPanel from "$lib/components/DebugPanel.svelte";
   import { page } from "$app/state";
 
@@ -18,7 +22,8 @@
   let isDebug = $derived(page.url.searchParams.has("debug"));
 
   let selectedSkill = $state<SkillId | null>(null);
-  let centerTab = $state<"train" | "combat">("train");
+  let centerTab = $state<"train" | "story" | "depths" | "achievements">("train");
+  let achievementCount = $derived(Object.keys(game.state.achievements).length);
   let rightTab = $state<"inventory" | "shop">("inventory");
 
   onMount(() => {
@@ -79,6 +84,7 @@
       ageIndex={game.ageIndex}
       ageBonus={game.ageBonus}
       skillPoints={game.state.skillPoints}
+      warSpoils={game.state.gacha.gold}
       levels={game.levels}
       resources={game.state.resources}
       ageAdvanceStatus={game.ageAdvanceStatus}
@@ -126,12 +132,33 @@
           </button>
           <button
             class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
-            'combat'
+            'story'
               ? 'border-b-2 border-primary text-foreground'
               : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (centerTab = "combat")}
+            onclick={() => (centerTab = "story")}
           >
-            Combat
+            Main Story
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
+            'depths'
+              ? 'border-b-2 border-primary text-foreground'
+              : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => (centerTab = "depths")}
+          >
+            The Depths
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
+            'achievements'
+              ? 'border-b-2 border-primary text-foreground'
+              : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => (centerTab = "achievements")}
+          >
+            Achievements
+            <span class="ml-1 text-xs tabular-nums text-muted-foreground">
+              {achievementCount}/{ACHIEVEMENTS.length}
+            </span>
           </button>
         </div>
 
@@ -154,10 +181,16 @@
                 Select a skill to begin training.
               </p>
             </div>
-          {:else if centerTab === "combat"}
+          {:else if centerTab === "story"}
             <div class="p-3">
-              <CombatView {game} />
+              <CombatView {game} mode="story" />
             </div>
+          {:else if centerTab === "depths"}
+            <div class="p-3">
+              <CombatView {game} mode="depths" />
+            </div>
+          {:else if centerTab === "achievements"}
+            <AchievementsView state={game.state} levels={game.levels} />
           {/if}
         </div>
       </main>
@@ -191,8 +224,6 @@
             <Inventory
               resources={game.state.resources}
               {highlightedResources}
-              events={game.events}
-              onDismissEvent={(id) => game.dismissEvent(id)}
             />
           {:else}
             <Shop
@@ -214,7 +245,17 @@
     />
   {/if}
 
+  <GainToastStack
+    events={game.events}
+    onDismiss={(id) => game.dismissEvent(id)}
+  />
+
   <AnimationOverlay
+    events={game.events}
+    onDismiss={(id) => game.dismissEvent(id)}
+  />
+
+  <AchievementToasts
     events={game.events}
     onDismiss={(id) => game.dismissEvent(id)}
   />

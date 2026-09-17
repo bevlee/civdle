@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createCard, type Encounter } from "./combatData";
-import { startBattle, stepBattle } from "./combatEngine";
+import { enemyModsFor, startBattle, stepBattle } from "./combatEngine";
 
 const always = (v: number) => () => v;
 
@@ -60,5 +60,19 @@ describe("stepBattle", () => {
     const s = startBattle([createCard("goblin", 10)], enc([createCard("mage")], "coven"));
     expect(s.enemyMods.ultEvery).toBe(2);
     expect(s.playerMods.ultEvery).toBe(3);
+  });
+});
+
+describe("encounter stat multiplier", () => {
+  it("scales enemy HP, ATK and DEF but not the player's", () => {
+    const base = enc([createCard("zombie")], "volley");
+    const scaled: Encounter = { ...base, statMult: 2 };
+    const a = startBattle([createCard("goblin")], base);
+    const b = startBattle([createCard("goblin")], scaled);
+    expect(b.fighters[1].maxHp / a.fighters[1].maxHp).toBeCloseTo(2, 0);
+    expect(b.fighters[1].atk / a.fighters[1].atk).toBeCloseTo(2, 0);
+    expect(b.fighters[1].def / a.fighters[1].def).toBeCloseTo(2, 0);
+    expect(b.fighters[0].maxHp).toBe(a.fighters[0].maxHp);
+    expect(enemyModsFor(scaled).hpMult).toBeCloseTo(2 * enemyModsFor(base).hpMult, 10);
   });
 });

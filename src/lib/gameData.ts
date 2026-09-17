@@ -129,11 +129,26 @@ export interface SkillPrereq {
   level: number;
 }
 
+// One mechanical consequence of owning an upgrade. Upgrades list any number of
+// these; the engine folds every owned upgrade's effects together per action.
+export type UpgradeEffect =
+  | { type: "flatTime"; seconds: number }
+  | { type: "timeMult"; mult: number }
+  | { type: "flatOutput"; resource: ResourceId; amount: number }
+  | { type: "flatPrimaryOutput"; amount: number }
+  | { type: "outputMult"; mult: number }
+  | { type: "doubleChance"; chance: number; resources?: ResourceId[] }
+  | { type: "refundChance"; chance: number }
+  | { type: "xpMult"; mult: number }
+  | { type: "byproduct"; resource: ResourceId; amount: number; chance?: number }
+  | { type: "outputLevel"; resource: ResourceId; level: number };
+
 export interface SkillUpgrade {
   id: string;
   name: string;
   cost: number;
   description: string;
+  effects: UpgradeEffect[];
 }
 
 export interface SkillDef {
@@ -167,13 +182,17 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "keenEye", name: "Keen Eye", cost: 5, description: "+1 Food per action" },
-      { id: "quickHands", name: "Quick Hands", cost: 10, description: "-0.2s action time" },
+      { id: "keenEye", name: "Keen Eye", cost: 5, description: "+1 Food per action", effects: [{ type: "flatOutput", resource: "food", amount: 1 }] },
+      { id: "quickHands", name: "Quick Hands", cost: 10, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
       {
-        id: "expertForager",
-        name: "Expert Forager",
+        id: "bountifulHarvest",
+        name: "Bountiful Harvest",
         cost: 20,
-        description: "+1 Fibres per action, unlock Clay earlier",
+        description: "25% chance to double everything foraged; Clay found from level 1",
+        effects: [
+          { type: "doubleChance", chance: 0.25 },
+          { type: "outputLevel", resource: "clay", level: 1 },
+        ],
       },
     ],
   },
@@ -196,9 +215,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "sharpAxe", name: "Sharp Axe", cost: 5, description: "+1 Wood per action" },
-      { id: "efficientLogging", name: "Efficient Logging", cost: 10, description: "-0.2s action time" },
-      { id: "timberExpert", name: "Timber Expert", cost: 20, description: "+2 Wood per action" },
+      { id: "sharpAxe", name: "Sharp Axe", cost: 5, description: "+1 Wood per action", effects: [{ type: "flatOutput", resource: "wood", amount: 1 }] },
+      { id: "efficientLogging", name: "Felling Technique", cost: 10, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      {
+        id: "timberExpert",
+        name: "Timber Expert",
+        cost: 20,
+        description: "Logs from level 5 instead of 20, and +1 Log per action",
+        effects: [
+          { type: "outputLevel", resource: "logs", level: 5 },
+          { type: "flatOutput", resource: "logs", amount: 1 },
+        ],
+      },
     ],
   },
   mining: {
@@ -226,9 +254,26 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "betterPick", name: "Better Pick", cost: 5, description: "+1 Stone/Ore per action" },
-      { id: "deepMining", name: "Deep Mining", cost: 10, description: "-0.2s action time" },
-      { id: "oreSense", name: "Ore Sense", cost: 20, description: "Chance for double ore" },
+      {
+        id: "betterPick",
+        name: "Better Pick",
+        cost: 5,
+        description: "+1 Stone, Ore and Coal per action",
+        effects: [
+          { type: "flatOutput", resource: "stone", amount: 1 },
+          { type: "flatOutput", resource: "copperOre", amount: 1 },
+          { type: "flatOutput", resource: "ironOre", amount: 1 },
+          { type: "flatOutput", resource: "coal", amount: 1 },
+        ],
+      },
+      { id: "deepMining", name: "Deep Shafts", cost: 10, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      {
+        id: "oreSense",
+        name: "Ore Sense",
+        cost: 20,
+        description: "30% chance to double all mining output",
+        effects: [{ type: "doubleChance", chance: 0.3 }],
+      },
     ],
   },
   fishing: {
@@ -247,9 +292,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "betterBait", name: "Better Bait", cost: 5, description: "+1 Fish per action" },
-      { id: "netFishing", name: "Net Fishing", cost: 10, description: "-0.2s action time" },
-      { id: "masterFisher", name: "Master Fisher", cost: 20, description: "+2 Fish per action" },
+      { id: "betterBait", name: "Better Bait", cost: 5, description: "+1 Fish per action", effects: [{ type: "flatOutput", resource: "rawFish", amount: 1 }] },
+      { id: "netFishing", name: "Cast Nets", cost: 10, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      {
+        id: "masterFisher",
+        name: "Gutting Knife",
+        cost: 20,
+        description: "+1 Fish, and every catch also yields 1 Food",
+        effects: [
+          { type: "flatOutput", resource: "rawFish", amount: 1 },
+          { type: "byproduct", resource: "food", amount: 1 },
+        ],
+      },
     ],
   },
   hunting: {
@@ -271,9 +325,15 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "keenHunter", name: "Keen Hunter", cost: 5, description: "+1 Hide per action" },
-      { id: "swiftHunt", name: "Swift Hunt", cost: 10, description: "-0.2s action time" },
-      { id: "masterHunter", name: "Master Hunter", cost: 20, description: "+1 extra Food per action" },
+      { id: "keenHunter", name: "Keen Hunter", cost: 5, description: "+1 Hide per action", effects: [{ type: "flatOutput", resource: "rawHides", amount: 1 }] },
+      { id: "swiftHunt", name: "Swift Stalker", cost: 10, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      {
+        id: "sinewCordage",
+        name: "Sinew Cordage",
+        cost: 20,
+        description: "50% chance each hunt also yields 1 Cordage",
+        effects: [{ type: "byproduct", resource: "cordage", amount: 1, chance: 0.5 }],
+      },
     ],
   },
   crafting: {
@@ -318,9 +378,24 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
-      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
-      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+      { id: "steadyHands", name: "Steady Hands", cost: 5, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      {
+        id: "scrapSalvage",
+        name: "Scrap Salvage",
+        cost: 10,
+        description: "25% chance materials aren't consumed",
+        effects: [{ type: "refundChance", chance: 0.25 }],
+      },
+      {
+        id: "assemblyLine",
+        name: "Assembly Line",
+        cost: 20,
+        description: "+1 output and -0.2s action time",
+        effects: [
+          { type: "flatPrimaryOutput", amount: 1 },
+          { type: "flatTime", seconds: 0.2 },
+        ],
+      },
     ],
   },
   pottery: {
@@ -339,9 +414,24 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
-      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
-      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+      { id: "fastKiln", name: "Fast Kiln", cost: 5, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      {
+        id: "clayReclaim",
+        name: "Clay Reclaim",
+        cost: 10,
+        description: "30% chance clay isn't consumed",
+        effects: [{ type: "refundChance", chance: 0.3 }],
+      },
+      {
+        id: "kilnMastery",
+        name: "Kiln Mastery",
+        cost: 20,
+        description: "+1 Vessel per action and +25% XP",
+        effects: [
+          { type: "flatPrimaryOutput", amount: 1 },
+          { type: "xpMult", mult: 1.25 },
+        ],
+      },
     ],
   },
   leatherworking: {
@@ -367,9 +457,15 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
-      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
-      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+      { id: "sharpBlade", name: "Sharp Blade", cost: 5, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      { id: "tanningVats", name: "Tanning Vats", cost: 10, description: "+1 output per action", effects: [{ type: "flatPrimaryOutput", amount: 1 }] },
+      {
+        id: "fullHideUse",
+        name: "Full Hide Use",
+        cost: 20,
+        description: "30% chance hides aren't consumed",
+        effects: [{ type: "refundChance", chance: 0.3 }],
+      },
     ],
   },
   cooking: {
@@ -395,9 +491,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
-      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
-      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+      { id: "hotCoals", name: "Hot Coals", cost: 5, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      { id: "bigPot", name: "Big Pot", cost: 10, description: "+1 output per action", effects: [{ type: "flatPrimaryOutput", amount: 1 }] },
+      { id: "seasoning", name: "Seasoning", cost: 20, description: "+50% XP", effects: [{ type: "xpMult", mult: 1.5 }] },
     ],
   },
   smithing: {
@@ -469,9 +565,24 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
-      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
-      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+      { id: "bellows", name: "Bellows", cost: 5, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      {
+        id: "flux",
+        name: "Flux",
+        cost: 10,
+        description: "25% chance ore and coal aren't consumed",
+        effects: [{ type: "refundChance", chance: 0.25 }],
+      },
+      {
+        id: "masterSmith",
+        name: "Master Smith",
+        cost: 20,
+        description: "+1 output and -0.3s action time",
+        effects: [
+          { type: "flatPrimaryOutput", amount: 1 },
+          { type: "flatTime", seconds: 0.3 },
+        ],
+      },
     ],
   },
   farming: {
@@ -506,9 +617,15 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "greenThumb", name: "Green Thumb", cost: 5, description: "+1 Grain per action" },
-      { id: "irrigation", name: "Irrigation", cost: 10, description: "-0.2s action time" },
-      { id: "masterFarmer", name: "Master Farmer", cost: 20, description: "+1 Vegetables per action" },
+      { id: "greenThumb", name: "Green Thumb", cost: 5, description: "+1 Grain per action", effects: [{ type: "flatOutput", resource: "grain", amount: 1 }] },
+      { id: "irrigation", name: "Irrigation", cost: 10, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      {
+        id: "masterFarmer",
+        name: "Rich Soil",
+        cost: 20,
+        description: "+25% to all farm yields",
+        effects: [{ type: "outputMult", mult: 1.25 }],
+      },
     ],
   },
   herding: {
@@ -540,9 +657,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "gentleHand", name: "Gentle Hand", cost: 5, description: "+1 Wool per action" },
-      { id: "swiftShepherd", name: "Swift Shepherd", cost: 10, description: "-0.2s action time" },
-      { id: "masterHerder", name: "Master Herder", cost: 20, description: "+1 Milk per action" },
+      { id: "gentleHand", name: "Gentle Hand", cost: 5, description: "+1 Wool per action", effects: [{ type: "flatOutput", resource: "wool", amount: 1 }] },
+      { id: "swiftShepherd", name: "Swift Shepherd", cost: 10, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      {
+        id: "masterHerder",
+        name: "Breeding Stock",
+        cost: 20,
+        description: "+1 Milk and +1 Raw Hide per action",
+        effects: [
+          { type: "flatOutput", resource: "milk", amount: 1 },
+          { type: "flatOutput", resource: "rawHides", amount: 1 },
+        ],
+      },
     ],
   },
   weaving: {
@@ -584,9 +710,15 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
-      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
-      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+      { id: "spindle", name: "Spindle", cost: 5, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      { id: "tightWeave", name: "Tight Weave", cost: 10, description: "+1 output per action", effects: [{ type: "flatPrimaryOutput", amount: 1 }] },
+      {
+        id: "greatLoom",
+        name: "Great Loom",
+        cost: 20,
+        description: "-0.4s action time",
+        effects: [{ type: "flatTime", seconds: 0.4 }],
+      },
     ],
   },
   carpentry: {
@@ -628,9 +760,21 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
-      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
-      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+      { id: "sawhorse", name: "Sawhorse", cost: 5, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      {
+        id: "woodGlue",
+        name: "Wood Glue",
+        cost: 10,
+        description: "25% chance materials aren't consumed",
+        effects: [{ type: "refundChance", chance: 0.25 }],
+      },
+      {
+        id: "offcuts",
+        name: "Offcuts",
+        cost: 20,
+        description: "Every action also yields 1 Wood",
+        effects: [{ type: "byproduct", resource: "wood", amount: 1 }],
+      },
     ],
   },
   brewing: {
@@ -665,9 +809,24 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
-      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
-      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+      { id: "yeastCulture", name: "Yeast Culture", cost: 5, description: "+1 output per action", effects: [{ type: "flatPrimaryOutput", amount: 1 }] },
+      {
+        id: "bigBarrels",
+        name: "Big Barrels",
+        cost: 10,
+        description: "25% chance to double the batch",
+        effects: [{ type: "doubleChance", chance: 0.25 }],
+      },
+      {
+        id: "masterBrewer",
+        name: "Master Brewer",
+        cost: 20,
+        description: "-0.4s action time and +25% XP",
+        effects: [
+          { type: "flatTime", seconds: 0.4 },
+          { type: "xpMult", mult: 1.25 },
+        ],
+      },
     ],
   },
   construction: {
@@ -703,9 +862,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
     upgrades: [
-      { id: "efficiency", name: "Efficiency", cost: 5, description: "-0.2s action time" },
-      { id: "betterRecipes", name: "Better Recipes", cost: 10, description: "+1 extra output per action" },
-      { id: "mastery", name: "Mastery", cost: 20, description: "-0.4s action time" },
+      { id: "scaffolding", name: "Scaffolding", cost: 5, description: "-0.2s action time", effects: [{ type: "flatTime", seconds: 0.2 }] },
+      { id: "mortarMix", name: "Mortar Mix", cost: 10, description: "+1 output per action", effects: [{ type: "flatPrimaryOutput", amount: 1 }] },
+      {
+        id: "foreman",
+        name: "Foreman",
+        cost: 20,
+        description: "+50% XP and 25% chance materials aren't consumed",
+        effects: [
+          { type: "xpMult", mult: 1.5 },
+          { type: "refundChance", chance: 0.25 },
+        ],
+      },
     ],
   },
 };
@@ -803,6 +971,52 @@ export const AGE_ADVANCE_COSTS: Partial<Record<AgeId, ResourceAmount[]>> = {
 };
 
 export const BASE_ACTION_TIME = 2; // seconds
-export const XP_PER_ACTION = 5;
+export const XP_PER_ACTION = 50;
 export const MAX_LEVEL = 99;
+
+// Civilization-wide "mastery" upgrades. They apply to every skill and only go on
+// sale once any single skill reaches MAX_LEVEL.
+export const GLOBAL_UPGRADES: SkillUpgrade[] = [
+  {
+    id: "haste",
+    name: "Haste",
+    cost: 50,
+    description: "Every action takes half as long",
+    effects: [{ type: "timeMult", mult: 0.5 }],
+  },
+  {
+    id: "bounty",
+    name: "Bounty",
+    cost: 50,
+    description: "Double all resources gained",
+    effects: [{ type: "outputMult", mult: 2 }],
+  },
+  {
+    id: "wisdom",
+    name: "Wisdom",
+    cost: 50,
+    description: "Double all XP gained",
+    effects: [{ type: "xpMult", mult: 2 }],
+  },
+];
+
+// Free, always-available cheats surfaced in the shop's debug section.
+export const DEBUG_GLOBAL_UPGRADES: SkillUpgrade[] = [
+  {
+    id: "debugSpeed",
+    name: "Hyperdrive",
+    cost: 0,
+    description: "Actions are 100x faster (debug)",
+    effects: [{ type: "timeMult", mult: 0.01 }],
+  },
+];
+
+// Legacy crafting saves used one shared id per slot across every crafting skill.
+export const LEGACY_UPGRADE_SLOTS: Record<string, number> = {
+  efficiency: 0,
+  betterRecipes: 1,
+  mastery: 2,
+  expertForager: 2,
+  masterHunter: 2,
+};
 

@@ -325,6 +325,10 @@ export const ARCHETYPE_IDS: ArchetypeId[] = ["warband", "volley", "coven"];
 export interface Encounter {
   archetype: ArchetypeId;
   cards: UnitCard[];
+  /** Card id of the boss in a story boss encounter. */
+  bossId?: string;
+  /** Flat multiplier on enemy HP/ATK/DEF (The Depths). Defaults to 1. */
+  statMult?: number;
 }
 
 export const PARTY_SIZE = 3;
@@ -368,4 +372,129 @@ export function generateEncounter(level: number, rand: () => number = Math.rando
     });
   }
   return { archetype, cards };
+}
+
+// ---------- Main story: bosses every 5 levels ----------
+
+export const BOSS_EVERY = 5;
+export const BOSS_ARCHETYPE_FOR_TYPE: Record<AttackType, ArchetypeId> = {
+  melee: "warband",
+  ranged: "volley",
+  magic: "coven",
+};
+// Bosses are always legendaries: the first three (levels 5, 10, 15) are
+// ordinary 5★ units, the last three (20, 25, 30) are the Ascendants. Regular
+// enemies at those levels already reach the same star counts, so only a
+// legendary base makes the boss a real wall. Verified by simulation.
+export const ASCENDANT_BOSS_FROM = 4;
+// Boss armies get a flat stat bonus so the boss is a bigger wall than the
+// regular level that follows it (which gains a bonus star).
+export const BOSS_ARMY_MULT = 1.3;
+
+export function isBossLevel(level: number): boolean {
+  return level > 0 && level % BOSS_EVERY === 0;
+}
+
+/** Level 5 boss is 5★, level 10 is 6★, … level 30 is 10★. */
+export function bossStarsForLevel(level: number): number {
+  return Math.min(MAX_STARS, 4 + Math.floor(level / BOSS_EVERY));
+}
+
+export function generateBossEncounter(level: number, rand: () => number = Math.random): Encounter {
+  const k = Math.floor(level / BOSS_EVERY);
+  const stars = bossStarsForLevel(level);
+  const ascendant = k >= ASCENDANT_BOSS_FROM;
+  const pool = UNIT_LIST.filter((d) => d.baseStars === 5 && d.traits.includes("ascendant") === ascendant);
+  const bossDef = pool[Math.floor(rand() * pool.length)];
+  const boss: UnitCard = { id: "boss", unitId: bossDef.id, stars };
+  // Minions are ordinary enemies from 4 levels below, so their bonus stars
+  // step up by one with every boss.
+  const minionLevel = Math.max(1, level - 4);
+  const minions = generateEncounter(minionLevel, rand)
+    .cards.slice(0, 2)
+    .map((c, i) => ({ ...c, id: `minion-${i}` }));
+  while (minions.length < 2) {
+    const extra = generateEncounter(minionLevel, rand).cards[0];
+    minions.push({ ...extra, id: `minion-${minions.length}` });
+  }
+  return {
+    archetype: BOSS_ARCHETYPE_FOR_TYPE[bossDef.attackType],
+    cards: [boss, ...minions],
+    bossId: boss.id,
+    statMult: BOSS_ARMY_MULT,
+  };
+}
+
+export function generateStoryEncounter(level: number, rand: () => number = Math.random): Encounter {
+  return isBossLevel(level) ? generateBossEncounter(level, rand) : generateEncounter(level, rand);
+}
+
+// ---------- The Depths: endless, gently scaling, auto-grindable ----------
+
+/**
+ * Per-depth growth of enemy strength. One star merge (×1.4) is worth about four
+ * to five depths, so an upgrade typically clears a burst of levels before the next stall.
+ */
+export const DEPTHS_SCALE = 1.08;
+/** Strength of one enemy at depth 1 — a single goblin. */
+export const DEPTHS_BASE_STRENGTH = 18;
+
+/** A linear "how much unit is this" score: scaling stats by k scales this by k. */
+export function unitStrength(def: UnitDef): number {
+  return def.hp + 5 * def.atk + 3 * def.def;
+}
+
+export function depthsTargetStrength(depth: number): number {
+  return DEPTHS_BASE_STRENGTH * Math.pow(DEPTHS_SCALE, depth - 1);
+}
+
+export function depthsEnemyCount(depth: number): number {
+  if (depth <= 2) return 1;
+  if (depth <= 5) return 2;
+  return 3;
+}
+
+/** Rarer units appear deeper for variety; their stats are normalised so this is flavour, not difficulty. */
+export function depthsMaxRarity(depth: number): number {
+  return Math.min(5, 1 + Math.floor((depth - 1) / 8));
+}
+
+/** Total strength of an encounter's army after its stat multiplier. */
+export function encounterStrength(encounter: Encounter): number {
+  const mult = encounter.statMult ?? 1;
+  return encounter.cards.reduce((sum, c) => {
+    const def = UNITS[c.unitId];
+    const starMult = Math.pow(STAR_STAT_MULT, Math.max(0, c.stars - def.baseStars));
+    return sum + unitStrength(def) * starMult * mult;
+  }, 0);
+}
+
+export function generateDepthsEncounter(depth: number, rand: () => number = Math.random): Encounter {
+  const archetype = ARCHETYPE_IDS[Math.floor(rand() * ARCHETYPE_IDS.length)];
+  const type = ENEMY_ARCHETYPES[archetype].attackType;
+  const count = depthsEnemyCount(depth);
+  const maxRarity = depthsMaxRarity(depth);
+  const eligible = UNIT_LIST.filter((d) => d.baseStars <= maxRarity);
+  const typed = eligible.filter((d) => d.attackType === type);
+  const typedSlots = Math.min(count, 2);
+  const cards: UnitCard[] = [];
+  let strength = 0;
+  for (let i = 0; i < count; i++) {
+    const pool = i < typedSlots ? typed : eligible;
+    const def = pool[Math.floor(rand() * pool.length)];
+    cards.push({ id: `depth-${i}`, unitId: def.id, stars: def.baseStars });
+    strength += unitStrength(def);
+  }
+  // Whatever rolled, the army as a whole sits exactly on the depth curve.
+  const statMult = (depthsTargetStrength(depth) * count) / strength;
+  return { archetype, cards, statMult };
+}
+
+export const DEPTHS_TIER_SIZE = 5;
+export const DEPTHS_SPOILS_PER_TIER = 10;
+export const DEPTHS_INCOME_INTERVAL_MS = 10_000;
+
+/** Passive War Spoils per 10 s for the number of depths cleared. */
+export function depthsIncomePer10s(cleared: number): number {
+  return DEPTHS_SPOILS_PER_TIER * Math.floor(Math.max(0, cleared) / DEPTHS_TIER_SIZE);
 }

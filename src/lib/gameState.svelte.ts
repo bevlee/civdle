@@ -1,21 +1,35 @@
-import { type ResourceId, SKILLS, SKILL_ORDER, type SkillId } from "./gameData";
+import {
+  DEBUG_GLOBAL_UPGRADES,
+  GLOBAL_UPGRADES,
+  type ResourceId,
+  SKILLS,
+  SKILL_ORDER,
+  type SkillId,
+} from "./gameData";
 import {
   type ApplyActionOutcome,
   type GameState,
+  type RolledOutput,
+  type GameStats,
   advanceAge,
   applyAction,
+  canBuyGlobalUpgrade,
   computeActionResult,
   computeUnlocks,
   createInitialState,
+  createInitialStats,
   getAgeAdvanceStatus,
   getAgeBonus,
   getSkillEligibleAgeIndex,
   getSkillLevels,
+  hasMaxedSkill,
+  migrateUpgradeIds,
   processOfflineProgress,
 } from "./gameEngine";
-import { createInitialGachaState, startBattle, stepBattle } from "./combatEngine";
+import { createInitialDepthsState, createInitialGachaState, startBattle, stepBattle } from "./combatEngine";
 import type { GachaState } from "./combatEngine";
 import {
+  DEPTHS_INCOME_INTERVAL_MS,
   GACHA_COST,
   MAX_ENEMY_LEVEL,
   PACK_COST,
@@ -25,13 +39,18 @@ import {
   STARTING_GOLD,
   canMerge,
   createCard,
-  generateEncounter,
+  depthsIncomePer10s,
+  generateDepthsEncounter,
+  generateStoryEncounter,
   mergeCards,
   rollCard,
   type UnitCard,
   type UnitId,
 } from "./combatData";
+import { movePartyCard } from "./party";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
+import { checkAchievements } from "./achievements";
+import { untrack } from "svelte";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
@@ -39,6 +58,8 @@ const PROGRESS_INTERVAL_MS = 100;
 // Pause between battle turns so each attack / ultimate can be animated.
 export const ATTACK_STEP_MS = 900;
 export const ULT_STEP_MS = 1800;
+// Pause on the result panel before an auto-ground Depths run continues.
+export const DEPTHS_AUTO_PAUSE_MS = 1500;
 
 export interface SummonEventData {
   card: UnitCard;
@@ -54,6 +75,19 @@ export interface StarUpEventData {
   toStars: number;
 }
 
+export interface SpoilsGainEventData {
+  amount: number;
+}
+
+export interface ActionGainEventData {
+  skillId: SkillId;
+  gains: RolledOutput[];
+}
+
+export interface AchievementEventData {
+  achievementId: string;
+}
+
 function loadFromStorage(): GameState {
   if (typeof window === "undefined") return createInitialState();
   try {
@@ -62,6 +96,8 @@ function loadFromStorage(): GameState {
     const parsed = JSON.parse(raw) as GameState & { combat?: unknown };
     if (!parsed || !parsed.skills) return createInitialState();
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
+    if (!parsed.achievements || typeof parsed.achievements !== "object") parsed.achievements = {};
+    parsed.stats = { ...createInitialStats(), ...(parsed.stats ?? {}) };
 
     const oldGacha = parsed.gacha as (Partial<GachaState> & { heroes?: unknown }) | undefined;
     if (!oldGacha || !Array.isArray(oldGacha.cards)) {
@@ -73,15 +109,27 @@ function loadFromStorage(): GameState {
       fresh.gold = STARTING_GOLD + carried;
       parsed.gacha = fresh;
     } else {
-      const g = parsed.gacha;
+      const g = parsed.gacha as GachaState & { enemyLevel?: number; maxEnemyLevel?: number };
       const party = Array.isArray(g.party) ? g.party.slice(0, PARTY_SIZE) : [];
       while (party.length < PARTY_SIZE) party.push(null);
       g.party = party;
       if (typeof g.tutorialSeen !== "boolean") g.tutorialSeen = false;
+      if (typeof g.storyLevel !== "number") {
+        // Saves from the free-level-select era: continue from the highest
+        // level reached and roll a fresh encounter for it.
+        g.storyLevel = Math.max(1, g.maxEnemyLevel ?? g.enemyLevel ?? 1);
+        g.encounter = null;
+      }
+      delete g.enemyLevel;
+      delete g.maxEnemyLevel;
       if (g.encounter === undefined) g.encounter = null;
+      if (!g.depths || typeof g.depths.level !== "number") g.depths = createInitialDepthsState();
+      if (typeof g.depths.auto !== "boolean") g.depths.auto = false;
+      if (g.depths.encounter === undefined) g.depths.encounter = null;
     }
     // A persisted battle can be stuck "playing" — never resume one.
     parsed.gacha.battle = null;
+    parsed.gacha.battleMode = null;
 
     for (const id of SKILL_ORDER) {
       if (!parsed.skills[id]) {
@@ -92,6 +140,8 @@ function loadFromStorage(): GameState {
           upgrades: [],
           selectedRecipeId: def.recipes[0].id,
         };
+      } else {
+        parsed.skills[id].upgrades = migrateUpgradeIds(id, parsed.skills[id].upgrades ?? []);
       }
     }
     if (typeof parsed.ageIndex !== "number") {
@@ -129,7 +179,10 @@ export class CivdleGame {
   #actionDuration = 0;
   #saveInterval: ReturnType<typeof setInterval> | null = null;
   #battleTimeout: ReturnType<typeof setTimeout> | null = null;
+  #autoTimeout: ReturnType<typeof setTimeout> | null = null;
+  #incomeInterval: ReturnType<typeof setInterval> | null = null;
   #handleUnload: (() => void) | null = null;
+  #achievementRoot: (() => void) | null = null;
 
   get levels() {
     return getSkillLevels(this.state);
@@ -168,33 +221,59 @@ export class CivdleGame {
     const elapsedSeconds = (Date.now() - withUnlocks.lastSavedAt) / 1000;
     const offline = processOfflineProgress(withUnlocks, elapsedSeconds);
     let finalState: GameState = { ...offline.state, lastSavedAt: Date.now() };
-    if (!finalState.gacha.encounter) {
+    if (offline.actionsProcessed > finalState.stats.bestOfflineHaul) {
       finalState = {
         ...finalState,
-        gacha: { ...finalState.gacha, encounter: generateEncounter(finalState.gacha.enemyLevel) },
+        stats: { ...finalState.stats, bestOfflineHaul: offline.actionsProcessed },
       };
     }
+    let gacha = finalState.gacha;
+    if (!gacha.encounter && gacha.storyLevel <= MAX_ENEMY_LEVEL) {
+      gacha = { ...gacha, encounter: generateStoryEncounter(gacha.storyLevel) };
+    }
+    if (!gacha.depths.encounter) {
+      gacha = { ...gacha, depths: { ...gacha.depths, encounter: generateDepthsEncounter(gacha.depths.level) } };
+    }
+    // Passive Depths income keeps flowing while away.
+    const offlineTicks = Math.floor(Math.max(0, elapsedSeconds * 1000) / DEPTHS_INCOME_INTERVAL_MS);
+    const offlineSpoils = offlineTicks * depthsIncomePer10s(gacha.depths.level - 1);
+    if (offlineSpoils > 0) gacha = { ...gacha, gold: gacha.gold + offlineSpoils };
+    finalState = { ...finalState, gacha };
     this.state = finalState;
     this.loaded = true;
 
+    const welcome: string[] = [];
     if (offline.actionsProcessed > 0) {
-      this.message =
-        `Welcome back! ${offline.actionsProcessed} action${offline.actionsProcessed === 1 ? "" : "s"} completed while away.`;
+      welcome.push(`${offline.actionsProcessed} action${offline.actionsProcessed === 1 ? "" : "s"} completed`);
     }
+    if (offlineSpoils > 0) welcome.push(`${offlineSpoils} War Spoils earned from The Depths`);
+    if (welcome.length > 0) this.message = `Welcome back! ${welcome.join(" and ")} while away.`;
 
     if (this.state.activeSkill) {
       this.#startActionLoop();
       this.#startProgressLoop();
     }
+    if (this.state.gacha.depths.auto) this.startDepthsFight();
 
+    this.#incomeInterval = setInterval(() => this.#tickDepthsIncome(), DEPTHS_INCOME_INTERVAL_MS);
     this.#saveInterval = setInterval(() => saveToStorage(this.state), SAVE_INTERVAL_MS);
     this.#handleUnload = () => saveToStorage(this.state);
     window.addEventListener("beforeunload", this.#handleUnload);
+    this.#startAchievementWatcher();
 
     return () => {
       this.#clearActionLoop();
       this.#clearProgressLoop();
       this.#clearBattleLoop();
+      this.#clearAutoTimeout();
+      if (this.#incomeInterval) {
+        clearInterval(this.#incomeInterval);
+        this.#incomeInterval = null;
+      }
+      if (this.#achievementRoot) {
+        this.#achievementRoot();
+        this.#achievementRoot = null;
+      }
 
       if (this.#saveInterval) {
         clearInterval(this.#saveInterval);
@@ -206,6 +285,32 @@ export class CivdleGame {
       }
       saveToStorage(this.state);
     };
+  }
+
+  // ----- Achievements -----
+
+  /**
+   * Re-evaluates achievements whenever any part of the state changes. The
+   * check is pure and returns the same state object when nothing unlocked,
+   * so the (untracked) write below only happens on a real unlock.
+   */
+  #startAchievementWatcher(): void {
+    this.#achievementRoot = $effect.root(() => {
+      $effect(() => {
+        const result = checkAchievements(this.state);
+        if (result.newlyUnlocked.length === 0) return;
+        untrack(() => {
+          this.state = result.state;
+          for (const achievementId of result.newlyUnlocked) {
+            this.eventQueue.emit<AchievementEventData>("achievement", { achievementId });
+          }
+        });
+      });
+    });
+  }
+
+  #bumpStats(patch: Partial<GameStats>): void {
+    this.state = { ...this.state, stats: { ...this.state.stats, ...patch } };
   }
 
   // ----- Action loop -----
@@ -254,19 +359,19 @@ export class CivdleGame {
         this.eventQueue.emit("skillUnlock", { skillId: unlockedSkillId });
       }
 
-      const changedResources = new Set<ResourceId>([
-        ...(Object.keys(prev.resources) as ResourceId[]),
-        ...(Object.keys(nextState.resources) as ResourceId[]),
-      ]);
-      for (const resource of changedResources) {
-        const delta = (nextState.resources[resource] ?? 0) - (prev.resources[resource] ?? 0);
-        if (delta > 0.0001) {
-          this.eventQueue.emit("resourceGain", { resource, amount: delta });
-        }
+      for (const gain of outcome.gains) {
+        this.eventQueue.emit("resourceGain", { resource: gain.resource, amount: gain.amount });
+      }
+      if (outcome.gains.length > 0) {
+        this.eventQueue.emit("actionGain", { skillId, gains: outcome.gains } satisfies ActionGainEventData);
       }
 
       if (outcome.outOfMaterials) {
-        nextState = { ...nextState, activeSkill: null };
+        nextState = {
+          ...nextState,
+          activeSkill: null,
+          stats: { ...nextState.stats, outOfMaterials: nextState.stats.outOfMaterials + 1 },
+        };
       }
 
       this.state = nextState;
@@ -315,6 +420,18 @@ export class CivdleGame {
       this.state = { ...this.state, gacha: { ...this.state.gacha, battle: next } };
       if (next.status === "playing") {
         this.#scheduleBattleStep(next.lastAction?.kind === "ultimate" ? ULT_STEP_MS : ATTACK_STEP_MS);
+      } else {
+        const g = this.state.gacha;
+        if (next.status === "won") {
+          const stats = this.state.stats;
+          this.#bumpStats({
+            battlesWon: stats.battlesWon + 1,
+            bestWinLevel: g.battleMode === "story" ? Math.max(stats.bestWinLevel, g.storyLevel) : stats.bestWinLevel,
+          });
+        } else {
+          this.#bumpStats({ battlesLost: this.state.stats.battlesLost + 1 });
+        }
+        this.#scheduleAutoDismiss(g.battleMode === "depths" && g.depths.auto);
       }
     }, delayMs);
   }
@@ -324,6 +441,30 @@ export class CivdleGame {
       clearTimeout(this.#battleTimeout);
       this.#battleTimeout = null;
     }
+  }
+
+  #scheduleAutoDismiss(continueDepths: boolean): void {
+    this.#clearAutoTimeout();
+    this.#autoTimeout = setTimeout(() => {
+      this.#autoTimeout = null;
+      if (this.inBattle) return;
+      this.dismissBattle();
+      if (continueDepths && this.state.gacha.depths.auto) this.startDepthsFight();
+    }, DEPTHS_AUTO_PAUSE_MS);
+  }
+
+  #clearAutoTimeout(): void {
+    if (this.#autoTimeout) {
+      clearTimeout(this.#autoTimeout);
+      this.#autoTimeout = null;
+    }
+  }
+
+  #tickDepthsIncome(): void {
+    const amount = this.depthsIncome;
+    if (amount <= 0) return;
+    this.#setGacha({ gold: this.state.gacha.gold + amount });
+    this.eventQueue.emit<SpoilsGainEventData>("spoilsGain", { amount });
   }
 
   #handleOutcome(outcome: ApplyActionOutcome): void {
@@ -380,10 +521,18 @@ export class CivdleGame {
     };
   }
 
+  get masteryUnlocked(): boolean {
+    return hasMaxedSkill(this.state);
+  }
+
   buyGlobalUpgrade(upgradeId: string): void {
-    if (this.state.globalUpgrades.includes(upgradeId)) return;
+    if (!canBuyGlobalUpgrade(this.state, upgradeId)) return;
+    const upgrade =
+      GLOBAL_UPGRADES.find((u) => u.id === upgradeId) ?? DEBUG_GLOBAL_UPGRADES.find((u) => u.id === upgradeId);
+    if (!upgrade) return;
     this.state = {
       ...this.state,
+      skillPoints: this.state.skillPoints - upgrade.cost,
       globalUpgrades: [...this.state.globalUpgrades, upgradeId],
     };
   }
@@ -406,12 +555,29 @@ export class CivdleGame {
     return this.state.gacha.battle?.status === "playing";
   }
 
+  get storyComplete(): boolean {
+    return this.state.gacha.storyLevel > MAX_ENEMY_LEVEL;
+  }
+
+  get depthsCleared(): number {
+    return this.state.gacha.depths.level - 1;
+  }
+
+  /** Passive War Spoils per income tick from The Depths. */
+  get depthsIncome(): number {
+    return depthsIncomePer10s(this.depthsCleared);
+  }
+
   rollCard(): void {
     if (this.state.gacha.gold < GACHA_COST) return;
     const card = rollCard();
     this.#setGacha({
       gold: this.state.gacha.gold - GACHA_COST,
       cards: [...this.state.gacha.cards, card],
+    });
+    this.#bumpStats({
+      cardsSummoned: this.state.stats.cardsSummoned + 1,
+      bestSummonStars: Math.max(this.state.stats.bestSummonStars, card.stars),
     });
     this.eventQueue.emit<SummonEventData>("summon", { card });
   }
@@ -422,6 +588,11 @@ export class CivdleGame {
     this.#setGacha({
       gold: this.state.gacha.gold - PACK_COST,
       cards: [...this.state.gacha.cards, ...cards],
+    });
+    this.#bumpStats({
+      cardsSummoned: this.state.stats.cardsSummoned + cards.length,
+      packsOpened: this.state.stats.packsOpened + 1,
+      bestSummonStars: cards.reduce((best, c) => Math.max(best, c.stars), this.state.stats.bestSummonStars),
     });
     this.eventQueue.emit<SummonPackEventData>("summonPack", { cards });
   }
@@ -454,6 +625,7 @@ export class CivdleGame {
       cards: [...cards.filter((c) => c.id !== aId && c.id !== bId), merged],
       party,
     });
+    this.#bumpStats({ merges: this.state.stats.merges + 1 });
     this.eventQueue.emit<StarUpEventData>("starUp", {
       unitId: merged.unitId,
       fromStars: a.stars,
@@ -464,9 +636,7 @@ export class CivdleGame {
   assignCardToParty(cardId: string, slotIndex: number): void {
     if (slotIndex < 0 || slotIndex >= PARTY_SIZE || this.inBattle) return;
     if (!this.state.gacha.cards.some((c) => c.id === cardId)) return;
-    const party = this.state.gacha.party.map((id) => (id === cardId ? null : id));
-    party[slotIndex] = cardId;
-    this.#setGacha({ party });
+    this.#setGacha({ party: movePartyCard(this.state.gacha.party, cardId, slotIndex) });
   }
 
   addCardToFirstEmptySlot(cardId: string): void {
@@ -494,43 +664,86 @@ export class CivdleGame {
       cards: this.state.gacha.cards.filter((c) => c.id !== cardId),
       party: this.state.gacha.party.map((id) => (id === cardId ? null : id)),
     });
+    this.#bumpStats({ cardsDiscarded: this.state.stats.cardsDiscarded + 1 });
   }
 
-  setEnemyLevel(level: number): void {
-    if (this.inBattle) return;
-    const clamped = Math.max(1, Math.min(level, this.state.gacha.maxEnemyLevel));
-    if (clamped === this.state.gacha.enemyLevel && this.state.gacha.encounter) return;
-    this.#setGacha({ enemyLevel: clamped, encounter: generateEncounter(clamped), battle: null });
-  }
-
-  startFight(): void {
-    if (this.inBattle) return;
+  /** Fights the current Main Story level. The story is linear: no replaying, no auto. */
+  startStoryFight(): void {
+    if (this.inBattle || this.state.gacha.battle || this.storyComplete) return;
     const party = this.partyCards;
     if (party.length === 0) return;
-    const encounter = this.state.gacha.encounter ?? generateEncounter(this.state.gacha.enemyLevel);
-    const battle = startBattle(party, encounter);
-    this.#setGacha({ encounter, battle });
+    const g = this.state.gacha;
+    const encounter = g.encounter ?? generateStoryEncounter(g.storyLevel);
+    this.#clearAutoTimeout();
+    this.#setGacha({
+      encounter,
+      battle: startBattle(party, encounter),
+      battleMode: "story",
+      depths: { ...g.depths, auto: false },
+    });
     this.#scheduleBattleStep(ATTACK_STEP_MS);
   }
 
-  /** Closes the result panel. A win pays out, unlocks the next level, and rolls a fresh encounter. */
+  startDepthsFight(): void {
+    if (this.inBattle || this.state.gacha.battle) return;
+    const party = this.partyCards;
+    if (party.length === 0) return;
+    const g = this.state.gacha;
+    const encounter = g.depths.encounter ?? generateDepthsEncounter(g.depths.level);
+    this.#setGacha({
+      depths: { ...g.depths, encounter },
+      battle: startBattle(party, encounter),
+      battleMode: "depths",
+    });
+    this.#scheduleBattleStep(ATTACK_STEP_MS);
+  }
+
+  setDepthsAuto(auto: boolean): void {
+    const g = this.state.gacha;
+    if (g.depths.auto === auto) return;
+    this.#setGacha({ depths: { ...g.depths, auto } });
+    if (!auto) {
+      this.#clearAutoTimeout();
+      return;
+    }
+    if (g.battle && g.battle.status !== "playing" && g.battleMode === "depths") {
+      this.#scheduleAutoDismiss(true);
+    } else if (!g.battle) {
+      this.startDepthsFight();
+    }
+  }
+
+  /**
+   * Closes the result panel. A story win pays the level in spoils and advances
+   * the story; a Depths win advances the depth. A loss keeps the same encounter
+   * so the player has to adapt their composition.
+   */
   dismissBattle(): void {
     const battle = this.state.gacha.battle;
     if (!battle || battle.status === "playing") return;
     const g = this.state.gacha;
-    if (battle.status === "won") {
-      const maxEnemyLevel =
-        g.enemyLevel >= g.maxEnemyLevel ? Math.min(MAX_ENEMY_LEVEL, g.maxEnemyLevel + 1) : g.maxEnemyLevel;
-      this.#setGacha({
-        gold: g.gold + g.enemyLevel,
-        maxEnemyLevel,
-        encounter: generateEncounter(g.enemyLevel),
-        battle: null,
-      });
-    } else {
-      // Same encounter stays so the player has to adapt their composition.
-      this.#setGacha({ battle: null });
+    const mode = g.battleMode;
+    if (battle.status !== "won") {
+      this.#setGacha({ battle: null, battleMode: null });
+      return;
     }
+    if (mode === "depths") {
+      const level = g.depths.level + 1;
+      this.#setGacha({
+        depths: { ...g.depths, level, encounter: generateDepthsEncounter(level) },
+        battle: null,
+        battleMode: null,
+      });
+      return;
+    }
+    const storyLevel = g.storyLevel + 1;
+    this.#setGacha({
+      gold: g.gold + g.storyLevel,
+      storyLevel,
+      encounter: storyLevel <= MAX_ENEMY_LEVEL ? generateStoryEncounter(storyLevel) : null,
+      battle: null,
+      battleMode: null,
+    });
   }
 
   markTutorialSeen(): void {
@@ -598,13 +811,25 @@ export class CivdleGame {
     this.#setGacha({ gold: this.state.gacha.gold + amount });
   }
 
-  debugSetEnemyLevel(level: number): void {
+  debugSetStoryLevel(level: number): void {
     const clamped = Math.max(1, Math.min(MAX_ENEMY_LEVEL, level));
+    this.#clearBattleLoop();
     this.#setGacha({
-      enemyLevel: clamped,
-      maxEnemyLevel: Math.max(this.state.gacha.maxEnemyLevel, clamped),
-      encounter: generateEncounter(clamped),
+      storyLevel: clamped,
+      encounter: generateStoryEncounter(clamped),
       battle: null,
+      battleMode: null,
+    });
+  }
+
+  debugSetDepthsLevel(level: number): void {
+    const clamped = Math.max(1, Math.floor(level));
+    this.#clearBattleLoop();
+    this.#clearAutoTimeout();
+    this.#setGacha({
+      depths: { ...this.state.gacha.depths, level: clamped, auto: false, encounter: generateDepthsEncounter(clamped) },
+      battle: null,
+      battleMode: null,
     });
   }
 
@@ -614,8 +839,8 @@ export class CivdleGame {
   }
 
   debugRerollEncounter(): void {
-    if (this.inBattle) return;
-    this.#setGacha({ encounter: generateEncounter(this.state.gacha.enemyLevel), battle: null });
+    if (this.inBattle || this.storyComplete) return;
+    this.#setGacha({ encounter: generateStoryEncounter(this.state.gacha.storyLevel), battle: null, battleMode: null });
   }
 
   debugResetSave(): void {

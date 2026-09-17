@@ -11,6 +11,18 @@ import {
   computeCardStats,
   createCard,
   generateEncounter,
+  generateStoryEncounter,
+  generateDepthsEncounter,
+  isBossLevel,
+  bossStarsForLevel,
+  depthsIncomePer10s,
+  depthsTargetStrength,
+  encounterStrength,
+  BOSS_ARMY_MULT,
+  BOSS_EVERY,
+  DEPTHS_SCALE,
+  DEPTHS_TIER_SIZE,
+  DEPTHS_SPOILS_PER_TIER,
   getTypeMultiplier,
   mergeCards,
   rollCard,
@@ -121,5 +133,86 @@ describe("generateEncounter", () => {
   it("only uses 1★ units at level 1", () => {
     const enc = generateEncounter(1, lcg(9));
     for (const c of enc.cards) expect(UNITS[c.unitId].baseStars).toBe(1);
+  });
+});
+
+describe("story bosses", () => {
+  it("marks every 5th level as a boss level", () => {
+    expect(BOSS_EVERY).toBe(5);
+    for (let level = 1; level <= 30; level++) {
+      expect(isBossLevel(level), `L${level}`).toBe(level % 5 === 0);
+    }
+  });
+
+  it("boss stars go 5★, 6★ … 10★ across levels 5 to 30", () => {
+    expect([5, 10, 15, 20, 25, 30].map(bossStarsForLevel)).toEqual([5, 6, 7, 8, 9, 10]);
+  });
+
+  it("boss encounters have one boss plus two minions from 4 levels lower", () => {
+    const rand = lcg(11);
+    for (let k = 1; k <= 6; k++) {
+      const level = k * BOSS_EVERY;
+      const enc = generateStoryEncounter(level, rand);
+      expect(enc.bossId, `L${level}`).toBeTruthy();
+      expect(enc.statMult).toBe(BOSS_ARMY_MULT);
+      expect(enc.cards).toHaveLength(3);
+      const boss = enc.cards.find((c) => c.id === enc.bossId)!;
+      expect(boss.stars).toBe(bossStarsForLevel(level));
+      expect(UNITS[boss.unitId].baseStars).toBe(5);
+      expect(UNITS[boss.unitId].traits.includes("ascendant"), `L${level}`).toBe(k >= 4);
+      // The archetype follows the boss so the matchup readout stays honest.
+      expect(ENEMY_ARCHETYPES[enc.archetype].attackType).toBe(UNITS[boss.unitId].attackType);
+      const minions = enc.cards.filter((c) => c.id !== enc.bossId);
+      expect(minions).toHaveLength(2);
+      // Minions are regular enemies of level - 4: their bonus stars step up by one per boss.
+      const expectedBonus = Math.floor((level - 4 - 1) / 5);
+      for (const m of minions) {
+        expect(m.stars - UNITS[m.unitId].baseStars, `L${level} minion`).toBe(expectedBonus);
+      }
+    }
+  });
+
+  it("non-boss story levels are ordinary encounters", () => {
+    const enc = generateStoryEncounter(7, lcg(2));
+    expect(enc.bossId).toBeUndefined();
+    expect(enc.cards.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe("the depths", () => {
+  it("normalises every army onto a smooth per-depth strength curve", () => {
+    expect(DEPTHS_SCALE).toBeGreaterThan(1);
+    expect(DEPTHS_SCALE).toBeLessThan(1.1);
+    const rand = lcg(5);
+    for (const depth of [1, 2, 7, 20, 33, 80]) {
+      for (let i = 0; i < 5; i++) {
+        const enc = generateDepthsEncounter(depth, rand);
+        const perEnemy = encounterStrength(enc) / enc.cards.length;
+        expect(perEnemy, `depth ${depth}`).toBeCloseTo(depthsTargetStrength(depth), 6);
+      }
+    }
+    expect(depthsTargetStrength(2) / depthsTargetStrength(1)).toBeCloseTo(DEPTHS_SCALE, 10);
+  });
+
+  it("grows the roster slowly and never above 3 enemies", () => {
+    const rand = lcg(6);
+    expect(generateDepthsEncounter(1, rand).cards).toHaveLength(1);
+    for (let d = 1; d <= 200; d += 7) {
+      const enc = generateDepthsEncounter(d, rand);
+      expect(enc.cards.length).toBeLessThanOrEqual(3);
+      expect(ARCHETYPE_IDS).toContain(enc.archetype);
+      for (const c of enc.cards) expect(c.stars).toBeLessThanOrEqual(MAX_STARS);
+    }
+    expect(generateDepthsEncounter(50, rand).cards).toHaveLength(3);
+  });
+
+  it("pays 10 spoils per 10s for every 5 depths cleared", () => {
+    expect(DEPTHS_TIER_SIZE).toBe(5);
+    expect(DEPTHS_SPOILS_PER_TIER).toBe(10);
+    expect(depthsIncomePer10s(0)).toBe(0);
+    expect(depthsIncomePer10s(4)).toBe(0);
+    expect(depthsIncomePer10s(5)).toBe(10);
+    expect(depthsIncomePer10s(9)).toBe(10);
+    expect(depthsIncomePer10s(23)).toBe(40);
   });
 });

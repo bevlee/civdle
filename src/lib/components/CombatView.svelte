@@ -1,8 +1,20 @@
 <script lang="ts">
-  import { ENEMY_ARCHETYPES, GACHA_COST, PACK_COST, PARTY_SIZE, UNITS } from "$lib/combatData";
-  import type { Fighter, Hit } from "$lib/combatEngine";
+  import {
+    DEPTHS_TIER_SIZE,
+    DEPTHS_SPOILS_PER_TIER,
+    ENEMY_ARCHETYPES,
+    GACHA_COST,
+    MAX_ENEMY_LEVEL,
+    PACK_COST,
+    PARTY_SIZE,
+    UNITS,
+    isBossLevel,
+  } from "$lib/combatData";
+  import type { BattleMode, Fighter, Hit } from "$lib/combatEngine";
   import { activeSynergies, TRAIT_SYNERGIES } from "$lib/traits";
-  import type { CivdleGame } from "$lib/gameState.svelte";
+  import type { CivdleGame, SpoilsGainEventData } from "$lib/gameState.svelte";
+  import type { QueuedEvent } from "$lib/eventQueue.svelte";
+  import FloatingText from "./FloatingText.svelte";
   import { Button } from "$lib/components/ui/button";
   import UnitCard from "./UnitCard.svelte";
   import type { Pose } from "./Sprite.svelte";
@@ -12,13 +24,24 @@
   import CardDetailModal from "./CardDetailModal.svelte";
   import { cn } from "$lib/utils";
 
-  let { game }: { game: CivdleGame } = $props();
+  let { game, mode }: { game: CivdleGame; mode: BattleMode } = $props();
 
   let gacha = $derived(game.state.gacha);
-  let battle = $derived(gacha.battle);
+  // Only one battle runs at a time; the arena shows in the tab that started it.
+  let battle = $derived(gacha.battleMode === mode ? gacha.battle : null);
+  let otherBattleActive = $derived(gacha.battle !== null && gacha.battleMode !== mode);
   let isPlaying = $derived(battle?.status === "playing");
   let battleDone = $derived(battle !== null && battle.status !== "playing");
+  let anyPlaying = $derived(game.inBattle);
   let partyCards = $derived(game.partyCards);
+  let encounter = $derived(mode === "story" ? gacha.encounter : gacha.depths.encounter);
+  let storyBoss = $derived(mode === "story" && isBossLevel(gacha.storyLevel));
+  let depthsCleared = $derived(game.depthsCleared);
+  let depthsIncome = $derived(game.depthsIncome);
+  let nextTierAt = $derived((Math.floor(depthsCleared / DEPTHS_TIER_SIZE) + 1) * DEPTHS_TIER_SIZE);
+  let canFight = $derived(
+    !anyPlaying && !battle && !otherBattleActive && partyCards.length > 0 && !(mode === "story" && game.storyComplete),
+  );
   let partyIds = $derived(new Set(gacha.party.filter((id): id is string => id !== null)));
   let partySlots = $derived(gacha.party.map((id) => (id ? gacha.cards.find((c) => c.id === id) ?? null : null)));
   let synergies = $derived(activeSynergies(partyCards));
@@ -26,6 +49,10 @@
   let playerFighters = $derived(battle?.fighters.filter((f) => !f.isEnemy) ?? []);
   let enemyFighters = $derived(battle?.fighters.filter((f) => f.isEnemy) ?? []);
   let recentLog = $derived(battle?.log.slice(-8) ?? []);
+
+  let spoilsEvents = $derived(
+    game.events.filter((e): e is QueuedEvent<SpoilsGainEventData> => e.type === "spoilsGain"),
+  );
 
   let selectedCardId = $state<string | null>(null);
   let selectedCard = $derived(selectedCardId ? gacha.cards.find((c) => c.id === selectedCardId) ?? null : null);
@@ -41,7 +68,7 @@
   let popupCounter = 0;
 
   $effect(() => {
-    const b = game.state.gacha.battle;
+    const b = game.state.gacha.battleMode === mode ? game.state.gacha.battle : null;
     if (!b || !b.lastAction || b.turn === lastSeenTurn) {
       if (!b) lastSeenTurn = -1;
       return;
@@ -94,6 +121,47 @@
     return "idle";
   }
 
+  // ----- Drag and drop between party slots and the army inventory -----
+  let draggingId = $state<string | null>(null);
+  let dragOverSlot = $state<number | null>(null);
+  let dragOverInventory = $state(false);
+  let draggingFromParty = $derived(draggingId !== null && partyIds.has(draggingId));
+
+  function startDrag(e: DragEvent, cardId: string) {
+    if (anyPlaying || !e.dataTransfer) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData("text/plain", cardId);
+    e.dataTransfer.effectAllowed = "move";
+    draggingId = cardId;
+  }
+
+  function endDrag() {
+    draggingId = null;
+    dragOverSlot = null;
+    dragOverInventory = false;
+  }
+
+  function slotDragOver(e: DragEvent, slot: number) {
+    if (draggingId === null || anyPlaying) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    dragOverSlot = slot;
+  }
+
+  function slotDrop(e: DragEvent, slot: number) {
+    e.preventDefault();
+    const id = draggingId ?? e.dataTransfer?.getData("text/plain");
+    if (id) game.assignCardToParty(id, slot);
+    endDrag();
+  }
+
+  function inventoryDrop(cardId: string) {
+    game.removeCardFromParty(cardId);
+    endDrag();
+  }
+
   function handleMerge(partnerId: string) {
     if (!selectedCardId) return;
     game.mergeCards(selectedCardId, partnerId);
@@ -113,32 +181,73 @@
 <div class="flex flex-col gap-3">
   <!-- Header -->
   <div class="flex flex-wrap items-center justify-between gap-2">
-    <div class="flex items-center gap-1.5" title="War Spoils — earned by winning battles, spent on summons">
+    <div class="relative flex items-center gap-1.5" title="War Spoils — earned in the Main Story and from The Depths, spent on summons">
       <span class="text-lg">⚔</span>
       <span class="text-sm font-bold tabular-nums">{gacha.gold}</span>
       <span class="text-xs text-muted-foreground">War Spoils</span>
+      {#each spoilsEvents as event (event.id)}
+        <FloatingText
+          id={event.id}
+          text={`+${event.data.amount} ⚔`}
+          class="text-xs text-emerald-400"
+          duration={900}
+          onDone={(id) => game.dismissEvent(id)}
+        />
+      {/each}
     </div>
 
-    <div class="flex items-center gap-1">
-      <button
-        class="rounded px-1.5 py-0.5 text-xs hover:bg-accent disabled:opacity-30"
-        disabled={isPlaying || gacha.enemyLevel <= 1}
-        onclick={() => game.setEnemyLevel(gacha.enemyLevel - 1)}
-      >◄</button>
-      <span class="min-w-[6rem] text-center text-sm font-medium">
-        Level {gacha.enemyLevel}/{gacha.maxEnemyLevel}
-      </span>
-      <button
-        class="rounded px-1.5 py-0.5 text-xs hover:bg-accent disabled:opacity-30"
-        disabled={isPlaying || gacha.enemyLevel >= gacha.maxEnemyLevel}
-        onclick={() => game.setEnemyLevel(gacha.enemyLevel + 1)}
-      >►</button>
-    </div>
-
-    <Button size="sm" disabled={isPlaying || battleDone || partyCards.length === 0} onclick={() => game.startFight()}>
-      ⚔ Fight
-    </Button>
+    {#if mode === "story"}
+      <div class="flex items-center gap-2 text-sm">
+        {#if game.storyComplete}
+          <span class="font-medium text-yellow-300">Story complete — all {MAX_ENEMY_LEVEL} levels cleared</span>
+        {:else}
+          <span class="font-medium">Level {gacha.storyLevel}<span class="text-muted-foreground">/{MAX_ENEMY_LEVEL}</span></span>
+          {#if storyBoss}
+            <span class="rounded bg-red-500/25 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-red-300">BOSS</span>
+          {/if}
+          <span class="text-xs text-muted-foreground">Reward: +{gacha.storyLevel} ⚔</span>
+        {/if}
+      </div>
+      <Button size="sm" disabled={!canFight} onclick={() => game.startStoryFight()}>
+        ⚔ Fight
+      </Button>
+    {:else}
+      <div class="flex items-center gap-2 text-sm">
+        <span class="font-medium">Depth {gacha.depths.level}</span>
+        <span
+          class="text-xs text-muted-foreground"
+          title={`Every ${DEPTHS_TIER_SIZE} depths cleared pays +${DEPTHS_SPOILS_PER_TIER} War Spoils every 10 seconds`}
+        >
+          {#if depthsIncome > 0}
+            +{depthsIncome} ⚔ / 10s
+          {:else}
+            No income yet
+          {/if}
+          · next tier at depth {nextTierAt}
+        </span>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="flex cursor-pointer items-center gap-1.5 text-xs select-none">
+          <input
+            type="checkbox"
+            checked={gacha.depths.auto}
+            disabled={otherBattleActive || partyCards.length === 0}
+            onchange={(e) => game.setDepthsAuto((e.currentTarget as HTMLInputElement).checked)}
+          />
+          Auto
+        </label>
+        <Button size="sm" disabled={!canFight} onclick={() => game.startDepthsFight()}>
+          ⚔ Descend
+        </Button>
+      </div>
+    {/if}
   </div>
+
+  {#if otherBattleActive}
+    <p class="rounded-md border border-border/60 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
+      A {gacha.battleMode === "story" ? "Main Story" : "Depths"} battle is in progress in the other tab.
+    </p>
+  {/if}
 
   <!-- Arena -->
   {#if battle}
@@ -180,12 +289,17 @@
 
         <div class="flex flex-col items-end gap-1">
           <div class="flex flex-wrap justify-end gap-1">
-            {#if gacha.encounter}
+            {#if encounter}
               <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300">
-                {ENEMY_ARCHETYPES[gacha.encounter.archetype].name}
+                {ENEMY_ARCHETYPES[encounter.archetype].name}
               </span>
+              {#if encounter.statMult && encounter.statMult > 1.005}
+                <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300">
+                  +{Math.round((encounter.statMult - 1) * 100)}% stats
+                </span>
+              {/if}
             {/if}
-            {#each activeSynergies(gacha.encounter?.cards ?? []).filter((s) => s.tier > 0) as s (s.trait)}
+            {#each activeSynergies(encounter?.cards ?? []).filter((s) => s.tier > 0) as s (s.trait)}
               <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300" title={TRAIT_SYNERGIES[s.trait].tiers[s.tier - 1]}>
                 {TRAIT_SYNERGIES[s.trait].name} {s.count}
               </span>
@@ -194,6 +308,9 @@
           <div class="flex flex-wrap justify-end gap-2">
             {#each enemyFighters as f (f.id)}
               <div class={cn("relative", fighterClass(f))}>
+                {#if encounter?.bossId === f.id}
+                  <span class="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1.5 text-[9px] font-black tracking-wider text-white shadow">BOSS</span>
+                {/if}
                 <UnitCard unitId={f.unitId} stars={f.stars} size="sm" hp={f.hp} maxHp={f.maxHp} pose={fighterPose(f)} animate={isPlaying} />
                 {#each popups.filter((p) => p.targetId === f.id) as p (p.id)}
                   <DamagePopup id={p.id} hit={p.hit} heal={p.heal} isUltimate={p.isUltimate} onDone={removePopup} />
@@ -222,22 +339,33 @@
 
       {#if battleDone}
         <div class="mt-2 flex items-center justify-between">
-          {#if battle.status === "won"}
-            <span class="text-sm font-semibold text-green-400">Victory! +{gacha.enemyLevel} War Spoils</span>
+          {#if battle.status === "won" && mode === "story"}
+            <span class="text-sm font-semibold text-green-400">
+              {storyBoss ? "Boss defeated!" : "Victory!"} +{gacha.storyLevel} War Spoils
+            </span>
+          {:else if battle.status === "won"}
+            <span class="text-sm font-semibold text-green-400">
+              Depth {gacha.depths.level} cleared{(gacha.depths.level) % DEPTHS_TIER_SIZE === 0 ? ` — income rises to +${depthsIncome + DEPTHS_SPOILS_PER_TIER} ⚔ / 10s` : ""}
+            </span>
           {:else}
             <span class="text-sm font-semibold text-red-400">Defeated — the same army awaits. Change your composition.</span>
           {/if}
-          <Button size="sm" variant="outline" onclick={() => game.dismissBattle()}>Continue</Button>
+          <span class="text-xs text-muted-foreground">Continuing…</span>
         </div>
       {/if}
     </div>
-  {:else if gacha.encounter}
+  {:else if encounter}
     <EncounterPanel
-      encounter={gacha.encounter}
+      {encounter}
       {partyCards}
+      {mode}
       tutorialSeen={gacha.tutorialSeen}
       onDismissTutorial={() => game.markTutorialSeen()}
     />
+  {:else if mode === "story" && game.storyComplete}
+    <div class="rounded-lg border border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+      You have conquered the Main Story. The Depths await.
+    </div>
   {/if}
 
   <!-- Party -->
@@ -260,21 +388,44 @@
     </div>
     <div class="flex gap-2">
       {#each partySlots as card, i (i)}
-        {#if card}
-          <button
-            class="rounded-lg transition-transform hover:scale-105 disabled:cursor-not-allowed"
-            disabled={isPlaying}
-            onclick={() => (selectedCardId = card.id)}
-            title="Click for details"
-          >
-            <UnitCard unitId={card.unitId} stars={card.stars} size="sm" showTraits />
-          </button>
-        {:else}
-          <div class="flex w-24 flex-col items-center justify-center rounded-lg border border-dashed border-border/60 py-6 text-xs text-muted-foreground/60">
-            <span class="text-lg">+</span>
-            <span>Slot {i + 1}</span>
-          </div>
-        {/if}
+        {@const isOver = dragOverSlot === i && draggingId !== null && draggingId !== card?.id}
+        <div
+          role="group"
+          aria-label={`Party slot ${i + 1}`}
+          class={cn("rounded-lg transition-shadow", isOver && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+          ondragover={(e) => slotDragOver(e, i)}
+          ondragenter={(e) => slotDragOver(e, i)}
+          ondragleave={() => (dragOverSlot === i ? (dragOverSlot = null) : null)}
+          ondrop={(e) => slotDrop(e, i)}
+        >
+          {#if card}
+            <button
+              class={cn(
+                "rounded-lg transition-transform hover:scale-105 disabled:cursor-not-allowed",
+                !anyPlaying && "cursor-grab active:cursor-grabbing",
+                draggingId === card.id && "opacity-40",
+              )}
+              disabled={anyPlaying}
+              draggable={!anyPlaying}
+              ondragstart={(e) => startDrag(e, card.id)}
+              ondragend={endDrag}
+              onclick={() => (selectedCardId = card.id)}
+              title="Click for details, drag to move"
+            >
+              <UnitCard unitId={card.unitId} stars={card.stars} size="sm" showTraits />
+            </button>
+          {:else}
+            <div
+              class={cn(
+                "flex w-24 flex-col items-center justify-center rounded-lg border border-dashed py-6 text-xs",
+                isOver ? "border-primary bg-primary/10 text-primary" : "border-border/60 text-muted-foreground/60",
+              )}
+            >
+              <span class="text-lg">+</span>
+              <span>{isOver ? "Drop here" : `Slot ${i + 1}`}</span>
+            </div>
+          {/if}
+        </div>
       {/each}
     </div>
   </div>
@@ -285,7 +436,14 @@
     gold={gacha.gold}
     rollCost={GACHA_COST}
     packCost={PACK_COST}
-    locked={isPlaying}
+    locked={anyPlaying}
+    {draggingId}
+    dropActive={draggingFromParty}
+    dragOver={dragOverInventory}
+    onDragStart={startDrag}
+    onDragEnd={endDrag}
+    onDragOverChange={(over) => (dragOverInventory = over)}
+    onDrop={inventoryDrop}
     onSelect={(id) => (selectedCardId = id)}
     onSummon={() => game.rollCard()}
     onOpenPack={() => game.rollPack()}
@@ -298,7 +456,7 @@
     inParty={partyIds.has(selectedCard.id)}
     partyFull={partyIds.size >= PARTY_SIZE}
     mergePartners={game.mergePartnersFor(selectedCard.id)}
-    locked={isPlaying}
+    locked={anyPlaying}
     onAddToParty={() => game.addCardToFirstEmptySlot(selectedCard!.id)}
     onRemoveFromParty={() => game.removeCardFromParty(selectedCard!.id)}
     onMerge={handleMerge}

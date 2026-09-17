@@ -20,6 +20,7 @@
   let skillLevel = $state(10);
   let spAmount = $state(50);
   let goldAmount = $state(100);
+  let depthLevel = $state(1);
   let grantUnit = $state<UnitId>("devil");
   let grantStars = $state(5);
 </script>
@@ -232,17 +233,17 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <label class="text-xs text-muted-foreground">Enemy Lv</label>
+            <label class="text-xs text-muted-foreground">Story Lv</label>
             <select
               class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs"
-              value={game.state.gacha.enemyLevel}
+              value={Math.min(MAX_ENEMY_LEVEL, game.state.gacha.storyLevel)}
               onchange={(e) =>
-                game.debugSetEnemyLevel(
+                game.debugSetStoryLevel(
                   Number((e.target as HTMLSelectElement).value),
                 )}
             >
               {#each Array.from({ length: MAX_ENEMY_LEVEL }, (_, i) => i + 1) as lv (lv)}
-                <option value={lv}>{lv}</option>
+                <option value={lv}>{lv}{lv % 5 === 0 ? " (boss)" : ""}</option>
               {/each}
             </select>
             <Button
@@ -253,6 +254,27 @@
             >
               Reroll enemy
             </Button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-muted-foreground">Depth</label>
+            <input
+              type="number"
+              min="1"
+              bind:value={depthLevel}
+              class="w-16 rounded border border-border bg-muted px-1.5 py-0.5 text-xs tabular-nums"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-6 text-xs"
+              onclick={() => game.debugSetDepthsLevel(depthLevel)}
+            >
+              Set
+            </Button>
+            <span class="text-xs tabular-nums text-muted-foreground">
+              (now {game.state.gacha.depths.level})
+            </span>
           </div>
 
           <div class="flex items-center gap-2">

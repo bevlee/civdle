@@ -2,11 +2,12 @@ node_modules
 
 # Output
 .output
-.vercel
-.netlify
 .wrangler
 /.svelte-kit
 /build
+
+# Claude Code local state
+.claude
 
 # OS
 .DS_Store
