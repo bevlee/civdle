@@ -2,11 +2,13 @@ import { type ResourceId, SKILLS, SKILL_ORDER, type SkillId } from "./gameData";
 import {
   type ApplyActionOutcome,
   type GameState,
+  type GameStats,
   advanceAge,
   applyAction,
   computeActionResult,
   computeUnlocks,
   createInitialState,
+  createInitialStats,
   getAgeAdvanceStatus,
   getAgeBonus,
   getSkillEligibleAgeIndex,
@@ -33,6 +35,8 @@ import {
 } from "./combatData";
 import { movePartyCard } from "./party";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
+import { checkAchievements } from "./achievements";
+import { untrack } from "svelte";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
@@ -55,6 +59,10 @@ export interface StarUpEventData {
   toStars: number;
 }
 
+export interface AchievementEventData {
+  achievementId: string;
+}
+
 function loadFromStorage(): GameState {
   if (typeof window === "undefined") return createInitialState();
   try {
@@ -63,6 +71,8 @@ function loadFromStorage(): GameState {
     const parsed = JSON.parse(raw) as GameState & { combat?: unknown };
     if (!parsed || !parsed.skills) return createInitialState();
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
+    if (!parsed.achievements || typeof parsed.achievements !== "object") parsed.achievements = {};
+    parsed.stats = { ...createInitialStats(), ...(parsed.stats ?? {}) };
 
     const oldGacha = parsed.gacha as (Partial<GachaState> & { heroes?: unknown }) | undefined;
     if (!oldGacha || !Array.isArray(oldGacha.cards)) {
@@ -131,6 +141,7 @@ export class CivdleGame {
   #saveInterval: ReturnType<typeof setInterval> | null = null;
   #battleTimeout: ReturnType<typeof setTimeout> | null = null;
   #handleUnload: (() => void) | null = null;
+  #achievementRoot: (() => void) | null = null;
 
   get levels() {
     return getSkillLevels(this.state);
@@ -169,6 +180,12 @@ export class CivdleGame {
     const elapsedSeconds = (Date.now() - withUnlocks.lastSavedAt) / 1000;
     const offline = processOfflineProgress(withUnlocks, elapsedSeconds);
     let finalState: GameState = { ...offline.state, lastSavedAt: Date.now() };
+    if (offline.actionsProcessed > finalState.stats.bestOfflineHaul) {
+      finalState = {
+        ...finalState,
+        stats: { ...finalState.stats, bestOfflineHaul: offline.actionsProcessed },
+      };
+    }
     if (!finalState.gacha.encounter) {
       finalState = {
         ...finalState,
@@ -191,11 +208,16 @@ export class CivdleGame {
     this.#saveInterval = setInterval(() => saveToStorage(this.state), SAVE_INTERVAL_MS);
     this.#handleUnload = () => saveToStorage(this.state);
     window.addEventListener("beforeunload", this.#handleUnload);
+    this.#startAchievementWatcher();
 
     return () => {
       this.#clearActionLoop();
       this.#clearProgressLoop();
       this.#clearBattleLoop();
+      if (this.#achievementRoot) {
+        this.#achievementRoot();
+        this.#achievementRoot = null;
+      }
 
       if (this.#saveInterval) {
         clearInterval(this.#saveInterval);
@@ -207,6 +229,32 @@ export class CivdleGame {
       }
       saveToStorage(this.state);
     };
+  }
+
+  // ----- Achievements -----
+
+  /**
+   * Re-evaluates achievements whenever any part of the state changes. The
+   * check is pure and returns the same state object when nothing unlocked,
+   * so the (untracked) write below only happens on a real unlock.
+   */
+  #startAchievementWatcher(): void {
+    this.#achievementRoot = $effect.root(() => {
+      $effect(() => {
+        const result = checkAchievements(this.state);
+        if (result.newlyUnlocked.length === 0) return;
+        untrack(() => {
+          this.state = result.state;
+          for (const achievementId of result.newlyUnlocked) {
+            this.eventQueue.emit<AchievementEventData>("achievement", { achievementId });
+          }
+        });
+      });
+    });
+  }
+
+  #bumpStats(patch: Partial<GameStats>): void {
+    this.state = { ...this.state, stats: { ...this.state.stats, ...patch } };
   }
 
   // ----- Action loop -----
@@ -267,7 +315,11 @@ export class CivdleGame {
       }
 
       if (outcome.outOfMaterials) {
-        nextState = { ...nextState, activeSkill: null };
+        nextState = {
+          ...nextState,
+          activeSkill: null,
+          stats: { ...nextState.stats, outOfMaterials: nextState.stats.outOfMaterials + 1 },
+        };
       }
 
       this.state = nextState;
@@ -316,6 +368,14 @@ export class CivdleGame {
       this.state = { ...this.state, gacha: { ...this.state.gacha, battle: next } };
       if (next.status === "playing") {
         this.#scheduleBattleStep(next.lastAction?.kind === "ultimate" ? ULT_STEP_MS : ATTACK_STEP_MS);
+      } else if (next.status === "won") {
+        const stats = this.state.stats;
+        this.#bumpStats({
+          battlesWon: stats.battlesWon + 1,
+          bestWinLevel: Math.max(stats.bestWinLevel, this.state.gacha.enemyLevel),
+        });
+      } else {
+        this.#bumpStats({ battlesLost: this.state.stats.battlesLost + 1 });
       }
     }, delayMs);
   }
@@ -414,6 +474,10 @@ export class CivdleGame {
       gold: this.state.gacha.gold - GACHA_COST,
       cards: [...this.state.gacha.cards, card],
     });
+    this.#bumpStats({
+      cardsSummoned: this.state.stats.cardsSummoned + 1,
+      bestSummonStars: Math.max(this.state.stats.bestSummonStars, card.stars),
+    });
     this.eventQueue.emit<SummonEventData>("summon", { card });
   }
 
@@ -423,6 +487,11 @@ export class CivdleGame {
     this.#setGacha({
       gold: this.state.gacha.gold - PACK_COST,
       cards: [...this.state.gacha.cards, ...cards],
+    });
+    this.#bumpStats({
+      cardsSummoned: this.state.stats.cardsSummoned + cards.length,
+      packsOpened: this.state.stats.packsOpened + 1,
+      bestSummonStars: cards.reduce((best, c) => Math.max(best, c.stars), this.state.stats.bestSummonStars),
     });
     this.eventQueue.emit<SummonPackEventData>("summonPack", { cards });
   }
@@ -455,6 +524,7 @@ export class CivdleGame {
       cards: [...cards.filter((c) => c.id !== aId && c.id !== bId), merged],
       party,
     });
+    this.#bumpStats({ merges: this.state.stats.merges + 1 });
     this.eventQueue.emit<StarUpEventData>("starUp", {
       unitId: merged.unitId,
       fromStars: a.stars,
@@ -493,6 +563,7 @@ export class CivdleGame {
       cards: this.state.gacha.cards.filter((c) => c.id !== cardId),
       party: this.state.gacha.party.map((id) => (id === cardId ? null : id)),
     });
+    this.#bumpStats({ cardsDiscarded: this.state.stats.cardsDiscarded + 1 });
   }
 
   setEnemyLevel(level: number): void {

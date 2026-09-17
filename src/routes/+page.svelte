@@ -10,6 +10,9 @@
   import CombatView from "$lib/components/CombatView.svelte";
   import SkillUnlockModal from "$lib/components/SkillUnlockModal.svelte";
   import AnimationOverlay from "$lib/components/AnimationOverlay.svelte";
+  import AchievementsView from "$lib/components/AchievementsView.svelte";
+  import AchievementToasts from "$lib/components/AchievementToasts.svelte";
+  import { ACHIEVEMENTS } from "$lib/achievements";
   import DebugPanel from "$lib/components/DebugPanel.svelte";
   import { page } from "$app/state";
 
@@ -18,7 +21,8 @@
   let isDebug = $derived(page.url.searchParams.has("debug"));
 
   let selectedSkill = $state<SkillId | null>(null);
-  let centerTab = $state<"train" | "combat">("train");
+  let centerTab = $state<"train" | "combat" | "achievements">("train");
+  let achievementCount = $derived(Object.keys(game.state.achievements).length);
   let rightTab = $state<"inventory" | "shop">("inventory");
 
   onMount(() => {
@@ -133,6 +137,18 @@
           >
             Combat
           </button>
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
+            'achievements'
+              ? 'border-b-2 border-primary text-foreground'
+              : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => (centerTab = "achievements")}
+          >
+            Achievements
+            <span class="ml-1 text-xs tabular-nums text-muted-foreground">
+              {achievementCount}/{ACHIEVEMENTS.length}
+            </span>
+          </button>
         </div>
 
         <div class="flex-1 overflow-y-auto">
@@ -158,6 +174,8 @@
             <div class="p-3">
               <CombatView {game} />
             </div>
+          {:else if centerTab === "achievements"}
+            <AchievementsView state={game.state} levels={game.levels} />
           {/if}
         </div>
       </main>
@@ -215,6 +233,11 @@
   {/if}
 
   <AnimationOverlay
+    events={game.events}
+    onDismiss={(id) => game.dismissEvent(id)}
+  />
+
+  <AchievementToasts
     events={game.events}
     onDismiss={(id) => game.dismissEvent(id)}
   />
