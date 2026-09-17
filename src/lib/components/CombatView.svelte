@@ -251,7 +251,11 @@
 
   <!-- Arena -->
   {#if battle}
-    <div class="relative overflow-hidden rounded-lg border border-border bg-muted/30 p-3">
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div
+      class={cn("relative overflow-hidden rounded-lg border border-border bg-muted/30 p-3", battleDone && !(mode === "depths" && gacha.depths.auto) && "cursor-pointer")}
+      onclick={() => { if (battleDone && !(mode === "depths" && gacha.depths.auto)) game.dismissBattle(); }}
+    >
       {#if ultBanner}
         {#key ultBanner.key}
           <div class="arena-flash pointer-events-none absolute inset-0 bg-orange-300"></div>
@@ -350,7 +354,11 @@
           {:else}
             <span class="text-sm font-semibold text-red-400">Defeated — the same army awaits. Change your composition.</span>
           {/if}
-          <span class="text-xs text-muted-foreground">Continuing…</span>
+          {#if mode === "depths" && gacha.depths.auto}
+            <span class="text-xs text-muted-foreground">Auto: continuing…</span>
+          {:else}
+            <span class="text-xs text-muted-foreground">Click anywhere to continue</span>
+          {/if}
         </div>
       {/if}
     </div>
