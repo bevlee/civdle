@@ -62,8 +62,27 @@
     ),
   );
 
-  function formatAmount(amount: number): string {
-    return Number.isInteger(amount) ? String(amount) : amount.toFixed(1);
+  // Describes an expected (average) amount as the guaranteed whole number plus
+  // the chance of one more, e.g. "1 Wood (+1 at 10%)" or "Clay (30%)".
+  function describeOutput(resource: keyof typeof RESOURCES, expected: number): string {
+    const name = RESOURCES[resource].name;
+    const base = Math.floor(expected + 1e-9);
+    const chance = Math.round((expected - base) * 100);
+    const notes: string[] = [];
+    if (base === 0) {
+      notes.push(`${chance}%`);
+    } else if (chance > 0) {
+      notes.push(`+1 at ${chance}%`);
+    }
+    if (
+      result &&
+      result.doubleChance > 0 &&
+      (result.doubleResources === null || result.doubleResources.includes(resource))
+    ) {
+      notes.push(`×2 at ${Math.round(result.doubleChance * 100)}%`);
+    }
+    const label = base === 0 ? name : `${base} ${name}`;
+    return notes.length > 0 ? `${label} (${notes.join(", ")})` : label;
   }
 
   function formatPct(chance: number): string {
@@ -129,26 +148,18 @@
         <p>
           <span class="text-muted-foreground">Produces: </span>
           {result.outputs
-            .map((o) => `${formatAmount(o.amount)} ${RESOURCES[o.resource].name}`)
+            .map((o) => describeOutput(o.resource, o.amount))
             .join(", ")}
           {#each result.chancedOutputs as bonus (bonus.resource)}
             <span class="text-muted-foreground">
               · {formatPct(bonus.chance)} chance of
             </span>
-            {formatAmount(bonus.amount)} {RESOURCES[bonus.resource].name}
+            {describeOutput(bonus.resource, bonus.amount)}
           {/each}
         </p>
-        {#if result.doubleChance > 0 || result.refundChance > 0}
+        {#if result.refundChance > 0}
           <p class="text-xs text-muted-foreground">
-            {#if result.doubleChance > 0}
-              {formatPct(result.doubleChance)} chance to double output
-            {/if}
-            {#if result.doubleChance > 0 && result.refundChance > 0}
-              ·
-            {/if}
-            {#if result.refundChance > 0}
-              {formatPct(result.refundChance)} chance to keep materials
-            {/if}
+            {formatPct(result.refundChance)} chance to keep materials
           </p>
         {/if}
         <Tooltip.Provider>
