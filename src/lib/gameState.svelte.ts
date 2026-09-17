@@ -55,6 +55,9 @@ function loadFromStorage(): GameState {
     if (!parsed.gacha.heroes || parsed.gacha.heroes.length === 0) {
       parsed.gacha = createInitialGachaState();
     }
+    // A persisted battle can be stuck "playing" (e.g. saved by an older build),
+    // which would disable every combat button forever.
+    parsed.gacha.battle = null;
 
     for (const id of SKILL_ORDER) {
       if (!parsed.skills[id]) {
@@ -146,10 +149,6 @@ export class CivdleGame {
     if (this.state.activeSkill) {
       this.#startActionLoop();
       this.#startProgressLoop();
-    }
-
-    if (this.state.gacha.battle?.status === "playing") {
-      this.#startCombatLoop();
     }
 
     this.#saveInterval = setInterval(() => saveToStorage(this.state), SAVE_INTERVAL_MS);
