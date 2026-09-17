@@ -5,11 +5,15 @@ import type {
   Recipe,
   ResourceId,
   SkillId,
+  SkillUpgrade,
 } from "./gameData";
 import {
   AGES,
   AGE_ADVANCE_COSTS,
   BASE_ACTION_TIME,
+  DEBUG_GLOBAL_UPGRADES,
+  GLOBAL_UPGRADES,
+  LEGACY_UPGRADE_SLOTS,
   MAX_LEVEL,
   SKILLS,
   SKILL_ORDER,
@@ -186,74 +190,130 @@ export function advanceAge(state: GameState, skillLevels: Record<SkillId, number
 
 // ---------- Upgrade effects ----------
 
-interface ActionEffects {
-  flatTimeReduction: number;
-  outputBonuses: Partial<Record<ResourceId, number>>;
-  clayLevelOverride?: number;
-  oreDoubleChance: number;
+// One line of a hover breakdown: which buff, and what it did ("-0.2s", "×2").
+export interface Modifier {
+  source: string;
+  effect: string;
 }
 
-function getActionEffects(skillId: SkillId, owned: string[]): ActionEffects {
-  const has = (id: string) => owned.includes(id);
-  const effects: ActionEffects = { flatTimeReduction: 0, outputBonuses: {}, oreDoubleChance: 0 };
+interface ActionEffects {
+  flatTimeReduction: number;
+  timeMult: number;
+  // Debug cheats multiply after the 0.2s floor so they stay 100x fast.
+  postFloorTimeMult: number;
+  outputBonuses: Partial<Record<ResourceId, number>>;
+  primaryOutputBonus: number;
+  outputMult: number;
+  doubleChance: number;
+  doubleResources: ResourceId[] | null;
+  refundChance: number;
+  xpMult: number;
+  byproducts: ChancedOutput[];
+  outputLevelOverrides: Partial<Record<ResourceId, number>>;
+  timeModifiers: Modifier[];
+  xpModifiers: Modifier[];
+}
 
-  switch (skillId) {
-    case "foraging":
-      if (has("keenEye")) effects.outputBonuses.food = (effects.outputBonuses.food ?? 0) + 1;
-      if (has("quickHands")) effects.flatTimeReduction += 0.2;
-      if (has("expertForager")) {
-        effects.outputBonuses.plantFibres = (effects.outputBonuses.plantFibres ?? 0) + 1;
-        effects.clayLevelOverride = 1;
+function formatMult(mult: number): string {
+  return `×${Number(mult.toFixed(2))}`;
+}
+
+function formatSeconds(seconds: number): string {
+  return `-${Number(seconds.toFixed(2))}s`;
+}
+
+function findUpgrade(skillId: SkillId, id: string): SkillUpgrade | undefined {
+  return SKILLS[skillId].upgrades.find((u) => u.id === id);
+}
+
+function findGlobalUpgrade(id: string): SkillUpgrade | undefined {
+  return GLOBAL_UPGRADES.find((u) => u.id === id) ?? DEBUG_GLOBAL_UPGRADES.find((u) => u.id === id);
+}
+
+function foldUpgrade(effects: ActionEffects, upgrade: SkillUpgrade, isDebug = false): void {
+  for (const e of upgrade.effects) {
+    switch (e.type) {
+      case "flatTime":
+        effects.flatTimeReduction += e.seconds;
+        effects.timeModifiers.push({ source: upgrade.name, effect: formatSeconds(e.seconds) });
+        break;
+      case "timeMult":
+        if (isDebug) effects.postFloorTimeMult *= e.mult;
+        else effects.timeMult *= e.mult;
+        effects.timeModifiers.push({ source: upgrade.name, effect: formatMult(e.mult) });
+        break;
+      case "flatOutput":
+        effects.outputBonuses[e.resource] = (effects.outputBonuses[e.resource] ?? 0) + e.amount;
+        break;
+      case "flatPrimaryOutput":
+        effects.primaryOutputBonus += e.amount;
+        break;
+      case "outputMult":
+        effects.outputMult *= e.mult;
+        break;
+      case "doubleChance":
+        // Chances don't stack multiplicatively; the best one wins.
+        if (e.chance > effects.doubleChance) {
+          effects.doubleChance = e.chance;
+          effects.doubleResources = e.resources ?? null;
+        }
+        break;
+      case "refundChance":
+        effects.refundChance = Math.max(effects.refundChance, e.chance);
+        break;
+      case "xpMult":
+        effects.xpMult *= e.mult;
+        effects.xpModifiers.push({ source: upgrade.name, effect: formatMult(e.mult) });
+        break;
+      case "byproduct":
+        effects.byproducts.push({ resource: e.resource, amount: e.amount, chance: e.chance ?? 1 });
+        break;
+      case "outputLevel": {
+        const current = effects.outputLevelOverrides[e.resource];
+        effects.outputLevelOverrides[e.resource] = current === undefined ? e.level : Math.min(current, e.level);
+        break;
       }
-      break;
-    case "woodcutting":
-      if (has("sharpAxe")) effects.outputBonuses.wood = (effects.outputBonuses.wood ?? 0) + 1;
-      if (has("efficientLogging")) effects.flatTimeReduction += 0.2;
-      if (has("timberExpert")) effects.outputBonuses.wood = (effects.outputBonuses.wood ?? 0) + 2;
-      break;
-    case "mining":
-      if (has("betterPick")) {
-        effects.outputBonuses.stone = (effects.outputBonuses.stone ?? 0) + 1;
-        effects.outputBonuses.copperOre = (effects.outputBonuses.copperOre ?? 0) + 1;
-        effects.outputBonuses.ironOre = (effects.outputBonuses.ironOre ?? 0) + 1;
-        effects.outputBonuses.coal = (effects.outputBonuses.coal ?? 0) + 1;
-      }
-      if (has("deepMining")) effects.flatTimeReduction += 0.2;
-      if (has("oreSense")) effects.oreDoubleChance = 0.25;
-      break;
-    case "fishing":
-      if (has("betterBait")) effects.outputBonuses.rawFish = (effects.outputBonuses.rawFish ?? 0) + 1;
-      if (has("netFishing")) effects.flatTimeReduction += 0.2;
-      if (has("masterFisher")) effects.outputBonuses.rawFish = (effects.outputBonuses.rawFish ?? 0) + 2;
-      break;
-    case "hunting":
-      if (has("keenHunter")) effects.outputBonuses.rawHides = (effects.outputBonuses.rawHides ?? 0) + 1;
-      if (has("swiftHunt")) effects.flatTimeReduction += 0.2;
-      if (has("masterHunter")) effects.outputBonuses.food = (effects.outputBonuses.food ?? 0) + 1;
-      break;
-    case "farming":
-      if (has("greenThumb")) effects.outputBonuses.grain = (effects.outputBonuses.grain ?? 0) + 1;
-      if (has("irrigation")) effects.flatTimeReduction += 0.2;
-      if (has("masterFarmer")) effects.outputBonuses.vegetables = (effects.outputBonuses.vegetables ?? 0) + 1;
-      break;
-    case "herding":
-      if (has("gentleHand")) effects.outputBonuses.wool = (effects.outputBonuses.wool ?? 0) + 1;
-      if (has("swiftShepherd")) effects.flatTimeReduction += 0.2;
-      if (has("masterHerder")) effects.outputBonuses.milk = (effects.outputBonuses.milk ?? 0) + 1;
-      break;
-    case "crafting":
-    case "pottery":
-    case "leatherworking":
-    case "cooking":
-    case "smithing":
-    case "weaving":
-    case "carpentry":
-    case "brewing":
-    case "construction":
-      if (has("efficiency")) effects.flatTimeReduction += 0.2;
-      if (has("mastery")) effects.flatTimeReduction += 0.4;
-      break;
+    }
   }
+}
+
+// Folds every owned skill upgrade, then the age bonus, then every owned global
+// upgrade, so the modifier lists read in the order the multipliers apply.
+function getActionEffects(skillId: SkillId, owned: string[], ageIndex: number, globalUpgrades: string[]): ActionEffects {
+  const effects: ActionEffects = {
+    flatTimeReduction: 0,
+    timeMult: 1,
+    postFloorTimeMult: 1,
+    outputBonuses: {},
+    primaryOutputBonus: 0,
+    outputMult: 1,
+    doubleChance: 0,
+    doubleResources: null,
+    refundChance: 0,
+    xpMult: 1,
+    byproducts: [],
+    outputLevelOverrides: {},
+    timeModifiers: [],
+    xpModifiers: [],
+  };
+
+  for (const id of owned) {
+    const upgrade = findUpgrade(skillId, id);
+    if (upgrade) foldUpgrade(effects, upgrade);
+  }
+
+  const ageBonus = getAgeBonus(ageIndex);
+  effects.timeMult *= ageBonus.timeMult;
+  effects.outputMult *= ageBonus.outputMult;
+  if (ageIndex > 0) {
+    effects.timeModifiers.push({ source: AGES[ageIndex].name, effect: formatMult(ageBonus.timeMult) });
+  }
+
+  for (const id of globalUpgrades) {
+    const upgrade = findGlobalUpgrade(id);
+    if (upgrade) foldUpgrade(effects, upgrade, DEBUG_GLOBAL_UPGRADES.includes(upgrade));
+  }
+
   return effects;
 }
 
@@ -267,12 +327,13 @@ function resolveOutputs(
   outputs: ConditionalOutput[],
   level: number,
   ageIndex: number,
-  clayLevelOverride: number | undefined
+  levelOverrides: Partial<Record<ResourceId, number>>
 ): ResourceAmount[] {
   return outputs
     .filter((o) => {
+      const override = levelOverrides[o.resource];
       const effectiveLevelRequired =
-        o.resource === "clay" && clayLevelOverride !== undefined ? clayLevelOverride : o.levelRequired;
+        override !== undefined && o.levelRequired !== undefined ? Math.min(override, o.levelRequired) : o.levelRequired;
       if (effectiveLevelRequired !== undefined && level < effectiveLevelRequired) return false;
       if (o.ageRequired !== undefined && ageIndex < AGES.findIndex((a) => a.id === o.ageRequired)) return false;
       return true;
@@ -285,15 +346,33 @@ interface ResourceAmount {
   amount: number;
 }
 
+export interface ChancedOutput extends ResourceAmount {
+  chance: number;
+}
+
 export interface ActionResult {
   time: number;
+  baseTime: number;
+  timeModifiers: Modifier[];
+  xp: number;
+  baseXp: number;
+  xpModifiers: Modifier[];
+  // Guaranteed outputs (already scaled by every multiplier).
   outputs: ResourceAmount[];
+  // Extra outputs that each land with their own probability.
+  chancedOutputs: ChancedOutput[];
+  // Chance that every output (or just `doubleResources`) is doubled this action.
+  doubleChance: number;
+  doubleResources: ResourceId[] | null;
+  // Chance the recipe's inputs are not consumed.
+  refundChance: number;
   inputs: ResourceAmount[];
   recipe: Recipe;
 }
 
-// Computes the timing/outputs/inputs for one action of a skill's currently
-// selected recipe, given the skill's level, owned upgrades, and current age.
+// Computes the timing/outputs/inputs/XP for one action of a skill's currently
+// selected recipe. Pure and deterministic: chance-based effects are reported
+// as chances here and rolled in applyAction.
 export function computeActionResult(
   skillId: SkillId,
   level: number,
@@ -306,32 +385,78 @@ export function computeActionResult(
   const recipe = def.recipes.find((r) => r.id === selectedRecipeId) ?? def.recipes[0];
   if (recipe.requiredLevel > level) return null;
 
-  const effects = getActionEffects(skillId, owned);
-  const ageBonus = getAgeBonus(ageIndex);
+  const effects = getActionEffects(skillId, owned, ageIndex, globalUpgrades);
 
-  const speedMult = globalUpgrades.includes("debugSpeed") ? 0.01 : 1;
-  const time = Math.max(0.2, (BASE_ACTION_TIME - effects.flatTimeReduction) * ageBonus.timeMult) * speedMult;
+  const time = Math.max(0.2, (BASE_ACTION_TIME - effects.flatTimeReduction) * effects.timeMult) * effects.postFloorTimeMult;
+  const xp = Math.round(XP_PER_ACTION * effects.xpMult);
 
-  let outputs = resolveOutputs(recipe.outputs, level, ageIndex, effects.clayLevelOverride);
-  outputs = outputs.map((o) => {
+  const outputs = resolveOutputs(recipe.outputs, level, ageIndex, effects.outputLevelOverrides).map((o, i) => {
     let amount = o.amount + (effects.outputBonuses[o.resource] ?? 0);
-    const isOre = o.resource === "copperOre" || o.resource === "ironOre" || o.resource === "coal";
-    if (isOre && effects.oreDoubleChance > 0 && Math.random() < effects.oreDoubleChance) {
-      amount *= 2;
-    }
-    amount *= ageBonus.outputMult;
-    return { resource: o.resource, amount };
+    if (i === 0) amount += effects.primaryOutputBonus;
+    return { resource: o.resource, amount: amount * effects.outputMult };
   });
 
-  if (recipe.inputs.length > 0 && owned.includes("betterRecipes") && outputs.length > 0) {
-    outputs = outputs.map((o, i) => (i === 0 ? { ...o, amount: o.amount + 1 * ageBonus.outputMult } : o));
+  const chancedOutputs: ChancedOutput[] = [];
+  for (const b of effects.byproducts) {
+    const scaled = b.amount * effects.outputMult;
+    if (b.chance >= 1) {
+      const existing = outputs.find((o) => o.resource === b.resource);
+      if (existing) existing.amount += scaled;
+      else outputs.push({ resource: b.resource, amount: scaled });
+    } else {
+      chancedOutputs.push({ resource: b.resource, amount: scaled, chance: b.chance });
+    }
   }
 
-  return { time, outputs, inputs: recipe.inputs, recipe };
+  return {
+    time,
+    baseTime: BASE_ACTION_TIME,
+    timeModifiers: effects.timeModifiers,
+    xp,
+    baseXp: XP_PER_ACTION,
+    xpModifiers: effects.xpModifiers,
+    outputs,
+    chancedOutputs,
+    doubleChance: effects.doubleChance,
+    doubleResources: effects.doubleResources,
+    refundChance: effects.refundChance,
+    inputs: recipe.inputs,
+    recipe,
+  };
 }
 
 export function canAffordInputs(resources: Partial<Record<ResourceId, number>>, inputs: ResourceAmount[]): boolean {
   return inputs.every((i) => (resources[i.resource] ?? 0) >= i.amount);
+}
+
+// ---------- Global (mastery) upgrades ----------
+
+export function hasMaxedSkill(state: GameState): boolean {
+  return SKILL_ORDER.some((id) => levelForXp(state.skills[id]?.xp ?? 0) >= MAX_LEVEL);
+}
+
+export function canBuyGlobalUpgrade(state: GameState, upgradeId: string): boolean {
+  if (state.globalUpgrades.includes(upgradeId)) return false;
+  if (DEBUG_GLOBAL_UPGRADES.some((u) => u.id === upgradeId)) return true;
+  const upgrade = GLOBAL_UPGRADES.find((u) => u.id === upgradeId);
+  if (!upgrade) return false;
+  return hasMaxedSkill(state) && state.skillPoints >= upgrade.cost;
+}
+
+// Maps a saved upgrade list onto the current upgrade ids for a skill, dropping
+// anything unknown and de-duplicating.
+export function migrateUpgradeIds(skillId: SkillId, saved: string[]): string[] {
+  const defs = SKILLS[skillId].upgrades;
+  const out: string[] = [];
+  for (const id of saved) {
+    let resolved: string | undefined = defs.some((u) => u.id === id) ? id : undefined;
+    if (!resolved) {
+      const slot = LEGACY_UPGRADE_SLOTS[id];
+      if (slot !== undefined && defs[slot]) resolved = defs[slot].id;
+    }
+    if (resolved && !out.includes(resolved)) out.push(resolved);
+  }
+  return out;
 }
 
 // ---------- Applying a single action ----------
@@ -343,7 +468,7 @@ export interface ApplyActionOutcome {
   outOfMaterials: boolean;
 }
 
-export function applyAction(state: GameState, skillId: SkillId): ApplyActionOutcome {
+export function applyAction(state: GameState, skillId: SkillId, rng: () => number = Math.random): ApplyActionOutcome {
   const levels = getSkillLevels(state);
   const level = levels[skillId];
   const ageIndex = state.ageIndex;
@@ -359,16 +484,28 @@ export function applyAction(state: GameState, skillId: SkillId): ApplyActionOutc
   }
 
   const resources = { ...state.resources };
-  for (const input of result.inputs) {
-    resources[input.resource] = (resources[input.resource] ?? 0) - input.amount;
+  const refunded = result.refundChance > 0 && rng() < result.refundChance;
+  if (!refunded) {
+    for (const input of result.inputs) {
+      resources[input.resource] = (resources[input.resource] ?? 0) - input.amount;
+    }
   }
+
+  const doubled = result.doubleChance > 0 && rng() < result.doubleChance;
   for (const output of result.outputs) {
-    resources[output.resource] = (resources[output.resource] ?? 0) + output.amount;
+    const isDoubled =
+      doubled && (result.doubleResources === null || result.doubleResources.includes(output.resource));
+    resources[output.resource] = (resources[output.resource] ?? 0) + output.amount * (isDoubled ? 2 : 1);
+  }
+  for (const bonus of result.chancedOutputs) {
+    if (rng() < bonus.chance) {
+      resources[bonus.resource] = (resources[bonus.resource] ?? 0) + bonus.amount;
+    }
   }
 
   const oldXp = skillState.xp;
   const oldLevel = level;
-  const newXp = oldXp + XP_PER_ACTION;
+  const newXp = oldXp + result.xp;
   const newLevel = levelForXp(newXp);
   const levelsGained = Math.max(0, newLevel - oldLevel);
 
