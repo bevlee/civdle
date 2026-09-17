@@ -50,6 +50,37 @@ export function levelForXp(xp: number): number {
 
 // ---------- Game state ----------
 
+/** Counters that a state snapshot alone can't reconstruct; used by achievements. */
+export interface GameStats {
+  actions: number;
+  outOfMaterials: number;
+  battlesWon: number;
+  battlesLost: number;
+  bestWinLevel: number;
+  cardsSummoned: number;
+  packsOpened: number;
+  bestSummonStars: number;
+  merges: number;
+  cardsDiscarded: number;
+  bestOfflineHaul: number;
+}
+
+export function createInitialStats(): GameStats {
+  return {
+    actions: 0,
+    outOfMaterials: 0,
+    battlesWon: 0,
+    battlesLost: 0,
+    bestWinLevel: 0,
+    cardsSummoned: 0,
+    packsOpened: 0,
+    bestSummonStars: 0,
+    merges: 0,
+    cardsDiscarded: 0,
+    bestOfflineHaul: 0,
+  };
+}
+
 export interface SkillState {
   xp: number;
   unlocked: boolean;
@@ -66,6 +97,9 @@ export interface GameState {
   globalUpgrades: string[];
   gacha: GachaState;
   ageIndex: number;
+  /** Unlocked achievement ids mapped to their unlock timestamp (ms). */
+  achievements: Record<string, number>;
+  stats: GameStats;
 }
 
 export function createInitialState(): GameState {
@@ -88,6 +122,8 @@ export function createInitialState(): GameState {
     globalUpgrades: [],
     gacha: createInitialGachaState(),
     ageIndex: 0,
+    achievements: {},
+    stats: createInitialStats(),
   };
 }
 
@@ -419,6 +455,7 @@ export function applyAction(
     resources,
     skills: { ...state.skills, [skillId]: { ...skillState, xp: newXp } },
     skillPoints: state.skillPoints + levelsGained,
+    stats: { ...state.stats, actions: state.stats.actions + 1 },
   };
 
   let newlyUnlockedSkills: SkillId[] = [];
