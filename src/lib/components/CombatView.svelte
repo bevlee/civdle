@@ -1,317 +1,306 @@
 <script lang="ts">
-  import type { GachaState, BattleFighter } from "$lib/combatEngine";
-  import { HERO_CLASSES, GACHA_COST, MAX_ENEMY_LEVEL, type Hero } from "$lib/combatData";
+  import { ENEMY_ARCHETYPES, GACHA_COST, PARTY_SIZE, UNITS } from "$lib/combatData";
+  import type { Fighter, Hit } from "$lib/combatEngine";
+  import { activeSynergies, TRAIT_SYNERGIES } from "$lib/traits";
+  import type { CivdleGame } from "$lib/gameState.svelte";
   import { Button } from "$lib/components/ui/button";
+  import UnitCard from "./UnitCard.svelte";
+  import type { Pose } from "./Sprite.svelte";
+  import DamagePopup from "./DamagePopup.svelte";
+  import EncounterPanel from "./EncounterPanel.svelte";
+  import ArmyInventory from "./ArmyInventory.svelte";
+  import CardDetailModal from "./CardDetailModal.svelte";
+  import { cn } from "$lib/utils";
 
-  let {
-    gacha,
-    lastRolledHero,
-    onRoll,
-    onAssign,
-    onRemoveFromParty,
-    onFight,
-    onSetLevel,
-    onDismissBattle,
-    onDismissRoll,
-    onDiscard,
-  }: {
-    gacha: GachaState;
-    lastRolledHero: Hero | null;
-    onRoll: () => void;
-    onAssign: (heroId: string) => void;
-    onRemoveFromParty: (slot: number) => void;
-    onFight: () => void;
-    onSetLevel: (level: number) => void;
-    onDismissBattle: () => void;
-    onDismissRoll: () => void;
-    onDiscard: (heroId: string) => void;
-  } = $props();
+  let { game }: { game: CivdleGame } = $props();
 
-  let isPlaying = $derived(gacha.battle?.status === "playing");
-  let battleDone = $derived(
-    gacha.battle && gacha.battle.status !== "playing",
-  );
-
-  let partyHeroes = $derived(
-    gacha.party.map((id) =>
-      id ? gacha.heroes.find((h) => h.id === id) ?? null : null,
-    ),
-  );
-
+  let gacha = $derived(game.state.gacha);
+  let battle = $derived(gacha.battle);
+  let isPlaying = $derived(battle?.status === "playing");
+  let battleDone = $derived(battle !== null && battle.status !== "playing");
+  let partyCards = $derived(game.partyCards);
   let partyIds = $derived(new Set(gacha.party.filter((id): id is string => id !== null)));
+  let partySlots = $derived(gacha.party.map((id) => (id ? gacha.cards.find((c) => c.id === id) ?? null : null)));
+  let synergies = $derived(activeSynergies(partyCards));
 
-  let hasPartyHeroes = $derived(gacha.party.some((id) => id !== null));
+  let playerFighters = $derived(battle?.fighters.filter((f) => !f.isEnemy) ?? []);
+  let enemyFighters = $derived(battle?.fighters.filter((f) => f.isEnemy) ?? []);
+  let recentLog = $derived(battle?.log.slice(-8) ?? []);
 
-  let sortedHeroes = $derived(
-    [...gacha.heroes].sort((a, b) => b.level - a.level || a.name.localeCompare(b.name)),
-  );
+  let selectedCardId = $state<string | null>(null);
+  let selectedCard = $derived(selectedCardId ? gacha.cards.find((c) => c.id === selectedCardId) ?? null : null);
 
-  let heroFighters = $derived(
-    gacha.battle?.fighters.filter((f) => !f.isEnemy) ?? [],
-  );
-  let enemyFighters = $derived(
-    gacha.battle?.fighters.filter((f) => f.isEnemy) ?? [],
-  );
+  // ----- Per-turn animation state, driven by battle.turn -----
+  interface Popup { id: string; targetId: string; hit?: Hit; heal?: number; isUltimate: boolean }
+  let popups = $state<Popup[]>([]);
+  let actingId = $state<string | null>(null);
+  let actingKind = $state<"attack" | "ultimate" | null>(null);
+  let hitIds = $state<Set<string>>(new Set());
+  let ultBanner = $state<{ name: string; key: number } | null>(null);
+  let lastSeenTurn = -1;
+  let popupCounter = 0;
 
-  let recentLog = $derived(
-    gacha.battle?.log.slice(-15) ?? [],
-  );
-
-  function classEmoji(heroClass: string | null): string {
-    if (!heroClass) return "👺";
-    return HERO_CLASSES[heroClass as keyof typeof HERO_CLASSES]?.emoji ?? "?";
-  }
-
-  function hpPercent(f: BattleFighter): number {
-    return Math.max(0, Math.round((f.hp / f.maxHp) * 100));
-  }
-
-  function hpColor(pct: number): string {
-    if (pct > 60) return "bg-green-500";
-    if (pct > 30) return "bg-yellow-500";
-    return "bg-red-500";
-  }
-
-  function manaPercent(f: BattleFighter): number {
-    return Math.round((f.mana / 100) * 100);
-  }
-
-  function logColor(type: string): string {
-    switch (type) {
-      case "ability": return "text-blue-400";
-      case "death": return "text-red-400";
-      case "info": return "text-yellow-400";
-      default: return "text-muted-foreground";
+  $effect(() => {
+    const b = game.state.gacha.battle;
+    if (!b || !b.lastAction || b.turn === lastSeenTurn) {
+      if (!b) lastSeenTurn = -1;
+      return;
     }
+    lastSeenTurn = b.turn;
+    const action = b.lastAction;
+    actingId = action.actorId;
+    actingKind = action.kind;
+    hitIds = new Set(action.hits.map((h) => h.targetId));
+    const fresh: Popup[] = action.hits.map((hit) => ({
+      id: `p${++popupCounter}`,
+      targetId: hit.targetId,
+      hit,
+      isUltimate: action.kind === "ultimate",
+    }));
+    if (action.healed > 0 || action.turnHeal > 0) {
+      fresh.push({ id: `p${++popupCounter}`, targetId: action.actorId, heal: action.healed + action.turnHeal, isUltimate: false });
+    }
+    popups = [...popups, ...fresh];
+    if (action.kind === "ultimate") {
+      const actor = b.fighters.find((f) => f.id === action.actorId);
+      ultBanner = { name: actor?.name ?? "", key: b.turn };
+    }
+    const clear = setTimeout(() => {
+      actingId = null;
+      actingKind = null;
+      hitIds = new Set();
+    }, action.kind === "ultimate" ? 1300 : 600);
+    return () => clearTimeout(clear);
+  });
+
+  function removePopup(id: string) {
+    popups = popups.filter((p) => p.id !== id);
   }
 
-  function levelRarity(level: number): string {
-    if (level >= 80) return "text-yellow-400 font-bold";
-    if (level >= 50) return "text-purple-400 font-semibold";
-    if (level >= 20) return "text-blue-400";
-    return "text-muted-foreground";
+  function fighterClass(f: Fighter): string {
+    if (f.hp <= 0) return "card-dead";
+    if (actingId === f.id) {
+      if (actingKind === "ultimate") return "card-ult";
+      return f.isEnemy ? "card-lunge-left" : "card-lunge-right";
+    }
+    if (hitIds.has(f.id)) return "card-hit";
+    return "";
+  }
+
+  function fighterPose(f: Fighter): Pose {
+    if (f.hp <= 0) return "death";
+    if (actingId === f.id) return "attack";
+    if (hitIds.has(f.id)) return "hit";
+    return "idle";
+  }
+
+  function handleMerge(partnerId: string) {
+    if (!selectedCardId) return;
+    game.mergeCards(selectedCardId, partnerId);
+    selectedCardId = null;
+  }
+
+  function handleDiscard() {
+    if (!selectedCardId) return;
+    const card = gacha.cards.find((c) => c.id === selectedCardId);
+    if (card && confirm(`Discard ${card.stars}★ ${UNITS[card.unitId].name}?`)) {
+      game.discardCard(selectedCardId);
+      selectedCardId = null;
+    }
   }
 </script>
 
 <div class="flex flex-col gap-3">
   <!-- Header -->
-  <div class="flex items-center justify-between gap-2">
-    <div class="flex items-center gap-1.5">
-      <span class="text-lg">💰</span>
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <div class="flex items-center gap-1.5" title="War Spoils — earned by winning battles, spent on summons">
+      <span class="text-lg">⚔</span>
       <span class="text-sm font-bold tabular-nums">{gacha.gold}</span>
+      <span class="text-xs text-muted-foreground">War Spoils</span>
     </div>
 
     <div class="flex items-center gap-1">
       <button
         class="rounded px-1.5 py-0.5 text-xs hover:bg-accent disabled:opacity-30"
         disabled={isPlaying || gacha.enemyLevel <= 1}
-        onclick={() => onSetLevel(gacha.enemyLevel - 1)}
+        onclick={() => game.setEnemyLevel(gacha.enemyLevel - 1)}
       >◄</button>
-      <span class="min-w-[5rem] text-center text-sm font-medium">
+      <span class="min-w-[6rem] text-center text-sm font-medium">
         Level {gacha.enemyLevel}/{gacha.maxEnemyLevel}
       </span>
       <button
         class="rounded px-1.5 py-0.5 text-xs hover:bg-accent disabled:opacity-30"
         disabled={isPlaying || gacha.enemyLevel >= gacha.maxEnemyLevel}
-        onclick={() => onSetLevel(gacha.enemyLevel + 1)}
+        onclick={() => game.setEnemyLevel(gacha.enemyLevel + 1)}
       >►</button>
     </div>
 
-    <Button
-      size="sm"
-      disabled={isPlaying || !hasPartyHeroes}
-      onclick={onFight}
-    >
+    <Button size="sm" disabled={isPlaying || battleDone || partyCards.length === 0} onclick={() => game.startFight()}>
       ⚔ Fight
     </Button>
   </div>
 
-  <!-- Battle Arena -->
-  {#if gacha.battle}
-    <div class="rounded-lg border border-border bg-muted/30 p-3">
+  <!-- Arena -->
+  {#if battle}
+    <div class="relative overflow-hidden rounded-lg border border-border bg-muted/30 p-3">
+      {#if ultBanner}
+        {#key ultBanner.key}
+          <div class="arena-flash pointer-events-none absolute inset-0 bg-orange-300"></div>
+          <div class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+            <div class="ult-banner rounded bg-black/70 px-6 py-2 text-center">
+              <p class="text-3xl font-black tracking-widest text-orange-300 drop-shadow-[0_0_10px_rgba(251,146,60,0.9)]">ULTIMATE</p>
+              <p class="text-xs font-semibold text-orange-100">{ultBanner.name}</p>
+            </div>
+          </div>
+        {/key}
+      {/if}
+
       <div class="flex items-start justify-between gap-3">
-        <!-- Heroes -->
-        <div class="flex flex-col gap-1.5">
-          {#each heroFighters as f (f.id)}
-            {@const hp = hpPercent(f)}
-            <div class="flex items-center gap-2 rounded border border-border/50 bg-background/50 px-2 py-1.5 text-xs {f.hp <= 0 ? 'opacity-30' : ''}">
-              <span>{classEmoji(f.heroClass)}</span>
-              <div class="flex min-w-[6rem] flex-col gap-0.5">
-                <div class="flex items-center justify-between">
-                  <span class="font-medium">{f.name}</span>
-                  <span class="text-[10px] text-muted-foreground">L{f.level}</span>
-                </div>
-                <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div class="h-full transition-all duration-300 {hpColor(hp)}" style="width:{hp}%"></div>
-                </div>
-                {#if f.abilityName}
-                  <div class="h-1 w-full overflow-hidden rounded-full bg-muted">
-                    <div class="h-full bg-blue-500 transition-all duration-300" style="width:{manaPercent(f)}%"></div>
-                  </div>
-                {/if}
+        <div class="flex flex-col gap-1">
+          <div class="flex flex-wrap gap-1">
+            {#each synergies.filter((s) => s.tier > 0) as s (s.trait)}
+              <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary" title={TRAIT_SYNERGIES[s.trait].tiers[s.tier - 1]}>
+                {TRAIT_SYNERGIES[s.trait].name} {s.count}
+              </span>
+            {/each}
+          </div>
+          <div class="flex flex-wrap gap-2">
+            {#each playerFighters as f (f.id)}
+              <div class={cn("relative", fighterClass(f))}>
+                <UnitCard unitId={f.unitId} stars={f.stars} size="sm" hp={f.hp} maxHp={f.maxHp} pose={fighterPose(f)} animate={isPlaying} />
+                {#each popups.filter((p) => p.targetId === f.id) as p (p.id)}
+                  <DamagePopup id={p.id} hit={p.hit} heal={p.heal} isUltimate={p.isUltimate} onDone={removePopup} />
+                {/each}
               </div>
-            </div>
-          {/each}
+            {/each}
+          </div>
         </div>
 
-        <span class="mt-4 text-lg font-bold text-muted-foreground/50">VS</span>
+        <span class="mt-8 text-lg font-bold text-muted-foreground/50">VS</span>
 
-        <!-- Enemies -->
-        <div class="flex flex-col gap-1.5">
-          {#each enemyFighters as f (f.id)}
-            {@const hp = hpPercent(f)}
-            <div class="flex items-center gap-2 rounded border border-red-500/20 bg-red-500/5 px-2 py-1.5 text-xs {f.hp <= 0 ? 'opacity-30' : ''}">
-              <span>👺</span>
-              <div class="flex min-w-[5rem] flex-col gap-0.5">
-                <div class="flex items-center justify-between">
-                  <span class="font-medium">{f.name}</span>
-                  <span class="text-[10px] text-muted-foreground">L{f.level}</span>
-                </div>
-                <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div class="h-full transition-all duration-300 {hpColor(hp)}" style="width:{hp}%"></div>
-                </div>
+        <div class="flex flex-col items-end gap-1">
+          <div class="flex flex-wrap justify-end gap-1">
+            {#if gacha.encounter}
+              <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300">
+                {ENEMY_ARCHETYPES[gacha.encounter.archetype].name}
+              </span>
+            {/if}
+            {#each activeSynergies(gacha.encounter?.cards ?? []).filter((s) => s.tier > 0) as s (s.trait)}
+              <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300" title={TRAIT_SYNERGIES[s.trait].tiers[s.tier - 1]}>
+                {TRAIT_SYNERGIES[s.trait].name} {s.count}
+              </span>
+            {/each}
+          </div>
+          <div class="flex flex-wrap justify-end gap-2">
+            {#each enemyFighters as f (f.id)}
+              <div class={cn("relative", fighterClass(f))}>
+                <UnitCard unitId={f.unitId} stars={f.stars} size="sm" hp={f.hp} maxHp={f.maxHp} pose={fighterPose(f)} animate={isPlaying} />
+                {#each popups.filter((p) => p.targetId === f.id) as p (p.id)}
+                  <DamagePopup id={p.id} hit={p.hit} heal={p.heal} isUltimate={p.isUltimate} onDone={removePopup} />
+                {/each}
               </div>
-            </div>
-          {/each}
+            {/each}
+          </div>
         </div>
       </div>
 
-      <!-- Battle Log -->
-      <div class="mt-2 flex max-h-24 flex-col-reverse overflow-y-auto rounded border border-border/30 bg-background/30 p-1.5 text-[11px] leading-relaxed">
-        <div>
-          {#each recentLog as entry, i}
-            <p class={logColor(entry.type)}>{entry.text}</p>
-          {/each}
-        </div>
+      <div class="mt-2 max-h-24 overflow-y-auto rounded border border-border/30 bg-background/30 p-1.5 text-[11px] leading-relaxed">
+        {#each recentLog as entry, i (i)}
+          <p
+            class={entry.type === "ultimate"
+              ? "font-semibold text-orange-300"
+              : entry.type === "death"
+                ? "text-red-400"
+                : entry.type === "info"
+                  ? "text-yellow-400"
+                  : "text-muted-foreground"}
+          >
+            {entry.text}
+          </p>
+        {/each}
       </div>
 
-      <!-- Battle Result -->
       {#if battleDone}
         <div class="mt-2 flex items-center justify-between">
-          {#if gacha.battle?.status === "won"}
-            <span class="text-sm font-semibold text-green-400">
-              Victory! +{gacha.enemyLevel} gold
-            </span>
+          {#if battle.status === "won"}
+            <span class="text-sm font-semibold text-green-400">Victory! +{gacha.enemyLevel} War Spoils</span>
           {:else}
-            <span class="text-sm font-semibold text-red-400">
-              Defeated — try again
-            </span>
+            <span class="text-sm font-semibold text-red-400">Defeated — the same army awaits. Change your composition.</span>
           {/if}
-          <Button size="sm" variant="outline" onclick={onDismissBattle}>
-            Dismiss
-          </Button>
+          <Button size="sm" variant="outline" onclick={() => game.dismissBattle()}>Continue</Button>
         </div>
       {/if}
     </div>
+  {:else if gacha.encounter}
+    <EncounterPanel
+      encounter={gacha.encounter}
+      {partyCards}
+      tutorialSeen={gacha.tutorialSeen}
+      onDismissTutorial={() => game.markTutorialSeen()}
+    />
   {/if}
 
-  <!-- Gacha Roll Result -->
-  {#if lastRolledHero}
-    <div class="flex items-center justify-between rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2">
-      <div class="flex items-center gap-2">
-        <span class="text-lg">{classEmoji(lastRolledHero.heroClass)}</span>
-        <div>
-          <span class="text-sm font-semibold">{lastRolledHero.name}</span>
-          <span class="ml-1 text-xs {levelRarity(lastRolledHero.level)}">
-            L{lastRolledHero.level} {HERO_CLASSES[lastRolledHero.heroClass].name}
-          </span>
-        </div>
-        <div class="text-[10px] text-muted-foreground">
-          HP:{lastRolledHero.maxHp} ATK:{lastRolledHero.atk} SPD:{lastRolledHero.spd}
-        </div>
-      </div>
-      <button
-        class="text-xs text-muted-foreground hover:text-foreground"
-        onclick={onDismissRoll}
-      >✕</button>
-    </div>
-  {/if}
-
-  <!-- Party Slots -->
+  <!-- Party -->
   <div>
-    <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-      Your Party
-    </h3>
-    <div class="grid grid-cols-3 gap-2">
-      {#each partyHeroes as hero, i}
-        <button
-          class="flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-colors
-            {hero
-              ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
-              : 'border-dashed border-border/50 text-muted-foreground/50'}"
-          disabled={isPlaying}
-          onclick={() => { if (hero) onRemoveFromParty(i); }}
+    <div class="mb-1.5 flex flex-wrap items-center gap-2">
+      <h3 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Party</h3>
+      {#each synergies as s (s.trait)}
+        <span
+          class={cn(
+            "rounded px-1.5 py-0.5 text-[10px]",
+            s.tier === 2 && "bg-yellow-500/25 text-yellow-300",
+            s.tier === 1 && "bg-primary/20 text-primary",
+            s.tier === 0 && "bg-muted text-muted-foreground",
+          )}
+          title={s.tier > 0 ? TRAIT_SYNERGIES[s.trait].tiers[s.tier - 1] : `Need ${s.nextThreshold} for: ${TRAIT_SYNERGIES[s.trait].tiers[0]}`}
         >
-          {#if hero}
-            <span class="text-lg">{classEmoji(hero.heroClass)}</span>
-            <span class="font-medium">{hero.name}</span>
-            <span class={levelRarity(hero.level)}>L{hero.level}</span>
-            <span class="text-[10px] text-muted-foreground">
-              {HERO_CLASSES[hero.heroClass].name}
-            </span>
-          {:else}
-            <span class="text-lg opacity-30">+</span>
-            <span>Empty</span>
-          {/if}
-        </button>
+          {TRAIT_SYNERGIES[s.trait].name} {s.count}{s.nextThreshold ? `/${s.nextThreshold}` : " ✓"}
+        </span>
+      {/each}
+    </div>
+    <div class="flex gap-2">
+      {#each partySlots as card, i (i)}
+        {#if card}
+          <button
+            class="rounded-lg transition-transform hover:scale-105 disabled:cursor-not-allowed"
+            disabled={isPlaying}
+            onclick={() => (selectedCardId = card.id)}
+            title="Click for details"
+          >
+            <UnitCard unitId={card.unitId} stars={card.stars} size="sm" showTraits />
+          </button>
+        {:else}
+          <div class="flex w-24 flex-col items-center justify-center rounded-lg border border-dashed border-border/60 py-6 text-xs text-muted-foreground/60">
+            <span class="text-lg">+</span>
+            <span>Slot {i + 1}</span>
+          </div>
+        {/if}
       {/each}
     </div>
   </div>
 
-  <!-- Hero Collection -->
-  <div>
-    <div class="mb-1.5 flex items-center justify-between">
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Heroes ({gacha.heroes.length})
-      </h3>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={gacha.gold < GACHA_COST || isPlaying}
-        onclick={onRoll}
-      >
-        🎲 Roll ({GACHA_COST}💰)
-      </Button>
-    </div>
-    <div class="flex max-h-52 flex-col gap-0.5 overflow-y-auto">
-      {#each sortedHeroes as hero (hero.id)}
-        {@const inParty = partyIds.has(hero.id)}
-        <div class="flex items-center justify-between rounded border border-border/40 px-2 py-1 text-xs hover:bg-accent/30">
-          <div class="flex items-center gap-1.5">
-            <span>{classEmoji(hero.heroClass)}</span>
-            <span class="font-medium">{hero.name}</span>
-            <span class={levelRarity(hero.level)}>L{hero.level}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-[10px] tabular-nums text-muted-foreground">
-              HP:{hero.maxHp} ATK:{hero.atk} SPD:{hero.spd}
-            </span>
-            {#if inParty}
-              <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary">
-                Party
-              </span>
-            {:else}
-              <div class="flex gap-1">
-                <button
-                  class="rounded bg-accent px-1.5 py-0.5 text-[10px] hover:bg-accent/80 disabled:opacity-30"
-                  disabled={isPlaying || !gacha.party.includes(null)}
-                  onclick={() => onAssign(hero.id)}
-                >
-                  + Add
-                </button>
-                <button
-                  class="rounded px-1 py-0.5 text-[10px] text-red-400 hover:bg-red-500/10 disabled:opacity-30"
-                  disabled={isPlaying}
-                  onclick={() => onDiscard(hero.id)}
-                  title="Discard hero"
-                >
-                  ✕
-                </button>
-              </div>
-            {/if}
-          </div>
-        </div>
-      {/each}
-    </div>
-  </div>
+  <ArmyInventory
+    cards={gacha.cards}
+    {partyIds}
+    gold={gacha.gold}
+    rollCost={GACHA_COST}
+    disabled={isPlaying || gacha.gold < GACHA_COST}
+    onSelect={(id) => (selectedCardId = id)}
+    onSummon={() => game.rollCard()}
+  />
 </div>
+
+{#if selectedCard}
+  <CardDetailModal
+    card={selectedCard}
+    inParty={partyIds.has(selectedCard.id)}
+    partyFull={partyIds.size >= PARTY_SIZE}
+    mergePartners={game.mergePartnersFor(selectedCard.id)}
+    locked={isPlaying}
+    onAddToParty={() => game.addCardToFirstEmptySlot(selectedCard!.id)}
+    onRemoveFromParty={() => game.removeCardFromParty(selectedCard!.id)}
+    onMerge={handleMerge}
+    onDiscard={handleDiscard}
+    onClose={() => (selectedCardId = null)}
+  />
+{/if}

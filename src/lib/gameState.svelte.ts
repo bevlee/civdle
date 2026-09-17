@@ -15,24 +15,40 @@ import {
   getSkillLevels,
   processOfflineProgress,
 } from "./gameEngine";
-import {
-  createInitialGachaState,
-  startBattle,
-  tickBattle,
-} from "./combatEngine";
+import { createInitialGachaState, startBattle, stepBattle } from "./combatEngine";
 import type { GachaState } from "./combatEngine";
 import {
-  rollGacha,
-  generateEnemyParty,
   GACHA_COST,
   MAX_ENEMY_LEVEL,
-  type Hero,
+  MAX_STARS,
+  PARTY_SIZE,
+  STARTING_GOLD,
+  canMerge,
+  createCard,
+  generateEncounter,
+  mergeCards,
+  rollCard,
+  type UnitCard,
+  type UnitId,
 } from "./combatData";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
 const PROGRESS_INTERVAL_MS = 100;
+// Pause between battle turns so each attack / ultimate can be animated.
+export const ATTACK_STEP_MS = 900;
+export const ULT_STEP_MS = 1800;
+
+export interface SummonEventData {
+  card: UnitCard;
+}
+
+export interface StarUpEventData {
+  unitId: UnitId;
+  fromStars: number;
+  toStars: number;
+}
 
 function loadFromStorage(): GameState {
   if (typeof window === "undefined") return createInitialState();
@@ -44,19 +60,24 @@ function loadFromStorage(): GameState {
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
     if (!parsed.activeConsumables) parsed.activeConsumables = [];
 
-    if (!parsed.gacha) {
+    const oldGacha = parsed.gacha as (Partial<GachaState> & { heroes?: unknown }) | undefined;
+    if (!oldGacha || !Array.isArray(oldGacha.cards)) {
+      // Saves from the lane-TD era or the warrior/monk prototype: keep any
+      // gold they earned, plus the starting stash, and drop the old heroes.
       const fresh = createInitialGachaState();
       const oldCombat = parsed.combat as { loot?: Record<string, number> } | undefined;
-      if (oldCombat?.loot?.["warSpoils"]) {
-        fresh.gold = oldCombat.loot["warSpoils"];
-      }
+      const carried = (oldGacha?.gold ?? 0) + (oldCombat?.loot?.["warSpoils"] ?? 0);
+      fresh.gold = STARTING_GOLD + carried;
       parsed.gacha = fresh;
+    } else {
+      const g = parsed.gacha;
+      const party = Array.isArray(g.party) ? g.party.slice(0, PARTY_SIZE) : [];
+      while (party.length < PARTY_SIZE) party.push(null);
+      g.party = party;
+      if (typeof g.tutorialSeen !== "boolean") g.tutorialSeen = false;
+      if (g.encounter === undefined) g.encounter = null;
     }
-    if (!parsed.gacha.heroes || parsed.gacha.heroes.length === 0) {
-      parsed.gacha = createInitialGachaState();
-    }
-    // A persisted battle can be stuck "playing" (e.g. saved by an older build),
-    // which would disable every combat button forever.
+    // A persisted battle can be stuck "playing" — never resume one.
     parsed.gacha.battle = null;
 
     for (const id of SKILL_ORDER) {
@@ -96,7 +117,6 @@ export class CivdleGame {
   loaded = $state(false);
   message = $state<string | null>(null);
   pendingUnlocks = $state<SkillId[]>([]);
-  lastRolledHero = $state<Hero | null>(null);
   #progress = $state(0);
 
   eventQueue = new EventQueue();
@@ -105,7 +125,7 @@ export class CivdleGame {
   #actionStart = 0;
   #actionDuration = 0;
   #saveInterval: ReturnType<typeof setInterval> | null = null;
-  #combatInterval: ReturnType<typeof setInterval> | null = null;
+  #battleTimeout: ReturnType<typeof setTimeout> | null = null;
   #handleUnload: (() => void) | null = null;
 
   get levels() {
@@ -132,12 +152,25 @@ export class CivdleGame {
     return this.eventQueue.events;
   }
 
+  get partyCards(): UnitCard[] {
+    return this.state.gacha.party
+      .filter((id): id is string => id !== null)
+      .map((id) => this.state.gacha.cards.find((c) => c.id === id))
+      .filter((c): c is UnitCard => c !== undefined);
+  }
+
   init(): () => void {
     const loadedState = loadFromStorage();
     const { state: withUnlocks } = computeUnlocks(loadedState);
     const elapsedSeconds = (Date.now() - withUnlocks.lastSavedAt) / 1000;
     const offline = processOfflineProgress(withUnlocks, elapsedSeconds);
-    const finalState: GameState = { ...offline.state, lastSavedAt: Date.now() };
+    let finalState: GameState = { ...offline.state, lastSavedAt: Date.now() };
+    if (!finalState.gacha.encounter) {
+      finalState = {
+        ...finalState,
+        gacha: { ...finalState.gacha, encounter: generateEncounter(finalState.gacha.enemyLevel) },
+      };
+    }
     this.state = finalState;
     this.loaded = true;
 
@@ -158,7 +191,7 @@ export class CivdleGame {
     return () => {
       this.#clearActionLoop();
       this.#clearProgressLoop();
-      this.#clearCombatLoop();
+      this.#clearBattleLoop();
 
       if (this.#saveInterval) {
         clearInterval(this.#saveInterval);
@@ -274,42 +307,28 @@ export class CivdleGame {
     this.#progress = 0;
   }
 
-  // ----- Combat loop -----
+  // ----- Battle loop: one turn per timeout so the UI can animate each turn -----
 
-  #startCombatLoop(): void {
-    this.#clearCombatLoop();
-    this.#combatInterval = setInterval(() => {
+  #scheduleBattleStep(delayMs: number): void {
+    this.#clearBattleLoop();
+    this.#battleTimeout = setTimeout(() => {
+      this.#battleTimeout = null;
       const battle = this.state.gacha.battle;
-      if (!battle || battle.status !== "playing") {
-        this.#clearCombatLoop();
-        return;
+      if (!battle || battle.status !== "playing") return;
+      const next = stepBattle(battle);
+      this.state = { ...this.state, gacha: { ...this.state.gacha, battle: next } };
+      if (next.status === "playing") {
+        this.#scheduleBattleStep(next.lastAction?.kind === "ultimate" ? ULT_STEP_MS : ATTACK_STEP_MS);
       }
-      const newBattle = tickBattle(battle);
-      let gacha = { ...this.state.gacha, battle: newBattle };
-
-      if (newBattle.status === "won") {
-        gacha.gold += gacha.enemyLevel;
-        if (gacha.enemyLevel >= gacha.maxEnemyLevel && gacha.maxEnemyLevel < MAX_ENEMY_LEVEL) {
-          gacha.maxEnemyLevel = Math.min(MAX_ENEMY_LEVEL, gacha.maxEnemyLevel + 1);
-        }
-      }
-
-      this.state = { ...this.state, gacha };
-
-      if (newBattle.status !== "playing") {
-        this.#clearCombatLoop();
-      }
-    }, 500);
+    }, delayMs);
   }
 
-  #clearCombatLoop(): void {
-    if (this.#combatInterval) {
-      clearInterval(this.#combatInterval);
-      this.#combatInterval = null;
+  #clearBattleLoop(): void {
+    if (this.#battleTimeout) {
+      clearTimeout(this.#battleTimeout);
+      this.#battleTimeout = null;
     }
   }
-
-  // ----- Outcome handling -----
 
   #handleOutcome(outcome: ApplyActionOutcome): void {
     if (outcome.newlyUnlockedSkills.length > 0) {
@@ -402,79 +421,135 @@ export class CivdleGame {
     this.pendingUnlocks = this.pendingUnlocks.slice(1);
   }
 
-  // ----- Gacha / Combat methods -----
+  // ----- Gacha / army methods -----
 
-  rollGachaHero(): void {
+  #setGacha(patch: Partial<GachaState>): void {
+    this.state = { ...this.state, gacha: { ...this.state.gacha, ...patch } };
+  }
+
+  get inBattle(): boolean {
+    return this.state.gacha.battle?.status === "playing";
+  }
+
+  rollCard(): void {
     if (this.state.gacha.gold < GACHA_COST) return;
-    const hero = rollGacha();
-    this.lastRolledHero = hero;
-    this.state = {
-      ...this.state,
-      gacha: {
-        ...this.state.gacha,
-        gold: this.state.gacha.gold - GACHA_COST,
-        heroes: [...this.state.gacha.heroes, hero],
-      },
-    };
+    const card = rollCard();
+    this.#setGacha({
+      gold: this.state.gacha.gold - GACHA_COST,
+      cards: [...this.state.gacha.cards, card],
+    });
+    this.eventQueue.emit<SummonEventData>("summon", { card });
   }
 
-  assignHeroToParty(heroId: string, slotIndex: number): void {
-    if (slotIndex < 0 || slotIndex >= 3) return;
-    if (this.state.gacha.battle?.status === "playing") return;
-    const hero = this.state.gacha.heroes.find((h) => h.id === heroId);
-    if (!hero) return;
-    const party = [...this.state.gacha.party];
-    const existingSlot = party.indexOf(heroId);
-    if (existingSlot >= 0) return;
-    party[slotIndex] = heroId;
-    this.state = { ...this.state, gacha: { ...this.state.gacha, party } };
+  /** Cards that could be merged into `cardId` (same unit, same stars). */
+  mergePartnersFor(cardId: string): UnitCard[] {
+    const card = this.state.gacha.cards.find((c) => c.id === cardId);
+    if (!card) return [];
+    return this.state.gacha.cards.filter((c) => canMerge(card, c));
   }
 
-  removeHeroFromParty(slotIndex: number): void {
-    if (this.state.gacha.battle?.status === "playing") return;
-    const party = [...this.state.gacha.party];
-    party[slotIndex] = null;
-    this.state = { ...this.state, gacha: { ...this.state.gacha, party } };
+  mergeCards(aId: string, bId: string): void {
+    if (this.inBattle) return;
+    const cards = this.state.gacha.cards;
+    const a = cards.find((c) => c.id === aId);
+    const b = cards.find((c) => c.id === bId);
+    if (!a || !b || !canMerge(a, b)) return;
+    const merged = mergeCards(a, b);
+    // The merged card takes over whichever party slot either parent held.
+    let claimed = false;
+    const party = this.state.gacha.party.map((id) => {
+      if (id === aId || id === bId) {
+        if (claimed) return null;
+        claimed = true;
+        return merged.id;
+      }
+      return id;
+    });
+    this.#setGacha({
+      cards: [...cards.filter((c) => c.id !== aId && c.id !== bId), merged],
+      party,
+    });
+    this.eventQueue.emit<StarUpEventData>("starUp", {
+      unitId: merged.unitId,
+      fromStars: a.stars,
+      toStars: merged.stars,
+    });
   }
 
-  addHeroToFirstEmptySlot(heroId: string): void {
+  assignCardToParty(cardId: string, slotIndex: number): void {
+    if (slotIndex < 0 || slotIndex >= PARTY_SIZE || this.inBattle) return;
+    if (!this.state.gacha.cards.some((c) => c.id === cardId)) return;
+    const party = this.state.gacha.party.map((id) => (id === cardId ? null : id));
+    party[slotIndex] = cardId;
+    this.#setGacha({ party });
+  }
+
+  addCardToFirstEmptySlot(cardId: string): void {
+    if (this.state.gacha.party.includes(cardId)) return;
     const emptySlot = this.state.gacha.party.indexOf(null);
     if (emptySlot < 0) return;
-    this.assignHeroToParty(heroId, emptySlot);
+    this.assignCardToParty(cardId, emptySlot);
+  }
+
+  removeFromParty(slotIndex: number): void {
+    if (this.inBattle) return;
+    const party = [...this.state.gacha.party];
+    party[slotIndex] = null;
+    this.#setGacha({ party });
+  }
+
+  removeCardFromParty(cardId: string): void {
+    const slot = this.state.gacha.party.indexOf(cardId);
+    if (slot >= 0) this.removeFromParty(slot);
+  }
+
+  discardCard(cardId: string): void {
+    if (this.inBattle) return;
+    this.#setGacha({
+      cards: this.state.gacha.cards.filter((c) => c.id !== cardId),
+      party: this.state.gacha.party.map((id) => (id === cardId ? null : id)),
+    });
   }
 
   setEnemyLevel(level: number): void {
+    if (this.inBattle) return;
     const clamped = Math.max(1, Math.min(level, this.state.gacha.maxEnemyLevel));
-    this.state = { ...this.state, gacha: { ...this.state.gacha, enemyLevel: clamped } };
+    if (clamped === this.state.gacha.enemyLevel && this.state.gacha.encounter) return;
+    this.#setGacha({ enemyLevel: clamped, encounter: generateEncounter(clamped), battle: null });
   }
 
   startFight(): void {
-    if (this.state.gacha.battle?.status === "playing") return;
-    const partyHeroes = this.state.gacha.party
-      .filter((id): id is string => id !== null)
-      .map((id) => this.state.gacha.heroes.find((h) => h.id === id))
-      .filter((h): h is Hero => h !== undefined);
-    if (partyHeroes.length === 0) return;
-
-    const enemies = generateEnemyParty(this.state.gacha.enemyLevel);
-    const battle = startBattle(partyHeroes, enemies);
-    this.state = { ...this.state, gacha: { ...this.state.gacha, battle } };
-    this.#startCombatLoop();
+    if (this.inBattle) return;
+    const party = this.partyCards;
+    if (party.length === 0) return;
+    const encounter = this.state.gacha.encounter ?? generateEncounter(this.state.gacha.enemyLevel);
+    const battle = startBattle(party, encounter);
+    this.#setGacha({ encounter, battle });
+    this.#scheduleBattleStep(ATTACK_STEP_MS);
   }
 
+  /** Closes the result panel. A win pays out, unlocks the next level, and rolls a fresh encounter. */
   dismissBattle(): void {
-    this.state = { ...this.state, gacha: { ...this.state.gacha, battle: null } };
+    const battle = this.state.gacha.battle;
+    if (!battle || battle.status === "playing") return;
+    const g = this.state.gacha;
+    if (battle.status === "won") {
+      const maxEnemyLevel =
+        g.enemyLevel >= g.maxEnemyLevel ? Math.min(MAX_ENEMY_LEVEL, g.maxEnemyLevel + 1) : g.maxEnemyLevel;
+      this.#setGacha({
+        gold: g.gold + g.enemyLevel,
+        maxEnemyLevel,
+        encounter: generateEncounter(g.enemyLevel),
+        battle: null,
+      });
+    } else {
+      // Same encounter stays so the player has to adapt their composition.
+      this.#setGacha({ battle: null });
+    }
   }
 
-  dismissLastRolledHero(): void {
-    this.lastRolledHero = null;
-  }
-
-  discardHero(heroId: string): void {
-    if (this.state.gacha.battle?.status === "playing") return;
-    const party = this.state.gacha.party.map((id) => (id === heroId ? null : id));
-    const heroes = this.state.gacha.heroes.filter((h) => h.id !== heroId);
-    this.state = { ...this.state, gacha: { ...this.state.gacha, heroes, party } };
+  markTutorialSeen(): void {
+    this.#setGacha({ tutorialSeen: true });
   }
 
   advanceAgeAction(): void {
@@ -535,21 +610,27 @@ export class CivdleGame {
   }
 
   debugGrantGold(amount: number): void {
-    this.state = {
-      ...this.state,
-      gacha: { ...this.state.gacha, gold: this.state.gacha.gold + amount },
-    };
+    this.#setGacha({ gold: this.state.gacha.gold + amount });
   }
 
   debugSetEnemyLevel(level: number): void {
-    this.state = {
-      ...this.state,
-      gacha: {
-        ...this.state.gacha,
-        enemyLevel: level,
-        maxEnemyLevel: Math.max(this.state.gacha.maxEnemyLevel, level),
-      },
-    };
+    const clamped = Math.max(1, Math.min(MAX_ENEMY_LEVEL, level));
+    this.#setGacha({
+      enemyLevel: clamped,
+      maxEnemyLevel: Math.max(this.state.gacha.maxEnemyLevel, clamped),
+      encounter: generateEncounter(clamped),
+      battle: null,
+    });
+  }
+
+  debugGrantCard(unitId: UnitId, stars: number): void {
+    const card = createCard(unitId, Math.max(1, Math.min(MAX_STARS, stars)));
+    this.#setGacha({ cards: [...this.state.gacha.cards, card] });
+  }
+
+  debugRerollEncounter(): void {
+    if (this.inBattle) return;
+    this.#setGacha({ encounter: generateEncounter(this.state.gacha.enemyLevel), battle: null });
   }
 
   debugResetSave(): void {

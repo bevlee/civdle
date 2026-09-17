@@ -1,7 +1,10 @@
 <script lang="ts">
   import type { AgeId } from "$lib/gameData";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
+  import type { StarUpEventData, SummonEventData } from "$lib/gameState.svelte";
   import AgeAdvanceEffect from "./AgeAdvanceEffect.svelte";
+  import SummonReveal from "./SummonReveal.svelte";
+  import StarUpEffect from "./StarUpEffect.svelte";
 
   interface AgeAdvanceEventData {
     ageId: AgeId;
@@ -27,20 +30,30 @@
   } = $props();
 
   let ageEvents = $derived(
-    events.filter(
-      (e): e is QueuedEvent<AgeAdvanceEventData> => e.type === "ageAdvance",
-    ),
+    events.filter((e): e is QueuedEvent<AgeAdvanceEventData> => e.type === "ageAdvance"),
+  );
+  // Summons and star-ups are modal: show one at a time, in order.
+  let summonEvent = $derived(
+    events.find((e): e is QueuedEvent<SummonEventData> => e.type === "summon") ?? null,
+  );
+  let starUpEvent = $derived(
+    events.find((e): e is QueuedEvent<StarUpEventData> => e.type === "starUp") ?? null,
   );
 </script>
 
-{#if ageEvents.length > 0}
+{#if ageEvents.length > 0 || summonEvent || starUpEvent}
   <div class="pointer-events-none fixed inset-0 z-[100] overflow-hidden">
     {#each ageEvents as event (event.id)}
-      <AgeAdvanceEffect
-        {event}
-        color={AGE_FLASH_COLOR[event.data.ageId]}
-        {onDismiss}
-      />
+      <AgeAdvanceEffect {event} color={AGE_FLASH_COLOR[event.data.ageId]} {onDismiss} />
     {/each}
+    {#if starUpEvent}
+      {#key starUpEvent.id}
+        <StarUpEffect event={starUpEvent} {onDismiss} />
+      {/key}
+    {:else if summonEvent}
+      {#key summonEvent.id}
+        <SummonReveal event={summonEvent} {onDismiss} />
+      {/key}
+    {/if}
   </div>
 {/if}

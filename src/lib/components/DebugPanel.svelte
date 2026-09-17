@@ -11,6 +11,7 @@
   } from "$lib/gameData";
   import { xpForLevel } from "$lib/gameEngine";
   import type { CivdleGame } from "$lib/gameState.svelte";
+  import { MAX_ENEMY_LEVEL, MAX_STARS, UNITS, UNIT_IDS, type UnitId } from "$lib/combatData";
 
   let { game }: { game: CivdleGame } = $props();
 
@@ -19,6 +20,8 @@
   let skillLevel = $state(10);
   let spAmount = $state(50);
   let goldAmount = $state(100);
+  let grantUnit = $state<UnitId>("devil");
+  let grantStars = $state(5);
 </script>
 
 {#if collapsed}
@@ -204,11 +207,11 @@
         <h4
           class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-yellow-500/70"
         >
-          Gacha
+          Army
         </h4>
         <div class="flex flex-col gap-1.5">
           <div class="flex items-center gap-2">
-            <label class="text-xs text-muted-foreground">Gold</label>
+            <label class="text-xs text-muted-foreground">Spoils</label>
             <input
               type="number"
               min="1"
@@ -232,16 +235,52 @@
             <label class="text-xs text-muted-foreground">Enemy Lv</label>
             <select
               class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs"
-              value={game.state.gacha.maxEnemyLevel}
+              value={game.state.gacha.enemyLevel}
               onchange={(e) =>
                 game.debugSetEnemyLevel(
                   Number((e.target as HTMLSelectElement).value),
                 )}
             >
-              {#each Array.from({ length: 10 }, (_, i) => i + 1) as lv}
+              {#each Array.from({ length: MAX_ENEMY_LEVEL }, (_, i) => i + 1) as lv (lv)}
                 <option value={lv}>{lv}</option>
               {/each}
             </select>
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-6 text-xs"
+              onclick={() => game.debugRerollEncounter()}
+            >
+              Reroll enemy
+            </Button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-muted-foreground">Card</label>
+            <select
+              class="min-w-0 flex-1 rounded border border-border bg-muted px-1.5 py-0.5 text-xs"
+              bind:value={grantUnit}
+            >
+              {#each UNIT_IDS as id (id)}
+                <option value={id}>{UNITS[id].name} ({UNITS[id].baseStars}★)</option>
+              {/each}
+            </select>
+            <input
+              type="number"
+              min="1"
+              max={MAX_STARS}
+              bind:value={grantStars}
+              class="w-12 rounded border border-border bg-muted px-1.5 py-0.5 text-xs tabular-nums"
+              title="Stars"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-6 text-xs"
+              onclick={() => game.debugGrantCard(grantUnit, grantStars)}
+            >
+              Grant
+            </Button>
           </div>
         </div>
       </section>

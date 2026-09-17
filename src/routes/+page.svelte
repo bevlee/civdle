@@ -158,18 +158,7 @@
             </div>
           {:else if centerTab === "combat"}
             <div class="p-3">
-              <CombatView
-                gacha={game.state.gacha}
-                lastRolledHero={game.lastRolledHero}
-                onRoll={() => game.rollGachaHero()}
-                onAssign={(heroId) => game.addHeroToFirstEmptySlot(heroId)}
-                onRemoveFromParty={(slot) => game.removeHeroFromParty(slot)}
-                onFight={() => game.startFight()}
-                onSetLevel={(level) => game.setEnemyLevel(level)}
-                onDismissBattle={() => game.dismissBattle()}
-                onDismissRoll={() => game.dismissLastRolledHero()}
-                onDiscard={(heroId) => game.discardHero(heroId)}
-              />
+              <CombatView {game} />
             </div>
           {/if}
         </div>
