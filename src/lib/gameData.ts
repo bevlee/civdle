@@ -39,10 +39,7 @@ export type ResourceId =
   | "ale"
   | "mead"
   | "bricks"
-  | "shelter"
-  | "unitSwordsman"
-  | "unitSpearman"
-  | "unitArcher";
+  | "shelter";
 
 export const RESOURCES: Record<ResourceId, { name: string }> = {
   food: { name: "Food" },
@@ -84,9 +81,6 @@ export const RESOURCES: Record<ResourceId, { name: string }> = {
   mead: { name: "Mead" },
   bricks: { name: "Bricks" },
   shelter: { name: "Shelter" },
-  unitSwordsman: { name: "Swordsman" },
-  unitSpearman: { name: "Spearman" },
-  unitArcher: { name: "Archer" },
 };
 
 export type SkillId =

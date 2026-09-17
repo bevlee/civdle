@@ -36,10 +36,6 @@
       label: "Goods",
       resources: ["clothing", "fineClothing", "furniture", "shelter"],
     },
-    {
-      label: "Units",
-      resources: ["unitSwordsman", "unitSpearman", "unitArcher"],
-    },
   ];
 
   let {

@@ -18,6 +18,7 @@
   let resourceAmount = $state(100);
   let skillLevel = $state(10);
   let spAmount = $state(50);
+  let goldAmount = $state(100);
 </script>
 
 {#if collapsed}
@@ -190,6 +191,55 @@
             >
               {#each AGES as age, i (age.id)}
                 <option value={i}>{age.name}</option>
+              {/each}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <Separator />
+
+      <!-- Gacha / Combat -->
+      <section>
+        <h4
+          class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-yellow-500/70"
+        >
+          Gacha
+        </h4>
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-muted-foreground">Gold</label>
+            <input
+              type="number"
+              min="1"
+              bind:value={goldAmount}
+              class="w-16 rounded border border-border bg-muted px-1.5 py-0.5 text-xs tabular-nums"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-6 text-xs"
+              onclick={() => game.debugGrantGold(goldAmount)}
+            >
+              Grant
+            </Button>
+            <span class="text-xs tabular-nums text-muted-foreground">
+              ({game.state.gacha.gold})
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-muted-foreground">Enemy Lv</label>
+            <select
+              class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs"
+              value={game.state.gacha.maxEnemyLevel}
+              onchange={(e) =>
+                game.debugSetEnemyLevel(
+                  Number((e.target as HTMLSelectElement).value),
+                )}
+            >
+              {#each Array.from({ length: 10 }, (_, i) => i + 1) as lv}
+                <option value={lv}>{lv}</option>
               {/each}
             </select>
           </div>

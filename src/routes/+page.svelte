@@ -114,28 +114,26 @@
 
       <!-- Center: Train / Combat -->
       <main class="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {#if game.state.combat.unlocked}
-          <div class="flex border-b border-border">
-            <button
-              class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
-              'train'
-                ? 'border-b-2 border-primary text-foreground'
-                : 'text-muted-foreground hover:text-foreground'}"
-              onclick={() => (centerTab = "train")}
-            >
-              Train
-            </button>
-            <button
-              class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
-              'combat'
-                ? 'border-b-2 border-primary text-foreground'
-                : 'text-muted-foreground hover:text-foreground'}"
-              onclick={() => (centerTab = "combat")}
-            >
-              Combat
-            </button>
-          </div>
-        {/if}
+        <div class="flex border-b border-border">
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
+            'train'
+              ? 'border-b-2 border-primary text-foreground'
+              : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => (centerTab = "train")}
+          >
+            Train
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
+            'combat'
+              ? 'border-b-2 border-primary text-foreground'
+              : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => (centerTab = "combat")}
+          >
+            Combat
+          </button>
+        </div>
 
         <div class="flex-1 overflow-y-auto">
           {#if centerTab === "train" && selectedSkill}
@@ -161,14 +159,16 @@
           {:else if centerTab === "combat"}
             <div class="p-3">
               <CombatView
-                combat={game.state.combat}
-                resources={game.state.resources}
-                ageIndex={game.ageIndex}
-                onPlace={(lane, col, unitId) =>
-                  game.placeUnitOnGrid(lane, col, unitId)}
-                onRemove={(lane, col) => game.removeUnitFromGrid(lane, col)}
-                onSendWave={() => game.sendWave()}
-                onCraftUnit={(unitId) => game.craftBarracksUnit(unitId)}
+                gacha={game.state.gacha}
+                lastRolledHero={game.lastRolledHero}
+                onRoll={() => game.rollGachaHero()}
+                onAssign={(heroId) => game.addHeroToFirstEmptySlot(heroId)}
+                onRemoveFromParty={(slot) => game.removeHeroFromParty(slot)}
+                onFight={() => game.startFight()}
+                onSetLevel={(level) => game.setEnemyLevel(level)}
+                onDismissBattle={() => game.dismissBattle()}
+                onDismissRoll={() => game.dismissLastRolledHero()}
+                onDiscard={(heroId) => game.discardHero(heroId)}
               />
             </div>
           {/if}

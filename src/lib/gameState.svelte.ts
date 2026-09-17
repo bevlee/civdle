@@ -16,31 +16,46 @@ import {
   processOfflineProgress,
 } from "./gameEngine";
 import {
-  createInitialCombatState,
-  placeUnit,
-  removeUnit,
-  startWave,
-  tickCombat,
+  createInitialGachaState,
+  startBattle,
+  tickBattle,
 } from "./combatEngine";
-import { BARRACKS_RECIPES, generateWave, type UnitId, UNITS } from "./combatData";
+import type { GachaState } from "./combatEngine";
+import {
+  rollGacha,
+  generateEnemyParty,
+  GACHA_COST,
+  MAX_ENEMY_LEVEL,
+  type Hero,
+} from "./combatData";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
 const PROGRESS_INTERVAL_MS = 100;
 
-// ---------- localStorage helpers ----------
-
 function loadFromStorage(): GameState {
   if (typeof window === "undefined") return createInitialState();
   try {
     const raw = window.localStorage.getItem(SAVE_KEY);
     if (!raw) return createInitialState();
-    const parsed = JSON.parse(raw) as GameState;
+    const parsed = JSON.parse(raw) as GameState & { combat?: unknown };
     if (!parsed || !parsed.skills) return createInitialState();
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
     if (!parsed.activeConsumables) parsed.activeConsumables = [];
-    if (!parsed.combat) parsed.combat = createInitialCombatState();
+
+    if (!parsed.gacha) {
+      const fresh = createInitialGachaState();
+      const oldCombat = parsed.combat as { loot?: Record<string, number> } | undefined;
+      if (oldCombat?.loot?.["warSpoils"]) {
+        fresh.gold = oldCombat.loot["warSpoils"];
+      }
+      parsed.gacha = fresh;
+    }
+    if (!parsed.gacha.heroes || parsed.gacha.heroes.length === 0) {
+      parsed.gacha = createInitialGachaState();
+    }
+
     for (const id of SKILL_ORDER) {
       if (!parsed.skills[id]) {
         const def = SKILLS[id];
@@ -52,8 +67,6 @@ function loadFromStorage(): GameState {
         };
       }
     }
-    // Migrate saves from before ages were resource-gated: grandfather the
-    // player into the highest age their skill levels already qualified for.
     if (typeof parsed.ageIndex !== "number") {
       parsed.ageIndex = getSkillEligibleAgeIndex(getSkillLevels(parsed));
     }
@@ -71,26 +84,18 @@ function saveToStorage(state: GameState) {
       JSON.stringify({ ...state, lastSavedAt: Date.now() }),
     );
   } catch {
-    // localStorage unavailable (private mode, quota) — silently skip saving.
+    // localStorage unavailable — silently skip saving.
   }
 }
 
-// ---------- CivdleGame ----------
-
-/**
- * Svelte 5 rune-based game-state manager. Replaces the React `useGameState`
- * hook. Instantiate once and call `init()` from a component's `onMount`;
- * `init()` returns a cleanup function to call on unmount.
- */
 export class CivdleGame {
-  // ----- Reactive fields ($state) -----
   state = $state<GameState>(createInitialState());
   loaded = $state(false);
   message = $state<string | null>(null);
   pendingUnlocks = $state<SkillId[]>([]);
+  lastRolledHero = $state<Hero | null>(null);
   #progress = $state(0);
 
-  // ----- Non-reactive instance fields -----
   eventQueue = new EventQueue();
   #actionTimeout: ReturnType<typeof setTimeout> | null = null;
   #progressInterval: ReturnType<typeof setInterval> | null = null;
@@ -99,8 +104,6 @@ export class CivdleGame {
   #saveInterval: ReturnType<typeof setInterval> | null = null;
   #combatInterval: ReturnType<typeof setInterval> | null = null;
   #handleUnload: (() => void) | null = null;
-
-  // ----- Getters (replaces useMemo) -----
 
   get levels() {
     return getSkillLevels(this.state);
@@ -126,22 +129,12 @@ export class CivdleGame {
     return this.eventQueue.events;
   }
 
-  // ----- Lifecycle -----
-
-  /**
-   * Call from `onMount` in the page component. Returns a cleanup function
-   * that clears timers, removes listeners, and persists a final save.
-   */
   init(): () => void {
-    // 1. Load from localStorage + offline catch-up
     const loadedState = loadFromStorage();
     const { state: withUnlocks } = computeUnlocks(loadedState);
     const elapsedSeconds = (Date.now() - withUnlocks.lastSavedAt) / 1000;
     const offline = processOfflineProgress(withUnlocks, elapsedSeconds);
-    let finalState: GameState = { ...offline.state, lastSavedAt: Date.now() };
-    if (!finalState.combat.unlocked && finalState.ageIndex >= 1) {
-      finalState = { ...finalState, combat: { ...finalState.combat, unlocked: true } };
-    }
+    const finalState: GameState = { ...offline.state, lastSavedAt: Date.now() };
     this.state = finalState;
     this.loaded = true;
 
@@ -150,23 +143,19 @@ export class CivdleGame {
         `Welcome back! ${offline.actionsProcessed} action${offline.actionsProcessed === 1 ? "" : "s"} completed while away.`;
     }
 
-    // If a skill was actively training before the save, restart its loop
     if (this.state.activeSkill) {
       this.#startActionLoop();
       this.#startProgressLoop();
     }
 
-    // If a combat wave was playing, restart the combat tick
-    if (this.state.combat.activeWave?.status === "playing") {
+    if (this.state.gacha.battle?.status === "playing") {
       this.#startCombatLoop();
     }
 
-    // 2. Periodic save + beforeunload
     this.#saveInterval = setInterval(() => saveToStorage(this.state), SAVE_INTERVAL_MS);
     this.#handleUnload = () => saveToStorage(this.state);
     window.addEventListener("beforeunload", this.#handleUnload);
 
-    // 3. Return cleanup
     return () => {
       this.#clearActionLoop();
       this.#clearProgressLoop();
@@ -184,11 +173,10 @@ export class CivdleGame {
     };
   }
 
-  // ----- Action loop (recursive setTimeout) -----
+  // ----- Action loop -----
 
   #startActionLoop(): void {
     this.#clearActionLoop();
-
     const skillId = this.state.activeSkill;
     if (!skillId) return;
 
@@ -204,17 +192,11 @@ export class CivdleGame {
     );
     const ce = aggregateConsumableEffects(activeDefs);
     const result = computeActionResult(
-      skillId,
-      level,
-      skillState.upgrades,
-      ageIndex,
-      skillState.selectedRecipeId,
-      this.state.globalUpgrades,
-      ce,
+      skillId, level, skillState.upgrades, ageIndex,
+      skillState.selectedRecipeId, this.state.globalUpgrades, ce,
     );
 
     if (!result) {
-      // Defensive: a persisted save could reference a recipe that's no longer valid.
       if (this.state.activeSkill === skillId) {
         this.state = { ...this.state, activeSkill: null };
       }
@@ -234,11 +216,7 @@ export class CivdleGame {
       this.#handleOutcome(outcome);
 
       let nextState = outcome.state;
-      if (!prev.combat.unlocked && nextState.ageIndex >= 1) {
-        nextState = { ...nextState, combat: { ...nextState.combat, unlocked: true } };
-      }
 
-      // Punchy feedback events — only for live ticks (never offline catch-up)
       if (outcome.leveledUp) {
         const newLevel = getSkillLevels(nextState)[skillId];
         this.eventQueue.emit("levelUp", { skillId, newLevel });
@@ -265,7 +243,6 @@ export class CivdleGame {
 
       this.state = nextState;
 
-      // Recursively schedule next action (unless stopped by out-of-materials)
       if (!outcome.outOfMaterials) {
         this.#startActionLoop();
       } else {
@@ -280,8 +257,6 @@ export class CivdleGame {
       this.#actionTimeout = null;
     }
   }
-
-  // ----- Progress bar loop (setInterval) -----
 
   #startProgressLoop(): void {
     this.#clearProgressLoop();
@@ -300,19 +275,29 @@ export class CivdleGame {
     this.#progress = 0;
   }
 
-  // ----- Combat tick loop (setInterval) -----
+  // ----- Combat loop -----
 
   #startCombatLoop(): void {
     this.#clearCombatLoop();
     this.#combatInterval = setInterval(() => {
-      if (this.state.combat.activeWave?.status !== "playing") {
+      const battle = this.state.gacha.battle;
+      if (!battle || battle.status !== "playing") {
         this.#clearCombatLoop();
         return;
       }
-      const newCombat = tickCombat(this.state.combat);
-      this.state = { ...this.state, combat: newCombat };
-      // Stop the loop if the wave ended
-      if (newCombat.activeWave?.status !== "playing") {
+      const newBattle = tickBattle(battle);
+      let gacha = { ...this.state.gacha, battle: newBattle };
+
+      if (newBattle.status === "won") {
+        gacha.gold += gacha.enemyLevel;
+        if (gacha.enemyLevel >= gacha.maxEnemyLevel && gacha.maxEnemyLevel < MAX_ENEMY_LEVEL) {
+          gacha.maxEnemyLevel = Math.min(MAX_ENEMY_LEVEL, gacha.maxEnemyLevel + 1);
+        }
+      }
+
+      this.state = { ...this.state, gacha };
+
+      if (newBattle.status !== "playing") {
         this.#clearCombatLoop();
       }
     }, 500);
@@ -340,7 +325,7 @@ export class CivdleGame {
     }
   }
 
-  // ----- Action methods -----
+  // ----- Training methods -----
 
   startTraining(skillId: SkillId): void {
     this.state = { ...this.state, activeSkill: skillId };
@@ -418,48 +403,79 @@ export class CivdleGame {
     this.pendingUnlocks = this.pendingUnlocks.slice(1);
   }
 
-  placeUnitOnGrid(lane: number, col: number, unitId: UnitId): void {
-    const unitDef = UNITS[unitId];
-    if ((this.state.resources[unitDef.resource] ?? 0) < 1) return;
-    const newCombat = placeUnit(this.state.combat, lane, col, unitId);
-    if (newCombat === this.state.combat) return;
-    const resources = { ...this.state.resources };
-    resources[unitDef.resource] = (resources[unitDef.resource] ?? 0) - 1;
-    this.state = { ...this.state, combat: newCombat, resources };
+  // ----- Gacha / Combat methods -----
+
+  rollGachaHero(): void {
+    if (this.state.gacha.gold < GACHA_COST) return;
+    const hero = rollGacha();
+    this.lastRolledHero = hero;
+    this.state = {
+      ...this.state,
+      gacha: {
+        ...this.state.gacha,
+        gold: this.state.gacha.gold - GACHA_COST,
+        heroes: [...this.state.gacha.heroes, hero],
+      },
+    };
   }
 
-  removeUnitFromGrid(lane: number, col: number): void {
-    const result = removeUnit(this.state.combat, lane, col);
-    if (result.state === this.state.combat) return;
-    const resources = { ...this.state.resources };
-    if (result.returned) {
-      const unitDef = UNITS[result.returned];
-      resources[unitDef.resource] = (resources[unitDef.resource] ?? 0) + 1;
-    }
-    this.state = { ...this.state, combat: result.state, resources };
+  assignHeroToParty(heroId: string, slotIndex: number): void {
+    if (slotIndex < 0 || slotIndex >= 3) return;
+    if (this.state.gacha.battle?.status === "playing") return;
+    const hero = this.state.gacha.heroes.find((h) => h.id === heroId);
+    if (!hero) return;
+    const party = [...this.state.gacha.party];
+    const existingSlot = party.indexOf(heroId);
+    if (existingSlot >= 0) return;
+    party[slotIndex] = heroId;
+    this.state = { ...this.state, gacha: { ...this.state.gacha, party } };
   }
 
-  craftBarracksUnit(unitId: string): void {
-    const recipe = BARRACKS_RECIPES.find((r) => r.unitId === unitId);
-    if (!recipe) return;
-    const canAfford = recipe.inputs.every(
-      (inp) => (this.state.resources[inp.resource] ?? 0) >= inp.amount,
-    );
-    if (!canAfford) return;
-    const resources = { ...this.state.resources };
-    for (const inp of recipe.inputs) {
-      resources[inp.resource] = (resources[inp.resource] ?? 0) - inp.amount;
-    }
-    const outputResource = UNITS[recipe.unitId].resource;
-    resources[outputResource] = (resources[outputResource] ?? 0) + 1;
-    this.state = { ...this.state, resources };
+  removeHeroFromParty(slotIndex: number): void {
+    if (this.state.gacha.battle?.status === "playing") return;
+    const party = [...this.state.gacha.party];
+    party[slotIndex] = null;
+    this.state = { ...this.state, gacha: { ...this.state.gacha, party } };
   }
 
-  sendWave(): void {
-    const wave = generateWave(this.state.combat.waveNumber);
-    const newCombat = startWave(this.state.combat, wave.lanes);
-    this.state = { ...this.state, combat: newCombat };
+  addHeroToFirstEmptySlot(heroId: string): void {
+    const emptySlot = this.state.gacha.party.indexOf(null);
+    if (emptySlot < 0) return;
+    this.assignHeroToParty(heroId, emptySlot);
+  }
+
+  setEnemyLevel(level: number): void {
+    const clamped = Math.max(1, Math.min(level, this.state.gacha.maxEnemyLevel));
+    this.state = { ...this.state, gacha: { ...this.state.gacha, enemyLevel: clamped } };
+  }
+
+  startFight(): void {
+    if (this.state.gacha.battle?.status === "playing") return;
+    const partyHeroes = this.state.gacha.party
+      .filter((id): id is string => id !== null)
+      .map((id) => this.state.gacha.heroes.find((h) => h.id === id))
+      .filter((h): h is Hero => h !== undefined);
+    if (partyHeroes.length === 0) return;
+
+    const enemies = generateEnemyParty(this.state.gacha.enemyLevel);
+    const battle = startBattle(partyHeroes, enemies);
+    this.state = { ...this.state, gacha: { ...this.state.gacha, battle } };
     this.#startCombatLoop();
+  }
+
+  dismissBattle(): void {
+    this.state = { ...this.state, gacha: { ...this.state.gacha, battle: null } };
+  }
+
+  dismissLastRolledHero(): void {
+    this.lastRolledHero = null;
+  }
+
+  discardHero(heroId: string): void {
+    if (this.state.gacha.battle?.status === "playing") return;
+    const party = this.state.gacha.party.map((id) => (id === heroId ? null : id));
+    const heroes = this.state.gacha.heroes.filter((h) => h.id !== heroId);
+    this.state = { ...this.state, gacha: { ...this.state.gacha, heroes, party } };
   }
 
   advanceAgeAction(): void {
@@ -517,6 +533,24 @@ export class CivdleGame {
       skills[id] = { ...skills[id], unlocked: true };
     }
     this.state = { ...this.state, skills };
+  }
+
+  debugGrantGold(amount: number): void {
+    this.state = {
+      ...this.state,
+      gacha: { ...this.state.gacha, gold: this.state.gacha.gold + amount },
+    };
+  }
+
+  debugSetEnemyLevel(level: number): void {
+    this.state = {
+      ...this.state,
+      gacha: {
+        ...this.state.gacha,
+        enemyLevel: level,
+        maxEnemyLevel: Math.max(this.state.gacha.maxEnemyLevel, level),
+      },
+    };
   }
 
   debugResetSave(): void {

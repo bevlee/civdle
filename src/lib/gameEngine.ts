@@ -18,8 +18,8 @@ import {
   SKILL_ORDER,
   XP_PER_ACTION,
 } from "./gameData";
-import type { CombatState } from "./combatEngine";
-import { createInitialCombatState } from "./combatEngine";
+import type { GachaState } from "./combatEngine";
+import { createInitialGachaState } from "./combatEngine";
 
 // ---------- XP / level math ----------
 
@@ -68,9 +68,7 @@ export interface GameState {
   lastSavedAt: number;
   globalUpgrades: string[];
   activeConsumables: ResourceId[];
-  combat: CombatState;
-  // Index into AGES for the age the player has actively advanced into — no
-  // longer derived live from skill levels; see advanceAge/getAgeAdvanceStatus.
+  gacha: GachaState;
   ageIndex: number;
 }
 
@@ -93,7 +91,7 @@ export function createInitialState(): GameState {
     lastSavedAt: Date.now(),
     globalUpgrades: [],
     activeConsumables: [],
-    combat: createInitialCombatState(),
+    gacha: createInitialGachaState(),
     ageIndex: 0,
   };
 }

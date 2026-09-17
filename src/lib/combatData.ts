@@ -1,162 +1,142 @@
-export type UnitId = "swordsman" | "spearman" | "archer";
-export type EnemyId = "raider" | "pikeman" | "scout";
+export type HeroClass = "warrior" | "monk";
 
-export interface UnitDef {
-  id: UnitId;
+export interface HeroClassDef {
+  id: HeroClass;
   name: string;
-  resource: import("./gameData").ResourceId;
-  hp: number;
-  atk: number;
-  range: "melee" | "ranged";
-  strongAgainst: UnitId;
-  weakAgainst: UnitId;
-}
-
-export interface EnemyDef {
-  id: EnemyId;
-  name: string;
-  unitType: UnitId;
+  emoji: string;
+  abilityName: string;
+  abilityDescription: string;
   baseHp: number;
+  hpPerLevel: number;
   baseAtk: number;
-  baseSpeed: number;
+  atkPerLevel: number;
+  baseSpd: number;
+  spdPerLevel: number;
 }
 
-export const UNITS: Record<UnitId, UnitDef> = {
-  swordsman: {
-    id: "swordsman",
-    name: "Swordsman",
-    resource: "unitSwordsman",
-    hp: 25,
-    atk: 10,
-    range: "melee",
-    strongAgainst: "archer",
-    weakAgainst: "spearman",
+export const HERO_CLASSES: Record<HeroClass, HeroClassDef> = {
+  warrior: {
+    id: "warrior",
+    name: "Warrior",
+    emoji: "⚔️",
+    abilityName: "Power Strike",
+    abilityDescription: "Deals 3x damage to one enemy",
+    baseHp: 50,
+    hpPerLevel: 5,
+    baseAtk: 8,
+    atkPerLevel: 2,
+    baseSpd: 10,
+    spdPerLevel: 0.3,
   },
-  spearman: {
-    id: "spearman",
-    name: "Spearman",
-    resource: "unitSpearman",
-    hp: 20,
-    atk: 8,
-    range: "melee",
-    strongAgainst: "swordsman",
-    weakAgainst: "archer",
-  },
-  archer: {
-    id: "archer",
-    name: "Archer",
-    resource: "unitArcher",
-    hp: 12,
-    atk: 6,
-    range: "ranged",
-    strongAgainst: "spearman",
-    weakAgainst: "swordsman",
+  monk: {
+    id: "monk",
+    name: "Monk",
+    emoji: "🥋",
+    abilityName: "Inner Peace",
+    abilityDescription: "Heals the most wounded ally",
+    baseHp: 35,
+    hpPerLevel: 3.5,
+    baseAtk: 5,
+    atkPerLevel: 1.5,
+    baseSpd: 15,
+    spdPerLevel: 0.5,
   },
 };
 
-export const ENEMIES: Record<EnemyId, EnemyDef> = {
-  raider: { id: "raider", name: "Raider", unitType: "swordsman", baseHp: 20, baseAtk: 8, baseSpeed: 0.3 },
-  pikeman: { id: "pikeman", name: "Pikeman", unitType: "spearman", baseHp: 16, baseAtk: 6, baseSpeed: 0.2 },
-  scout: { id: "scout", name: "Scout", unitType: "archer", baseHp: 10, baseAtk: 10, baseSpeed: 0.5 },
-};
-
-// ---------- Barracks recipes ----------
-
-export interface BarracksRecipe {
-  unitId: UnitId;
+export interface Hero {
+  id: string;
   name: string;
-  inputs: { resource: import("./gameData").ResourceId; amount: number }[];
-}
-
-export const BARRACKS_RECIPES: BarracksRecipe[] = [
-  {
-    unitId: "swordsman",
-    name: "Swordsman",
-    inputs: [
-      { resource: "copperBar", amount: 1 },
-      { resource: "preparedHides", amount: 1 },
-    ],
-  },
-  {
-    unitId: "spearman",
-    name: "Spearman",
-    inputs: [
-      { resource: "planks", amount: 2 },
-      { resource: "cordage", amount: 1 },
-    ],
-  },
-  {
-    unitId: "archer",
-    name: "Archer",
-    inputs: [
-      { resource: "bow", amount: 1 },
-      { resource: "cordage", amount: 1 },
-    ],
-  },
-];
-
-export const GRID_LANES = 3;
-export const GRID_COLUMNS = 5;
-
-export const DAMAGE_STRONG = 1.5;
-export const DAMAGE_WEAK = 0.75;
-
-export function getDamageMultiplier(attackerType: UnitId, defenderType: UnitId): number {
-  const def = UNITS[attackerType];
-  if (def.strongAgainst === defenderType) return DAMAGE_STRONG;
-  if (def.weakAgainst === defenderType) return DAMAGE_WEAK;
-  return 1;
-}
-
-export interface WaveLaneSpawn {
-  enemyId: EnemyId;
-  hp: number;
+  heroClass: HeroClass;
+  level: number;
+  maxHp: number;
   atk: number;
-  speed: number;
+  spd: number;
 }
 
-export interface WaveDef {
-  waveNumber: number;
-  lanes: WaveLaneSpawn[][]; // lanes[laneIndex] = array of enemies in that lane
-}
-
-function seededRandom(seed: number): () => number {
-  let s = seed;
-  return () => {
-    s = (s * 1103515245 + 12345) & 0x7fffffff;
-    return s / 0x7fffffff;
+export function computeHeroStats(heroClass: HeroClass, level: number): { maxHp: number; atk: number; spd: number } {
+  const def = HERO_CLASSES[heroClass];
+  return {
+    maxHp: Math.floor(def.baseHp + level * def.hpPerLevel),
+    atk: Math.floor(def.baseAtk + level * def.atkPerLevel),
+    spd: Math.round((def.baseSpd + level * def.spdPerLevel) * 10) / 10,
   };
 }
 
-const ENEMY_IDS: EnemyId[] = ["raider", "pikeman", "scout"];
-
-export function generateWave(waveNumber: number): WaveDef {
-  const rand = seededRandom(waveNumber * 7919);
-  const hpScale = 1 + waveNumber * 0.15;
-  const atkScale = 1 + waveNumber * 0.1;
-  const speedBonus = Math.floor(waveNumber / 10) * 0.05;
-
-  const lanes: WaveLaneSpawn[][] = Array.from({ length: GRID_LANES }, () => []);
-
-  // Available enemy types based on wave progression
-  const availableEnemies: EnemyId[] = ["raider"];
-  if (waveNumber >= 3) availableEnemies.push("pikeman");
-  if (waveNumber >= 5) availableEnemies.push("scout");
-
-  // Total enemies: starts at 2, grows with wave
-  const totalEnemies = Math.min(2 + Math.floor(waveNumber / 3), GRID_LANES * 3);
-
-  for (let i = 0; i < totalEnemies; i++) {
-    const lane = Math.floor(rand() * GRID_LANES);
-    const enemyId = availableEnemies[Math.floor(rand() * availableEnemies.length)];
-    const base = ENEMIES[enemyId];
-    lanes[lane].push({
-      enemyId,
-      hp: Math.floor(base.baseHp * hpScale),
-      atk: Math.floor(base.baseAtk * atkScale),
-      speed: Math.min(base.baseSpeed + speedBonus, 1),
-    });
-  }
-
-  return { waveNumber, lanes };
+export function createHero(name: string, heroClass: HeroClass, level: number): Hero {
+  const stats = computeHeroStats(heroClass, level);
+  return { id: crypto.randomUUID(), name, heroClass, level, ...stats };
 }
+
+const HERO_NAMES = [
+  "Ada", "Bjorn", "Cael", "Dara", "Elric", "Fynn", "Greta", "Holt",
+  "Iris", "Jade", "Kai", "Luna", "Mira", "Nyx", "Otto", "Pax",
+  "Quinn", "Ren", "Sol", "Tao", "Uma", "Val", "Wren", "Xia",
+  "Yara", "Zeke", "Ash", "Bo", "Cleo", "Dex", "Eve", "Gus",
+  "Hal", "Ivy", "Juno", "Kit", "Leo", "Mae", "Ned", "Ora",
+];
+
+export function rollGacha(): Hero {
+  const heroClass: HeroClass = Math.random() < 0.5 ? "warrior" : "monk";
+  const level = Math.max(1, Math.ceil(Math.pow(Math.random(), 4) * 100));
+  const name = HERO_NAMES[Math.floor(Math.random() * HERO_NAMES.length)];
+  return createHero(name, heroClass, level);
+}
+
+export type EnemyType = "goblin";
+
+export interface EnemyTypeDef {
+  id: EnemyType;
+  name: string;
+  emoji: string;
+  baseHp: number;
+  hpPerLevel: number;
+  baseAtk: number;
+  atkPerLevel: number;
+  baseSpd: number;
+  spdPerLevel: number;
+}
+
+export const ENEMY_TYPES: Record<EnemyType, EnemyTypeDef> = {
+  goblin: {
+    id: "goblin",
+    name: "Goblin",
+    emoji: "👺",
+    baseHp: 10,
+    hpPerLevel: 3,
+    baseAtk: 1,
+    atkPerLevel: 1,
+    baseSpd: 4,
+    spdPerLevel: 0.5,
+  },
+};
+
+export interface EnemyHero {
+  id: string;
+  name: string;
+  enemyType: EnemyType;
+  level: number;
+  maxHp: number;
+  atk: number;
+  spd: number;
+}
+
+export function generateEnemyParty(enemyLevel: number): EnemyHero[] {
+  const count = enemyLevel <= 4 ? 1 : enemyLevel <= 7 ? 2 : 3;
+  const def = ENEMY_TYPES.goblin;
+  return Array.from({ length: count }, (_, i) => ({
+    id: `enemy-${i}`,
+    name: count > 1 ? `${def.name} ${i + 1}` : def.name,
+    enemyType: "goblin" as EnemyType,
+    level: enemyLevel,
+    maxHp: Math.floor(def.baseHp + enemyLevel * def.hpPerLevel),
+    atk: Math.floor(def.baseAtk + enemyLevel * def.atkPerLevel),
+    spd: Math.round((def.baseSpd + enemyLevel * def.spdPerLevel) * 10) / 10,
+  }));
+}
+
+export const MAX_ENEMY_LEVEL = 10;
+export const GACHA_COST = 1;
+export const PARTY_SIZE = 3;
+export const AP_SCALE = 10;
+export const MAX_MANA = 100;
+export const MANA_PER_TURN = 20;
