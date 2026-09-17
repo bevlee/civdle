@@ -13,11 +13,6 @@
     isOreResource,
     xpForLevel,
   } from "$lib/gameEngine";
-  import type { QueuedEvent } from "$lib/eventQueue.svelte";
-  import type { ActionGainEventData } from "$lib/gameState.svelte";
-  import GainToast from "./GainToast.svelte";
-
-  const MAX_TOASTS = 4;
 
   let {
     skillId,
@@ -28,8 +23,6 @@
     onStart,
     onStop,
     onSelectRecipe,
-    events = [],
-    onDismissEvent,
   }: {
     skillId: SkillId;
     state: GameState;
@@ -39,8 +32,6 @@
     onStart: () => void;
     onStop: () => void;
     onSelectRecipe: (recipeId: string) => void;
-    events?: QueuedEvent[];
-    onDismissEvent?: (id: string) => void;
   } = $props();
 
   let def = $derived(SKILLS[skillId]);
@@ -69,22 +60,6 @@
       state.globalUpgrades,
     ),
   );
-
-  let gainToasts = $derived(
-    events.filter(
-      (e): e is QueuedEvent<ActionGainEventData> =>
-        e.type === "actionGain" && (e.data as ActionGainEventData).skillId === skillId,
-    ),
-  );
-
-  // Keep the stack short: when actions are fast, retire the oldest toasts
-  // early rather than letting the list grow.
-  $effect(() => {
-    if (!onDismissEvent || gainToasts.length <= MAX_TOASTS) return;
-    for (const stale of gainToasts.slice(0, gainToasts.length - MAX_TOASTS)) {
-      onDismissEvent(stale.id);
-    }
-  });
 
   // Describes an expected (average) amount as the guaranteed whole number plus
   // the chance of one more, e.g. "1 Wood (+1 at 10%)" or "Clay (30%)".
@@ -174,13 +149,6 @@
     <div class="mt-2 max-w-sm">
       <Progress value={isTraining ? progress * 100 : 0} class="h-3" />
     </div>
-    {#if onDismissEvent}
-      <div class="flex min-h-[2.25rem] flex-col gap-1.5" aria-live="polite">
-        {#each gainToasts.slice(-MAX_TOASTS) as toast (toast.id)}
-          <GainToast id={toast.id} gains={toast.data.gains} onDone={onDismissEvent} />
-        {/each}
-      </div>
-    {/if}
     <div class="flex gap-2">
       {#if isTraining}
         <Button variant="destructive" onclick={onStop}>Stop</Button>

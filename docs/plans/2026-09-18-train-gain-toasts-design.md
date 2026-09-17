@@ -32,8 +32,10 @@ The existing Ore Sense double-roll moves into the same roll step.
 - Preview reads `1 Wood (+1 at 10%)` and `Clay (30%)` so the variance is
   explained.
 - `CivdleGame` emits one `actionGain` event per action with the rolled
-  outputs. `TrainingView` renders up to 4 recent toasts under the progress
-  bar, newest last, each fading after ~1.6s. Bonus rolls are highlighted.
+  outputs. `GainToastStack`, mounted at page level, renders up to 4 recent
+  toasts fixed at the bottom centre of the viewport, newest last, each
+  fading after ~1.6s. They show on every tab (including Combat) so progress
+  is visible while fighting. Each toast lists only the amounts gained.
 - The inventory floating text and skill panel flashes are unchanged; the
   amounts they show are now integers.
 

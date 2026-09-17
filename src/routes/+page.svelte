@@ -10,6 +10,7 @@
   import CombatView from "$lib/components/CombatView.svelte";
   import SkillUnlockModal from "$lib/components/SkillUnlockModal.svelte";
   import AnimationOverlay from "$lib/components/AnimationOverlay.svelte";
+  import GainToastStack from "$lib/components/GainToastStack.svelte";
   import DebugPanel from "$lib/components/DebugPanel.svelte";
   import { page } from "$app/state";
 
@@ -147,8 +148,6 @@
               onStop={handleStopTraining}
               onSelectRecipe={(recipeId) =>
                 game.selectRecipe(selectedSkill!, recipeId)}
-              events={game.events}
-              onDismissEvent={(id) => game.dismissEvent(id)}
             />
           {:else if centerTab === "train"}
             <div class="flex flex-1 items-center justify-center p-6">
@@ -193,8 +192,6 @@
             <Inventory
               resources={game.state.resources}
               {highlightedResources}
-              events={game.events}
-              onDismissEvent={(id) => game.dismissEvent(id)}
             />
           {:else}
             <Shop
@@ -215,6 +212,11 @@
       onDismiss={() => game.dismissUnlock()}
     />
   {/if}
+
+  <GainToastStack
+    events={game.events}
+    onDismiss={(id) => game.dismissEvent(id)}
+  />
 
   <AnimationOverlay
     events={game.events}
