@@ -11,12 +11,14 @@
     unitId,
     pose = "idle",
     animate = false,
+    flip = false,
     class: className = "",
   }: {
     unitId: UnitId;
     pose?: Pose;
     /** Loop the idle frames. Action poses always animate; death plays once and holds. */
     animate?: boolean;
+    flip?: boolean;
     class?: string;
   } = $props();
 </script>
@@ -28,6 +30,7 @@
     class="sprite {className}"
     class:animated={animate || pose !== "idle"}
     class:play-once={pose !== "idle"}
+    class:flipped={flip}
     style="background-image:url('{UNIT_SPRITES[unitId]}'); --row:{POSE_ROW[pose]}; --dur:{POSE_MS[pose]}ms"
     aria-hidden="true"
   ></div>
@@ -41,6 +44,9 @@
     background-position-x: 0%;
     background-position-y: calc(var(--row) / 3 * 100%);
     image-rendering: auto;
+  }
+  .flipped {
+    transform: scaleX(-1);
   }
   .animated {
     animation: sprite-frames var(--dur, 900ms) steps(4, jump-none) infinite;

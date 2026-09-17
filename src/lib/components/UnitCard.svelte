@@ -15,6 +15,7 @@
     dim = false,
     pose = "idle",
     animate = false,
+    flipSprite = false,
     class: className,
   }: {
     unitId: UnitId;
@@ -26,6 +27,7 @@
     dim?: boolean;
     pose?: Pose;
     animate?: boolean;
+    flipSprite?: boolean;
     class?: string;
   } = $props();
 
@@ -74,7 +76,7 @@
 >
   {#if size === "tile"}
     <div class="flex h-full w-full items-end justify-center" role="img" aria-label={def.name}>
-      <Sprite {unitId} {pose} {animate} class="h-full" />
+      <Sprite {unitId} {pose} {animate} flip={flipSprite} class="h-full" />
     </div>
     <div
       class={cn(
@@ -102,7 +104,7 @@
       <span class="shrink-0 opacity-90" title={type.name}>{type.icon}</span>
     </div>
     <div role="img" aria-label={def.name}>
-      <Sprite {unitId} {pose} {animate} class="w-full" />
+      <Sprite {unitId} {pose} {animate} flip={flipSprite} class="w-full" />
     </div>
     <div class={cn("flex flex-wrap justify-center px-1 py-0.5 text-yellow-400 drop-shadow", STAR_CLASS[size])}>
       {#each Array(stars) as _, i (i)}<span>★</span>{/each}
