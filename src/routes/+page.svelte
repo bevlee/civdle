@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { CivdleGame } from "$lib/gameState.svelte";
-  import { SKILLS, type SkillId } from "$lib/gameData";
+  import { SKILL_ORDER, SKILLS, type SkillId } from "$lib/gameData";
   import AgeDisplay from "$lib/components/AgeDisplay.svelte";
   import SkillPanel from "$lib/components/SkillPanel.svelte";
   import TrainingView from "$lib/components/TrainingView.svelte";
@@ -14,16 +14,24 @@
   const game = new CivdleGame();
 
   let selectedSkill = $state<SkillId | null>(null);
-  let activeTab = $state<"train" | "inventory" | "shop" | "combat">("train");
+  let centerTab = $state<"train" | "combat">("train");
+  let rightTab = $state<"inventory" | "shop">("inventory");
 
   onMount(() => {
     document.documentElement.classList.add("dark");
-    return game.init();
+    const cleanup = game.init();
+
+    const firstUnlocked = SKILL_ORDER.find(
+      (id) => game.state.skills[id].unlocked,
+    );
+    if (firstUnlocked) selectedSkill = firstUnlocked;
+
+    return cleanup;
   });
 
   function handleSelectSkill(id: SkillId) {
     selectedSkill = id;
-    activeTab = "train";
+    centerTab = "train";
   }
 
   function handleStartTraining() {
@@ -47,6 +55,14 @@
       ...recipe.outputs.map((o) => o.resource),
     ]);
   });
+
+  $effect(() => {
+    if (game.pendingUnlocks.length > 0) {
+      const newSkill = game.pendingUnlocks[0];
+      selectedSkill = newSkill;
+      centerTab = "train";
+    }
+  });
 </script>
 
 {#if !game.loaded}
@@ -54,7 +70,7 @@
     <p class="text-muted-foreground">Loading…</p>
   </div>
 {:else}
-  <div class="flex min-h-screen flex-col bg-background text-foreground">
+  <div class="flex h-screen flex-col overflow-hidden bg-background text-foreground">
     <AgeDisplay
       ageIndex={game.ageIndex}
       ageBonus={game.ageBonus}
@@ -81,7 +97,8 @@
       </div>
     {/if}
 
-    <div class="flex flex-1 overflow-hidden">
+    <div class="flex min-h-0 flex-1">
+      <!-- Left: Skill panel -->
       <SkillPanel
         state={game.state}
         levels={game.levels}
@@ -91,30 +108,33 @@
         onDismissEvent={(id) => game.dismissEvent(id)}
       />
 
-      <main class="flex flex-1 overflow-y-auto">
-        <div class="flex flex-1 flex-col">
+      <!-- Center: Train / Combat -->
+      <main class="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {#if game.state.combat.unlocked}
           <div class="flex border-b border-border">
-            {#each [
-              { key: "train", label: "Train" },
-              { key: "inventory", label: "Inventory" },
-              { key: "shop", label: "Shop" },
-              ...(game.state.combat.unlocked
-                ? [{ key: "combat", label: "Combat" }]
-                : []),
-            ] as tab (tab.key)}
-              <button
-                class="px-4 py-2 text-sm font-medium transition-colors {activeTab ===
-                tab.key
-                  ? 'border-b-2 border-primary text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'}"
-                onclick={() => (activeTab = tab.key as typeof activeTab)}
-              >
-                {tab.label}
-              </button>
-            {/each}
+            <button
+              class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
+              'train'
+                ? 'border-b-2 border-primary text-foreground'
+                : 'text-muted-foreground hover:text-foreground'}"
+              onclick={() => (centerTab = "train")}
+            >
+              Train
+            </button>
+            <button
+              class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
+              'combat'
+                ? 'border-b-2 border-primary text-foreground'
+                : 'text-muted-foreground hover:text-foreground'}"
+              onclick={() => (centerTab = "combat")}
+            >
+              Combat
+            </button>
           </div>
+        {/if}
 
-          {#if activeTab === "train" && selectedSkill}
+        <div class="flex-1 overflow-y-auto">
+          {#if centerTab === "train" && selectedSkill}
             <TrainingView
               skillId={selectedSkill}
               state={game.state}
@@ -128,32 +148,14 @@
               onToggleConsumable={(resourceId) =>
                 game.toggleConsumable(resourceId)}
             />
-          {:else if activeTab === "train"}
-            <div class="flex flex-1 items-center justify-center">
+          {:else if centerTab === "train"}
+            <div class="flex flex-1 items-center justify-center p-6">
               <p class="text-muted-foreground">
                 Select a skill to begin training.
               </p>
             </div>
-          {:else if activeTab === "inventory"}
-            <div class="flex-1 overflow-y-auto">
-              <Inventory
-                resources={game.state.resources}
-                {highlightedResources}
-                events={game.events}
-                onDismissEvent={(id) => game.dismissEvent(id)}
-              />
-            </div>
-          {:else if activeTab === "shop"}
-            <div class="flex-1 overflow-y-auto">
-              <Shop
-                state={game.state}
-                onBuy={(skillId, upgradeId) =>
-                  game.buyUpgrade(skillId, upgradeId)}
-                onBuyGlobal={(upgradeId) => game.buyGlobalUpgrade(upgradeId)}
-              />
-            </div>
-          {:else if activeTab === "combat"}
-            <div class="flex-1 overflow-y-auto p-3">
+          {:else if centerTab === "combat"}
+            <div class="p-3">
               <CombatView
                 combat={game.state.combat}
                 resources={game.state.resources}
@@ -168,6 +170,49 @@
           {/if}
         </div>
       </main>
+
+      <!-- Right: Inventory / Shop -->
+      <aside
+        class="flex w-72 shrink-0 flex-col border-l border-border"
+      >
+        <div class="flex border-b border-border">
+          <button
+            class="flex-1 px-3 py-2 text-sm font-medium transition-colors {rightTab ===
+            'inventory'
+              ? 'border-b-2 border-primary text-foreground'
+              : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => (rightTab = "inventory")}
+          >
+            Inventory
+          </button>
+          <button
+            class="flex-1 px-3 py-2 text-sm font-medium transition-colors {rightTab ===
+            'shop'
+              ? 'border-b-2 border-primary text-foreground'
+              : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => (rightTab = "shop")}
+          >
+            Shop
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+          {#if rightTab === "inventory"}
+            <Inventory
+              resources={game.state.resources}
+              {highlightedResources}
+              events={game.events}
+              onDismissEvent={(id) => game.dismissEvent(id)}
+            />
+          {:else}
+            <Shop
+              state={game.state}
+              onBuy={(skillId, upgradeId) =>
+                game.buyUpgrade(skillId, upgradeId)}
+              onBuyGlobal={(upgradeId) => game.buyGlobalUpgrade(upgradeId)}
+            />
+          {/if}
+        </div>
+      </aside>
     </div>
   </div>
 
