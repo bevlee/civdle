@@ -1,4 +1,11 @@
-import { type ResourceId, SKILLS, SKILL_ORDER, type SkillId } from "./gameData";
+import {
+  DEBUG_GLOBAL_UPGRADES,
+  GLOBAL_UPGRADES,
+  type ResourceId,
+  SKILLS,
+  SKILL_ORDER,
+  type SkillId,
+} from "./gameData";
 import {
   type ApplyActionOutcome,
   type GameState,
@@ -6,6 +13,7 @@ import {
   type GameStats,
   advanceAge,
   applyAction,
+  canBuyGlobalUpgrade,
   computeActionResult,
   computeUnlocks,
   createInitialState,
@@ -14,6 +22,8 @@ import {
   getAgeBonus,
   getSkillEligibleAgeIndex,
   getSkillLevels,
+  hasMaxedSkill,
+  migrateUpgradeIds,
   processOfflineProgress,
 } from "./gameEngine";
 import { createInitialDepthsState, createInitialGachaState, startBattle, stepBattle } from "./combatEngine";
@@ -130,6 +140,8 @@ function loadFromStorage(): GameState {
           upgrades: [],
           selectedRecipeId: def.recipes[0].id,
         };
+      } else {
+        parsed.skills[id].upgrades = migrateUpgradeIds(id, parsed.skills[id].upgrades ?? []);
       }
     }
     if (typeof parsed.ageIndex !== "number") {
@@ -510,10 +522,18 @@ export class CivdleGame {
     };
   }
 
+  get masteryUnlocked(): boolean {
+    return hasMaxedSkill(this.state);
+  }
+
   buyGlobalUpgrade(upgradeId: string): void {
-    if (this.state.globalUpgrades.includes(upgradeId)) return;
+    if (!canBuyGlobalUpgrade(this.state, upgradeId)) return;
+    const upgrade =
+      GLOBAL_UPGRADES.find((u) => u.id === upgradeId) ?? DEBUG_GLOBAL_UPGRADES.find((u) => u.id === upgradeId);
+    if (!upgrade) return;
     this.state = {
       ...this.state,
+      skillPoints: this.state.skillPoints - upgrade.cost,
       globalUpgrades: [...this.state.globalUpgrades, upgradeId],
     };
   }
