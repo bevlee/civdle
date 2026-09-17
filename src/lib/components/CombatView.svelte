@@ -311,7 +311,7 @@
                 {#if encounter?.bossId === f.id}
                   <span class="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1.5 text-[9px] font-black tracking-wider text-white shadow">BOSS</span>
                 {/if}
-                <UnitCard unitId={f.unitId} stars={f.stars} size="sm" hp={f.hp} maxHp={f.maxHp} pose={fighterPose(f)} animate={isPlaying} />
+                <UnitCard unitId={f.unitId} stars={f.stars} size="sm" hp={f.hp} maxHp={f.maxHp} pose={fighterPose(f)} animate={isPlaying} flipSprite />
                 {#each popups.filter((p) => p.targetId === f.id) as p (p.id)}
                   <DamagePopup id={p.id} hit={p.hit} heal={p.heal} isUltimate={p.isUltimate} onDone={removePopup} />
                 {/each}
