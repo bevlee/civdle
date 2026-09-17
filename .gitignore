@@ -2,13 +2,9 @@ node_modules
 
 # Output
 .output
-.vercel
-.netlify
 .wrangler
 /.svelte-kit
 /build
-.next
-next-env.d.ts
 
 # Claude Code local state
 .claude
