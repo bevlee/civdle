@@ -10,8 +10,12 @@
   import CombatView from "$lib/components/CombatView.svelte";
   import SkillUnlockModal from "$lib/components/SkillUnlockModal.svelte";
   import AnimationOverlay from "$lib/components/AnimationOverlay.svelte";
+  import DebugPanel from "$lib/components/DebugPanel.svelte";
+  import { page } from "$app/state";
 
   const game = new CivdleGame();
+
+  let isDebug = $derived(page.url.searchParams.has("debug"));
 
   let selectedSkill = $state<SkillId | null>(null);
   let centerTab = $state<"train" | "combat">("train");
@@ -227,4 +231,8 @@
     events={game.events}
     onDismiss={(id) => game.dismissEvent(id)}
   />
+
+  {#if isDebug}
+    <DebugPanel {game} />
+  {/if}
 {/if}
