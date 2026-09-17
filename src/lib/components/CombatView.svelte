@@ -94,6 +94,47 @@
     return "idle";
   }
 
+  // ----- Drag and drop between party slots and the army inventory -----
+  let draggingId = $state<string | null>(null);
+  let dragOverSlot = $state<number | null>(null);
+  let dragOverInventory = $state(false);
+  let draggingFromParty = $derived(draggingId !== null && partyIds.has(draggingId));
+
+  function startDrag(e: DragEvent, cardId: string) {
+    if (isPlaying || !e.dataTransfer) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData("text/plain", cardId);
+    e.dataTransfer.effectAllowed = "move";
+    draggingId = cardId;
+  }
+
+  function endDrag() {
+    draggingId = null;
+    dragOverSlot = null;
+    dragOverInventory = false;
+  }
+
+  function slotDragOver(e: DragEvent, slot: number) {
+    if (draggingId === null || isPlaying) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    dragOverSlot = slot;
+  }
+
+  function slotDrop(e: DragEvent, slot: number) {
+    e.preventDefault();
+    const id = draggingId ?? e.dataTransfer?.getData("text/plain");
+    if (id) game.assignCardToParty(id, slot);
+    endDrag();
+  }
+
+  function inventoryDrop(cardId: string) {
+    game.removeCardFromParty(cardId);
+    endDrag();
+  }
+
   function handleMerge(partnerId: string) {
     if (!selectedCardId) return;
     game.mergeCards(selectedCardId, partnerId);
@@ -260,21 +301,44 @@
     </div>
     <div class="flex gap-2">
       {#each partySlots as card, i (i)}
-        {#if card}
-          <button
-            class="rounded-lg transition-transform hover:scale-105 disabled:cursor-not-allowed"
-            disabled={isPlaying}
-            onclick={() => (selectedCardId = card.id)}
-            title="Click for details"
-          >
-            <UnitCard unitId={card.unitId} stars={card.stars} size="sm" showTraits />
-          </button>
-        {:else}
-          <div class="flex w-24 flex-col items-center justify-center rounded-lg border border-dashed border-border/60 py-6 text-xs text-muted-foreground/60">
-            <span class="text-lg">+</span>
-            <span>Slot {i + 1}</span>
-          </div>
-        {/if}
+        {@const isOver = dragOverSlot === i && draggingId !== null && draggingId !== card?.id}
+        <div
+          role="group"
+          aria-label={`Party slot ${i + 1}`}
+          class={cn("rounded-lg transition-shadow", isOver && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+          ondragover={(e) => slotDragOver(e, i)}
+          ondragenter={(e) => slotDragOver(e, i)}
+          ondragleave={() => (dragOverSlot === i ? (dragOverSlot = null) : null)}
+          ondrop={(e) => slotDrop(e, i)}
+        >
+          {#if card}
+            <button
+              class={cn(
+                "rounded-lg transition-transform hover:scale-105 disabled:cursor-not-allowed",
+                !isPlaying && "cursor-grab active:cursor-grabbing",
+                draggingId === card.id && "opacity-40",
+              )}
+              disabled={isPlaying}
+              draggable={!isPlaying}
+              ondragstart={(e) => startDrag(e, card.id)}
+              ondragend={endDrag}
+              onclick={() => (selectedCardId = card.id)}
+              title="Click for details, drag to move"
+            >
+              <UnitCard unitId={card.unitId} stars={card.stars} size="sm" showTraits />
+            </button>
+          {:else}
+            <div
+              class={cn(
+                "flex w-24 flex-col items-center justify-center rounded-lg border border-dashed py-6 text-xs",
+                isOver ? "border-primary bg-primary/10 text-primary" : "border-border/60 text-muted-foreground/60",
+              )}
+            >
+              <span class="text-lg">+</span>
+              <span>{isOver ? "Drop here" : `Slot ${i + 1}`}</span>
+            </div>
+          {/if}
+        </div>
       {/each}
     </div>
   </div>
@@ -286,6 +350,13 @@
     rollCost={GACHA_COST}
     packCost={PACK_COST}
     locked={isPlaying}
+    {draggingId}
+    dropActive={draggingFromParty}
+    dragOver={dragOverInventory}
+    onDragStart={startDrag}
+    onDragEnd={endDrag}
+    onDragOverChange={(over) => (dragOverInventory = over)}
+    onDrop={inventoryDrop}
     onSelect={(id) => (selectedCardId = id)}
     onSummon={() => game.rollCard()}
     onOpenPack={() => game.rollPack()}

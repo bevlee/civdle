@@ -13,6 +13,13 @@
     rollCost,
     packCost,
     locked = false,
+    draggingId = null,
+    dropActive = false,
+    dragOver = false,
+    onDragStart,
+    onDragEnd,
+    onDragOverChange,
+    onDrop,
     onSelect,
     onSummon,
     onOpenPack,
@@ -23,10 +30,41 @@
     rollCost: number;
     packCost: number;
     locked?: boolean;
+    /** Card currently being dragged anywhere on the screen. */
+    draggingId?: string | null;
+    /** True when the dragged card is in the party, so dropping here removes it. */
+    dropActive?: boolean;
+    /** True while a party card is hovering over this panel. */
+    dragOver?: boolean;
+    onDragStart: (e: DragEvent, cardId: string) => void;
+    onDragEnd: () => void;
+    onDragOverChange: (over: boolean) => void;
+    onDrop: (cardId: string) => void;
     onSelect: (cardId: string) => void;
     onSummon: () => void;
     onOpenPack: () => void;
   } = $props();
+
+  function handleDragOver(e: DragEvent) {
+    if (!dropActive || locked) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    onDragOverChange(true);
+  }
+
+  function handleDragLeave(e: DragEvent) {
+    // Ignore leave events fired when moving between children of the panel.
+    const next = e.relatedTarget as Node | null;
+    if (next && e.currentTarget instanceof Node && e.currentTarget.contains(next)) return;
+    onDragOverChange(false);
+  }
+
+  function handleDrop(e: DragEvent) {
+    if (!dropActive || locked) return;
+    e.preventDefault();
+    const id = draggingId ?? e.dataTransfer?.getData("text/plain");
+    if (id) onDrop(id);
+  }
 
   let sortKey = $state<SortKey>("stars");
   let sortDesc = $state(true);
@@ -72,13 +110,28 @@
   });
 </script>
 
-<div class="flex flex-col gap-2 rounded-lg border border-border bg-muted/20">
+<div
+  role="group"
+  aria-label="Army inventory"
+  class={cn(
+    "flex flex-col gap-2 rounded-lg border bg-muted/20 transition-colors",
+    dropActive && dragOver ? "border-primary bg-primary/10" : "border-border",
+  )}
+  ondragover={handleDragOver}
+  ondragenter={handleDragOver}
+  ondragleave={handleDragLeave}
+  ondrop={handleDrop}
+>
   <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
     <div class="flex items-center gap-2">
       <h3 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         Army ({cards.length})
       </h3>
-      {#if mergeable.size > 0}
+      {#if dropActive}
+        <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary">
+          Drop here to remove from party
+        </span>
+      {:else if mergeable.size > 0}
         <span class="rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] text-green-300" title="Cards with a merge partner">
           ⇈ {mergeable.size} mergeable
         </span>
@@ -129,10 +182,15 @@
           <button
             class={cn(
               "relative rounded-lg transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              !locked && "cursor-grab active:cursor-grabbing",
               inParty && "ring-2 ring-primary ring-offset-1 ring-offset-background",
+              draggingId === card.id && "opacity-40",
             )}
+            draggable={!locked}
+            ondragstart={(e) => onDragStart(e, card.id)}
+            ondragend={onDragEnd}
             onclick={() => onSelect(card.id)}
-            title={UNITS[card.unitId].name}
+            title={`${UNITS[card.unitId].name} — drag to a party slot`}
           >
             <UnitCard unitId={card.unitId} stars={card.stars} size="tile" />
             {#if inParty}

@@ -31,6 +31,7 @@ import {
   type UnitCard,
   type UnitId,
 } from "./combatData";
+import { movePartyCard } from "./party";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
 
 const SAVE_KEY = "civdle-save";
@@ -464,9 +465,7 @@ export class CivdleGame {
   assignCardToParty(cardId: string, slotIndex: number): void {
     if (slotIndex < 0 || slotIndex >= PARTY_SIZE || this.inBattle) return;
     if (!this.state.gacha.cards.some((c) => c.id === cardId)) return;
-    const party = this.state.gacha.party.map((id) => (id === cardId ? null : id));
-    party[slotIndex] = cardId;
-    this.#setGacha({ party });
+    this.#setGacha({ party: movePartyCard(this.state.gacha.party, cardId, slotIndex) });
   }
 
   addCardToFirstEmptySlot(cardId: string): void {
