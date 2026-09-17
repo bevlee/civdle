@@ -350,11 +350,7 @@
           {:else}
             <span class="text-sm font-semibold text-red-400">Defeated — the same army awaits. Change your composition.</span>
           {/if}
-          {#if mode === "depths" && gacha.depths.auto}
-            <span class="text-xs text-muted-foreground">Auto: continuing…</span>
-          {:else}
-            <Button size="sm" variant="outline" onclick={() => game.dismissBattle()}>Continue</Button>
-          {/if}
+          <span class="text-xs text-muted-foreground">Continuing…</span>
         </div>
       {/if}
     </div>

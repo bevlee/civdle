@@ -431,7 +431,7 @@ export class CivdleGame {
         } else {
           this.#bumpStats({ battlesLost: this.state.stats.battlesLost + 1 });
         }
-        if (g.battleMode === "depths" && g.depths.auto) this.#scheduleAutoContinue();
+        this.#scheduleAutoDismiss(g.battleMode === "depths" && g.depths.auto);
       }
     }, delayMs);
   }
@@ -443,14 +443,13 @@ export class CivdleGame {
     }
   }
 
-  /** After an auto-ground Depths battle ends, pause on the result then fight on. */
-  #scheduleAutoContinue(): void {
+  #scheduleAutoDismiss(continueDepths: boolean): void {
     this.#clearAutoTimeout();
     this.#autoTimeout = setTimeout(() => {
       this.#autoTimeout = null;
-      if (!this.state.gacha.depths.auto || this.inBattle) return;
+      if (this.inBattle) return;
       this.dismissBattle();
-      this.startDepthsFight();
+      if (continueDepths && this.state.gacha.depths.auto) this.startDepthsFight();
     }, DEPTHS_AUTO_PAUSE_MS);
   }
 
@@ -708,7 +707,7 @@ export class CivdleGame {
       return;
     }
     if (g.battle && g.battle.status !== "playing" && g.battleMode === "depths") {
-      this.#scheduleAutoContinue();
+      this.#scheduleAutoDismiss(true);
     } else if (!g.battle) {
       this.startDepthsFight();
     }
