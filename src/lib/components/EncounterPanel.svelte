@@ -7,20 +7,27 @@
     type Encounter,
     type UnitCard as UnitCardT,
   } from "$lib/combatData";
+  import type { BattleMode } from "$lib/combatEngine";
   import UnitCard from "./UnitCard.svelte";
   import { cn } from "$lib/utils";
 
   let {
     encounter,
     partyCards,
+    mode = "story",
     tutorialSeen,
     onDismissTutorial,
   }: {
     encounter: Encounter;
     partyCards: UnitCardT[];
+    mode?: BattleMode;
     tutorialSeen: boolean;
     onDismissTutorial: () => void;
   } = $props();
+
+  let boss = $derived(encounter.bossId ? encounter.cards.find((c) => c.id === encounter.bossId) ?? null : null);
+  let minions = $derived(encounter.cards.filter((c) => c.id !== encounter.bossId));
+  let statBonusPct = $derived(Math.round(((encounter.statMult ?? 1) - 1) * 100));
 
   let arch = $derived(ENEMY_ARCHETYPES[encounter.archetype]);
   let enemyType = $derived(ATTACK_TYPES[arch.attackType]);
@@ -58,29 +65,62 @@
         <p>
           Scout the enemy army below, then build a party that counters it. If you lose, the same army waits — change your composition and try again.
         </p>
+        <p>
+          The <b>Main Story</b> is a linear climb with a <b>boss</b> every 5 levels; each win pays its level in War Spoils.
+          <b>The Depths</b> go on forever, scale gently, can be fought on <b>Auto</b>, and pay passive spoils for every 5 depths cleared.
+        </p>
       </div>
       <button class="shrink-0 text-muted-foreground hover:text-foreground" onclick={onDismissTutorial} title="Got it">✕</button>
     </div>
   {/if}
 
   <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+    {#if boss}
+      <span class="rounded-md bg-red-600 px-2 py-0.5 text-sm font-black tracking-wider text-white">BOSS</span>
+    {/if}
     <span
       class="rounded-md px-2 py-0.5 text-sm font-bold"
       style:background-color="color-mix(in oklch, var(--destructive) 25%, transparent)"
     >
       {enemyType.icon} {arch.name}
     </span>
-    <span class="text-xs text-muted-foreground">{arch.blurb}</span>
+    {#if statBonusPct > 0}
+      <span
+        class="rounded-md bg-destructive/20 px-2 py-0.5 text-xs font-semibold text-red-300"
+        title={mode === "depths"
+          ? "The Depths scale every enemy's HP, ATK and DEF a little more each level"
+          : "Boss armies fight with a stat bonus"}
+      >
+        +{statBonusPct}% stats
+      </span>
+    {/if}
+    <span class="text-xs text-muted-foreground">
+      {#if boss}
+        {UNITS[boss.unitId].name} leads two minions. {arch.blurb}
+      {:else}
+        {arch.blurb}
+      {/if}
+    </span>
   </div>
   <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
     <span><span class="text-green-400">Strength:</span> {arch.strengths}</span>
     <span><span class="text-red-400">Weakness:</span> {arch.weakness}</span>
   </div>
 
-  <div class="flex flex-wrap gap-2">
-    {#each encounter.cards as card (card.id)}
-      <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
-    {/each}
+  <div class="flex flex-wrap items-end gap-2">
+    {#if boss}
+      <div class="relative">
+        <span class="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1.5 text-[9px] font-black tracking-wider text-white shadow">BOSS</span>
+        <UnitCard unitId={boss.unitId} stars={boss.stars} size="md" showTraits />
+      </div>
+      {#each minions as card (card.id)}
+        <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
+      {/each}
+    {:else}
+      {#each encounter.cards as card (card.id)}
+        <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
+      {/each}
+    {/if}
   </div>
 
   <div class="flex flex-col gap-1 rounded-md border border-border/60 bg-background/40 px-2 py-1.5 text-xs">

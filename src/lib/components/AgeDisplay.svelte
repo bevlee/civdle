@@ -11,6 +11,7 @@
     ageIndex,
     ageBonus,
     skillPoints,
+    warSpoils,
     levels,
     resources,
     ageAdvanceStatus,
@@ -21,6 +22,7 @@
     ageIndex: number;
     ageBonus: AgeBonus;
     skillPoints: number;
+    warSpoils: number;
     levels: Record<SkillId, number>;
     resources: Partial<Record<ResourceId, number>>;
     ageAdvanceStatus: AgeAdvanceStatus;
@@ -36,6 +38,12 @@
   let skillPointEvents = $derived(
     events.filter(
       (e): e is QueuedEvent<{ amount: number }> => e.type === "skillPoint",
+    ),
+  );
+
+  let spoilsEvents = $derived(
+    events.filter(
+      (e): e is QueuedEvent<{ amount: number }> => e.type === "spoilsGain",
     ),
   );
 
@@ -95,17 +103,31 @@
         />
       {/each}
     </div>
-    <div class="relative flex items-center gap-2">
-      <span class="text-sm text-muted-foreground">Skill Points</span>
-      <Badge class="text-sm">{skillPoints}</Badge>
-      {#each skillPointEvents as event (event.id)}
-        <FloatingText
-          id={event.id}
-          text={`+${event.data.amount} SP`}
-          class="right-0 left-auto text-sm text-emerald-400"
-          onDone={onDismissEvent}
-        />
-      {/each}
+    <div class="flex items-center gap-4">
+      <div class="relative flex items-center gap-2" title="War Spoils — earned in combat, spent on summons">
+        <span class="text-sm text-muted-foreground">⚔ War Spoils</span>
+        <Badge variant="secondary" class="text-sm tabular-nums">{warSpoils}</Badge>
+        {#each spoilsEvents as event (event.id)}
+          <FloatingText
+            id={event.id}
+            text={`+${event.data.amount} ⚔`}
+            class="right-0 left-auto text-sm text-emerald-400"
+            onDone={onDismissEvent}
+          />
+        {/each}
+      </div>
+      <div class="relative flex items-center gap-2">
+        <span class="text-sm text-muted-foreground">Skill Points</span>
+        <Badge class="text-sm">{skillPoints}</Badge>
+        {#each skillPointEvents as event (event.id)}
+          <FloatingText
+            id={event.id}
+            text={`+${event.data.amount} SP`}
+            class="right-0 left-auto text-sm text-emerald-400"
+            onDone={onDismissEvent}
+          />
+        {/each}
+      </div>
     </div>
   </div>
   {#if ageAdvanceStatus.nextAge}

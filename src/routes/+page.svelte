@@ -18,7 +18,7 @@
   let isDebug = $derived(page.url.searchParams.has("debug"));
 
   let selectedSkill = $state<SkillId | null>(null);
-  let centerTab = $state<"train" | "combat">("train");
+  let centerTab = $state<"train" | "story" | "depths">("train");
   let rightTab = $state<"inventory" | "shop">("inventory");
 
   onMount(() => {
@@ -79,6 +79,7 @@
       ageIndex={game.ageIndex}
       ageBonus={game.ageBonus}
       skillPoints={game.state.skillPoints}
+      warSpoils={game.state.gacha.gold}
       levels={game.levels}
       resources={game.state.resources}
       ageAdvanceStatus={game.ageAdvanceStatus}
@@ -126,12 +127,21 @@
           </button>
           <button
             class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
-            'combat'
+            'story'
               ? 'border-b-2 border-primary text-foreground'
               : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (centerTab = "combat")}
+            onclick={() => (centerTab = "story")}
           >
-            Combat
+            Main Story
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
+            'depths'
+              ? 'border-b-2 border-primary text-foreground'
+              : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => (centerTab = "depths")}
+          >
+            The Depths
           </button>
         </div>
 
@@ -154,9 +164,13 @@
                 Select a skill to begin training.
               </p>
             </div>
-          {:else if centerTab === "combat"}
+          {:else if centerTab === "story"}
             <div class="p-3">
-              <CombatView {game} />
+              <CombatView {game} mode="story" />
+            </div>
+          {:else if centerTab === "depths"}
+            <div class="p-3">
+              <CombatView {game} mode="depths" />
             </div>
           {/if}
         </div>

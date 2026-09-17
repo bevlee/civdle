@@ -64,15 +64,32 @@ export interface BattleState {
   log: BattleLogEntry[];
 }
 
+export type BattleMode = "story" | "depths";
+
+export interface DepthsState {
+  /** The next depth to fight; `level - 1` depths have been cleared. */
+  level: number;
+  /** Keep fighting automatically (the only mode that may be auto-ground). */
+  auto: boolean;
+  encounter: Encounter | null;
+}
+
 export interface GachaState {
   gold: number;
   cards: UnitCard[];
   party: (string | null)[];
-  enemyLevel: number;
-  maxEnemyLevel: number;
+  /** Next Main Story level to fight. Past MAX_ENEMY_LEVEL means the story is complete. */
+  storyLevel: number;
+  /** The current Main Story encounter. */
   encounter: Encounter | null;
+  depths: DepthsState;
   battle: BattleState | null;
+  battleMode: BattleMode | null;
   tutorialSeen: boolean;
+}
+
+export function createInitialDepthsState(): DepthsState {
+  return { level: 1, auto: false, encounter: null };
 }
 
 export function createInitialGachaState(): GachaState {
@@ -80,10 +97,11 @@ export function createInitialGachaState(): GachaState {
     gold: STARTING_GOLD,
     cards: [],
     party: Array.from({ length: PARTY_SIZE }, () => null),
-    enemyLevel: 1,
-    maxEnemyLevel: 1,
+    storyLevel: 1,
     encounter: null,
+    depths: createInitialDepthsState(),
     battle: null,
+    battleMode: null,
     tutorialSeen: false,
   };
 }
@@ -112,9 +130,10 @@ function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: Arm
 export function enemyModsFor(encounter: Encounter): ArmyMods {
   const mods = computeArmyMods(encounter.cards);
   const arch = ENEMY_ARCHETYPES[encounter.archetype];
-  mods.hpMult *= arch.hpMult;
-  mods.atkMult *= arch.atkMult;
-  mods.defMult *= arch.defMult;
+  const statMult = encounter.statMult ?? 1;
+  mods.hpMult *= arch.hpMult * statMult;
+  mods.atkMult *= arch.atkMult * statMult;
+  mods.defMult *= arch.defMult * statMult;
   mods.spdFlat += arch.spdFlat;
   mods.ultEvery = Math.min(mods.ultEvery, arch.ultEvery);
   return mods;
