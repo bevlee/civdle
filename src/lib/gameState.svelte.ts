@@ -1,14 +1,12 @@
-import { CONSUMABLES, type ResourceId, SKILLS, SKILL_ORDER, type SkillId } from "./gameData";
+import { type ResourceId, SKILLS, SKILL_ORDER, type SkillId } from "./gameData";
 import {
   type ApplyActionOutcome,
   type GameState,
   advanceAge,
-  aggregateConsumableEffects,
   applyAction,
   computeActionResult,
   computeUnlocks,
   createInitialState,
-  getActiveConsumableDefs,
   getAgeAdvanceStatus,
   getAgeBonus,
   getSkillEligibleAgeIndex,
@@ -64,7 +62,6 @@ function loadFromStorage(): GameState {
     const parsed = JSON.parse(raw) as GameState & { combat?: unknown };
     if (!parsed || !parsed.skills) return createInitialState();
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
-    if (!parsed.activeConsumables) parsed.activeConsumables = [];
 
     const oldGacha = parsed.gacha as (Partial<GachaState> & { heroes?: unknown }) | undefined;
     if (!oldGacha || !Array.isArray(oldGacha.cards)) {
@@ -222,16 +219,9 @@ export class CivdleGame {
     const level = levels[skillId];
     const ageIndex = this.state.ageIndex;
     const skillState = this.state.skills[skillId];
-    const skillCategory = SKILLS[skillId].category;
-    const activeDefs = getActiveConsumableDefs(
-      this.state.activeConsumables,
-      this.state.resources,
-      skillCategory,
-    );
-    const ce = aggregateConsumableEffects(activeDefs);
     const result = computeActionResult(
       skillId, level, skillState.upgrades, ageIndex,
-      skillState.selectedRecipeId, this.state.globalUpgrades, ce,
+      skillState.selectedRecipeId, this.state.globalUpgrades,
     );
 
     if (!result) {
@@ -395,27 +385,6 @@ export class CivdleGame {
     this.state = {
       ...this.state,
       globalUpgrades: [...this.state.globalUpgrades, upgradeId],
-    };
-  }
-
-  toggleConsumable(resourceId: ResourceId): void {
-    const isActive = this.state.activeConsumables.includes(resourceId);
-    if (isActive) {
-      this.state = {
-        ...this.state,
-        activeConsumables: this.state.activeConsumables.filter((id) => id !== resourceId),
-      };
-      return;
-    }
-    const def = CONSUMABLES.find((c) => c.resource === resourceId);
-    if (!def || (this.state.resources[resourceId] ?? 0) < 1) return;
-    const withoutGroup = this.state.activeConsumables.filter((id) => {
-      const other = CONSUMABLES.find((c) => c.resource === id);
-      return !other || other.group !== def.group;
-    });
-    this.state = {
-      ...this.state,
-      activeConsumables: [...withoutGroup, resourceId],
     };
   }
 
