@@ -147,6 +147,8 @@
               onStop={handleStopTraining}
               onSelectRecipe={(recipeId) =>
                 game.selectRecipe(selectedSkill!, recipeId)}
+              events={game.events}
+              onDismissEvent={(id) => game.dismissEvent(id)}
             />
           {:else if centerTab === "train"}
             <div class="flex flex-1 items-center justify-center p-6">

@@ -10,8 +10,14 @@
   import {
     type GameState,
     computeActionResult,
+    isOreResource,
     xpForLevel,
   } from "$lib/gameEngine";
+  import type { QueuedEvent } from "$lib/eventQueue.svelte";
+  import type { ActionGainEventData } from "$lib/gameState.svelte";
+  import GainToast from "./GainToast.svelte";
+
+  const MAX_TOASTS = 4;
 
   let {
     skillId,
@@ -22,6 +28,8 @@
     onStart,
     onStop,
     onSelectRecipe,
+    events = [],
+    onDismissEvent,
   }: {
     skillId: SkillId;
     state: GameState;
@@ -31,6 +39,8 @@
     onStart: () => void;
     onStop: () => void;
     onSelectRecipe: (recipeId: string) => void;
+    events?: QueuedEvent[];
+    onDismissEvent?: (id: string) => void;
   } = $props();
 
   let def = $derived(SKILLS[skillId]);
@@ -60,8 +70,39 @@
     ),
   );
 
-  function formatAmount(amount: number): string {
-    return Number.isInteger(amount) ? String(amount) : amount.toFixed(1);
+  let gainToasts = $derived(
+    events.filter(
+      (e): e is QueuedEvent<ActionGainEventData> =>
+        e.type === "actionGain" && (e.data as ActionGainEventData).skillId === skillId,
+    ),
+  );
+
+  // Keep the stack short: when actions are fast, retire the oldest toasts
+  // early rather than letting the list grow.
+  $effect(() => {
+    if (!onDismissEvent || gainToasts.length <= MAX_TOASTS) return;
+    for (const stale of gainToasts.slice(0, gainToasts.length - MAX_TOASTS)) {
+      onDismissEvent(stale.id);
+    }
+  });
+
+  // Describes an expected (average) amount as the guaranteed whole number plus
+  // the chance of one more, e.g. "1 Wood (+1 at 10%)" or "Clay (30%)".
+  function describeOutput(resource: keyof typeof RESOURCES, expected: number): string {
+    const name = RESOURCES[resource].name;
+    const base = Math.floor(expected + 1e-9);
+    const chance = Math.round((expected - base) * 100);
+    const notes: string[] = [];
+    if (base === 0) {
+      notes.push(`${chance}%`);
+    } else if (chance > 0) {
+      notes.push(`+1 at ${chance}%`);
+    }
+    if (result && result.oreDoubleChance > 0 && isOreResource(resource)) {
+      notes.push(`×2 at ${Math.round(result.oreDoubleChance * 100)}%`);
+    }
+    const label = base === 0 ? name : `${base} ${name}`;
+    return notes.length > 0 ? `${label} (${notes.join(", ")})` : label;
   }
 </script>
 
@@ -120,7 +161,7 @@
         <p>
           <span class="text-muted-foreground">Produces: </span>
           {result.outputs
-            .map((o) => `${formatAmount(o.amount)} ${RESOURCES[o.resource].name}`)
+            .map((o) => describeOutput(o.resource, o.amount))
             .join(", ")}
         </p>
         <p class="text-muted-foreground">Time: {result.time.toFixed(2)}s</p>
@@ -133,6 +174,13 @@
     <div class="mt-2 max-w-sm">
       <Progress value={isTraining ? progress * 100 : 0} class="h-3" />
     </div>
+    {#if onDismissEvent}
+      <div class="flex min-h-[2.25rem] flex-col gap-1.5" aria-live="polite">
+        {#each gainToasts.slice(-MAX_TOASTS) as toast (toast.id)}
+          <GainToast id={toast.id} gains={toast.data.gains} onDone={onDismissEvent} />
+        {/each}
+      </div>
+    {/if}
     <div class="flex gap-2">
       {#if isTraining}
         <Button variant="destructive" onclick={onStop}>Stop</Button>

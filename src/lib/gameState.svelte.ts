@@ -2,6 +2,7 @@ import { type ResourceId, SKILLS, SKILL_ORDER, type SkillId } from "./gameData";
 import {
   type ApplyActionOutcome,
   type GameState,
+  type RolledOutput,
   advanceAge,
   applyAction,
   computeActionResult,
@@ -52,6 +53,11 @@ export interface StarUpEventData {
   unitId: UnitId;
   fromStars: number;
   toStars: number;
+}
+
+export interface ActionGainEventData {
+  skillId: SkillId;
+  gains: RolledOutput[];
 }
 
 function loadFromStorage(): GameState {
@@ -254,15 +260,11 @@ export class CivdleGame {
         this.eventQueue.emit("skillUnlock", { skillId: unlockedSkillId });
       }
 
-      const changedResources = new Set<ResourceId>([
-        ...(Object.keys(prev.resources) as ResourceId[]),
-        ...(Object.keys(nextState.resources) as ResourceId[]),
-      ]);
-      for (const resource of changedResources) {
-        const delta = (nextState.resources[resource] ?? 0) - (prev.resources[resource] ?? 0);
-        if (delta > 0.0001) {
-          this.eventQueue.emit("resourceGain", { resource, amount: delta });
-        }
+      for (const gain of outcome.gains) {
+        this.eventQueue.emit("resourceGain", { resource: gain.resource, amount: gain.amount });
+      }
+      if (outcome.gains.length > 0) {
+        this.eventQueue.emit("actionGain", { skillId, gains: outcome.gains } satisfies ActionGainEventData);
       }
 
       if (outcome.outOfMaterials) {
