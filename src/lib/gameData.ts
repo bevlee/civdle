@@ -806,38 +806,3 @@ export const BASE_ACTION_TIME = 2; // seconds
 export const XP_PER_ACTION = 5;
 export const MAX_LEVEL = 99;
 
-// ---------- Consumables ----------
-
-export type ConsumableGroup = "tool" | "food" | "clothing" | "container" | "vessel" | "drink" | "shelter";
-
-export interface ConsumableDef {
-  resource: ResourceId;
-  group: ConsumableGroup;
-  consumeChance: number;
-  effects: {
-    timeReduction?: number;
-    xpBonus?: number;
-    xpMultiplier?: number;
-    outputMultiplier?: number;
-  };
-  appliesTo?: SkillCategory;
-  description: string;
-}
-
-export const CONSUMABLES: ConsumableDef[] = [
-  { resource: "tools", group: "tool", consumeChance: 0.2, effects: { timeReduction: 0.3 }, appliesTo: "gathering", description: "-0.3s gathering (20%/action)" },
-  { resource: "copperTools", group: "tool", consumeChance: 0.15, effects: { timeReduction: 0.5 }, appliesTo: "gathering", description: "-0.5s gathering (15%/action)" },
-  { resource: "ironTools", group: "tool", consumeChance: 0.1, effects: { timeReduction: 0.7 }, appliesTo: "gathering", description: "-0.7s gathering (10%/action)" },
-  { resource: "steelTools", group: "tool", consumeChance: 0.05, effects: { timeReduction: 1.0 }, appliesTo: "gathering", description: "-1.0s gathering (5%/action)" },
-  { resource: "cookedFish", group: "food", consumeChance: 0.5, effects: { xpBonus: 3 }, description: "+3 XP (50%/action)" },
-  { resource: "preparedMeal", group: "food", consumeChance: 0.2, effects: { xpBonus: 5 }, description: "+5 XP (20%/action)" },
-  { resource: "clothing", group: "clothing", consumeChance: 0.05, effects: { xpMultiplier: 1.1 }, description: "+10% XP (5%/action)" },
-  { resource: "baskets", group: "container", consumeChance: 0.05, effects: { outputMultiplier: 1.2 }, appliesTo: "gathering", description: "+20% gathering output (5%/action)" },
-  { resource: "potteryVessel", group: "vessel", consumeChance: 0.05, effects: { outputMultiplier: 1.2 }, appliesTo: "crafting", description: "+20% crafting output (5%/action)" },
-  { resource: "bow", group: "tool", consumeChance: 0.1, effects: { timeReduction: 0.4 }, appliesTo: "gathering", description: "-0.4s gathering (10%/action)" },
-  { resource: "fineClothing", group: "clothing", consumeChance: 0.03, effects: { xpMultiplier: 1.15 }, description: "+15% XP (3%/action)" },
-  { resource: "ale", group: "drink", consumeChance: 0.3, effects: { xpBonus: 4 }, description: "+4 XP (30%/action)" },
-  { resource: "mead", group: "drink", consumeChance: 0.1, effects: { xpBonus: 7 }, description: "+7 XP (10%/action)" },
-  { resource: "furniture", group: "shelter", consumeChance: 0.02, effects: { outputMultiplier: 1.1 }, appliesTo: "crafting", description: "+10% crafting output (2%/action)" },
-  { resource: "shelter", group: "shelter", consumeChance: 0.01, effects: { xpMultiplier: 1.2, outputMultiplier: 1.1 }, description: "+20% XP, +10% output (1%/action)" },
-];

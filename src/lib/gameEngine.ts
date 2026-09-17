@@ -1,18 +1,15 @@
 import type {
   AgeDef,
   AgeId,
-  ConsumableDef,
   ConditionalOutput,
   Recipe,
   ResourceId,
-  SkillCategory,
   SkillId,
 } from "./gameData";
 import {
   AGES,
   AGE_ADVANCE_COSTS,
   BASE_ACTION_TIME,
-  CONSUMABLES,
   MAX_LEVEL,
   SKILLS,
   SKILL_ORDER,
@@ -67,7 +64,6 @@ export interface GameState {
   activeSkill: SkillId | null;
   lastSavedAt: number;
   globalUpgrades: string[];
-  activeConsumables: ResourceId[];
   gacha: GachaState;
   ageIndex: number;
 }
@@ -90,7 +86,6 @@ export function createInitialState(): GameState {
     activeSkill: null,
     lastSavedAt: Date.now(),
     globalUpgrades: [],
-    activeConsumables: [],
     gacha: createInitialGachaState(),
     ageIndex: 0,
   };
@@ -262,41 +257,6 @@ function getActionEffects(skillId: SkillId, owned: string[]): ActionEffects {
   return effects;
 }
 
-// ---------- Consumable effects ----------
-
-export interface ConsumableEffects {
-  timeReduction: number;
-  xpBonus: number;
-  xpMultiplier: number;
-  outputMultiplier: number;
-}
-
-export function getActiveConsumableDefs(
-  activeConsumables: ResourceId[],
-  resources: Partial<Record<ResourceId, number>>,
-  skillCategory: SkillCategory
-): ConsumableDef[] {
-  return activeConsumables
-    .map((id) => CONSUMABLES.find((c) => c.resource === id))
-    .filter((c): c is ConsumableDef => {
-      if (!c) return false;
-      if ((resources[c.resource] ?? 0) < 1) return false;
-      if (c.appliesTo && c.appliesTo !== skillCategory) return false;
-      return true;
-    });
-}
-
-export function aggregateConsumableEffects(defs: ConsumableDef[]): ConsumableEffects {
-  const effects: ConsumableEffects = { timeReduction: 0, xpBonus: 0, xpMultiplier: 1, outputMultiplier: 1 };
-  for (const c of defs) {
-    effects.timeReduction += c.effects.timeReduction ?? 0;
-    effects.xpBonus += c.effects.xpBonus ?? 0;
-    effects.xpMultiplier *= c.effects.xpMultiplier ?? 1;
-    effects.outputMultiplier *= c.effects.outputMultiplier ?? 1;
-  }
-  return effects;
-}
-
 // ---------- Recipes ----------
 
 export function getAvailableRecipes(skillId: SkillId, level: number): Recipe[] {
@@ -341,7 +301,6 @@ export function computeActionResult(
   ageIndex: number,
   selectedRecipeId: string,
   globalUpgrades: string[] = [],
-  consumableEffects?: ConsumableEffects
 ): ActionResult | null {
   const def = SKILLS[skillId];
   const recipe = def.recipes.find((r) => r.id === selectedRecipeId) ?? def.recipes[0];
@@ -349,10 +308,9 @@ export function computeActionResult(
 
   const effects = getActionEffects(skillId, owned);
   const ageBonus = getAgeBonus(ageIndex);
-  const ce = consumableEffects ?? { timeReduction: 0, xpBonus: 0, xpMultiplier: 1, outputMultiplier: 1 };
 
   const speedMult = globalUpgrades.includes("debugSpeed") ? 0.01 : 1;
-  const time = Math.max(0.2, (BASE_ACTION_TIME - effects.flatTimeReduction - ce.timeReduction) * ageBonus.timeMult) * speedMult;
+  const time = Math.max(0.2, (BASE_ACTION_TIME - effects.flatTimeReduction) * ageBonus.timeMult) * speedMult;
 
   let outputs = resolveOutputs(recipe.outputs, level, ageIndex, effects.clayLevelOverride);
   outputs = outputs.map((o) => {
@@ -361,11 +319,10 @@ export function computeActionResult(
     if (isOre && effects.oreDoubleChance > 0 && Math.random() < effects.oreDoubleChance) {
       amount *= 2;
     }
-    amount *= ageBonus.outputMult * ce.outputMultiplier;
+    amount *= ageBonus.outputMult;
     return { resource: o.resource, amount };
   });
 
-  // "Better Recipes" adds +1 to the recipe's primary (first) output.
   if (recipe.inputs.length > 0 && owned.includes("betterRecipes") && outputs.length > 0) {
     outputs = outputs.map((o, i) => (i === 0 ? { ...o, amount: o.amount + 1 * ageBonus.outputMult } : o));
   }
@@ -391,12 +348,8 @@ export function applyAction(state: GameState, skillId: SkillId): ApplyActionOutc
   const level = levels[skillId];
   const ageIndex = state.ageIndex;
   const skillState = state.skills[skillId];
-  const skillCategory = SKILLS[skillId].category;
 
-  const activeDefs = getActiveConsumableDefs(state.activeConsumables, state.resources, skillCategory);
-  const ce = aggregateConsumableEffects(activeDefs);
-
-  const result = computeActionResult(skillId, level, skillState.upgrades, ageIndex, skillState.selectedRecipeId, state.globalUpgrades, ce);
+  const result = computeActionResult(skillId, level, skillState.upgrades, ageIndex, skillState.selectedRecipeId, state.globalUpgrades);
   if (!result) {
     return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: false };
   }
@@ -413,28 +366,15 @@ export function applyAction(state: GameState, skillId: SkillId): ApplyActionOutc
     resources[output.resource] = (resources[output.resource] ?? 0) + output.amount;
   }
 
-  // Consume active consumables (probabilistic)
-  let activeConsumables = [...state.activeConsumables];
-  for (const def of activeDefs) {
-    if (Math.random() < def.consumeChance) {
-      resources[def.resource] = (resources[def.resource] ?? 0) - 1;
-      if ((resources[def.resource] ?? 0) < 1) {
-        activeConsumables = activeConsumables.filter((id) => id !== def.resource);
-      }
-    }
-  }
-
   const oldXp = skillState.xp;
   const oldLevel = level;
-  const baseXp = XP_PER_ACTION + ce.xpBonus;
-  const newXp = oldXp + Math.floor(baseXp * ce.xpMultiplier);
+  const newXp = oldXp + XP_PER_ACTION;
   const newLevel = levelForXp(newXp);
   const levelsGained = Math.max(0, newLevel - oldLevel);
 
   let nextState: GameState = {
     ...state,
     resources,
-    activeConsumables,
     skills: { ...state.skills, [skillId]: { ...skillState, xp: newXp } },
     skillPoints: state.skillPoints + levelsGained,
   };

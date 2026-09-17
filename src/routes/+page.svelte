@@ -147,8 +147,6 @@
               onStop={handleStopTraining}
               onSelectRecipe={(recipeId) =>
                 game.selectRecipe(selectedSkill!, recipeId)}
-              onToggleConsumable={(resourceId) =>
-                game.toggleConsumable(resourceId)}
             />
           {:else if centerTab === "train"}
             <div class="flex flex-1 items-center justify-center p-6">

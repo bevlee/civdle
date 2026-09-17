@@ -3,17 +3,13 @@
   import { Progress } from "$lib/components/ui/progress";
   import { Separator } from "$lib/components/ui/separator";
   import {
-    CONSUMABLES,
     RESOURCES,
-    type ResourceId,
     SKILLS,
     type SkillId,
   } from "$lib/gameData";
   import {
     type GameState,
-    aggregateConsumableEffects,
     computeActionResult,
-    getActiveConsumableDefs,
     xpForLevel,
   } from "$lib/gameEngine";
 
@@ -26,7 +22,6 @@
     onStart,
     onStop,
     onSelectRecipe,
-    onToggleConsumable,
   }: {
     skillId: SkillId;
     state: GameState;
@@ -36,7 +31,6 @@
     onStart: () => void;
     onStop: () => void;
     onSelectRecipe: (recipeId: string) => void;
-    onToggleConsumable: (resourceId: ResourceId) => void;
   } = $props();
 
   let def = $derived(SKILLS[skillId]);
@@ -55,14 +49,6 @@
       : Math.min(100, ((skillState.xp - xpBase) / xpSpan) * 100),
   );
 
-  let activeDefs = $derived(
-    getActiveConsumableDefs(
-      state.activeConsumables,
-      state.resources,
-      def.category,
-    ),
-  );
-  let ce = $derived(aggregateConsumableEffects(activeDefs));
   let result = $derived(
     computeActionResult(
       skillId,
@@ -71,12 +57,7 @@
       ageIndex,
       skillState.selectedRecipeId,
       state.globalUpgrades,
-      ce,
     ),
-  );
-
-  let applicableConsumables = $derived(
-    CONSUMABLES.filter((c) => !c.appliesTo || c.appliesTo === def.category),
   );
 
   function formatAmount(amount: number): string {
@@ -160,38 +141,4 @@
       {/if}
     </div>
   </div>
-
-  {#if applicableConsumables.length > 0}
-    <Separator />
-    <div class="flex flex-col gap-3">
-      <h3 class="text-sm font-semibold text-muted-foreground">Consumables</h3>
-      <div class="flex flex-col gap-2">
-        {#each applicableConsumables as c (c.resource)}
-          {@const owned = Math.floor(state.resources[c.resource] ?? 0)}
-          {@const isActive = state.activeConsumables.includes(c.resource)}
-          {@const canActivate = owned >= 1}
-          <button
-            disabled={!canActivate && !isActive}
-            onclick={() => onToggleConsumable(c.resource)}
-            class={`flex items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors ${
-              isActive ? "border-primary bg-accent" : "border-border"
-            } ${!canActivate && !isActive ? "cursor-not-allowed opacity-40" : "hover:bg-accent"}`}
-          >
-            <div class="flex flex-col items-start gap-0.5">
-              <span class="font-medium">
-                {RESOURCES[c.resource].name}
-                {#if isActive}
-                  <span class="ml-1 text-green-500">●</span>
-                {/if}
-              </span>
-              <span class="text-xs text-muted-foreground">{c.description}</span>
-            </div>
-            <span class="text-xs tabular-nums text-muted-foreground">
-              {owned.toLocaleString()}
-            </span>
-          </button>
-        {/each}
-      </div>
-    </div>
-  {/if}
 </div>
