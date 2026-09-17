@@ -483,4 +483,46 @@ export class CivdleGame {
   dismissEvent(id: string): void {
     this.eventQueue.dismiss(id);
   }
+
+  // ----- Debug methods -----
+
+  debugSetSkillXp(skillId: SkillId, xp: number): void {
+    const skills = {
+      ...this.state.skills,
+      [skillId]: { ...this.state.skills[skillId], xp, unlocked: true },
+    };
+    this.state = { ...this.state, skills };
+  }
+
+  debugGrantResource(resourceId: ResourceId, amount: number): void {
+    const resources = { ...this.state.resources };
+    resources[resourceId] = (resources[resourceId] ?? 0) + amount;
+    this.state = { ...this.state, resources };
+  }
+
+  debugGrantSkillPoints(amount: number): void {
+    this.state = {
+      ...this.state,
+      skillPoints: this.state.skillPoints + amount,
+    };
+  }
+
+  debugSetAge(ageIndex: number): void {
+    this.state = { ...this.state, ageIndex };
+  }
+
+  debugUnlockAllSkills(): void {
+    const skills = { ...this.state.skills };
+    for (const id of SKILL_ORDER) {
+      skills[id] = { ...skills[id], unlocked: true };
+    }
+    this.state = { ...this.state, skills };
+  }
+
+  debugResetSave(): void {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("civdle-save");
+      window.location.reload();
+    }
+  }
 }
