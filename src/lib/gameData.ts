@@ -971,8 +971,8 @@ export const AGE_ADVANCE_COSTS: Partial<Record<AgeId, ResourceAmount[]>> = {
 };
 
 export const BASE_ACTION_TIME = 2; // seconds
-export const XP_PER_ACTION = 10;
-export const XP_SCALING_RATE = 1.10;
+export const XP_PER_ACTION = 3;
+export const XP_SCALING_RATE = 1.12;
 export const MAX_LEVEL = 99;
 
 // Civilization-wide "mastery" upgrades. They apply to every skill and only go on
