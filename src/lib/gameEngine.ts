@@ -22,6 +22,8 @@ import {
 } from "./gameData";
 import type { GachaState } from "./combatEngine";
 import { createInitialGachaState } from "./combatEngine";
+import type { SettlementUpgradeId } from "./settlementData";
+import { SETTLEMENT_UPGRADES, tributeCap } from "./settlementData";
 
 // ---------- XP / level math ----------
 
@@ -105,6 +107,8 @@ export interface GameState {
   /** Unlocked achievement ids mapped to their unlock timestamp (ms). */
   achievements: Record<string, number>;
   stats: GameStats;
+  /** One-time settlement upgrades purchased with resources. */
+  settlementUpgrades: SettlementUpgradeId[];
 }
 
 export function createInitialState(): GameState {
@@ -129,6 +133,7 @@ export function createInitialState(): GameState {
     ageIndex: 0,
     achievements: {},
     stats: createInitialStats(),
+    settlementUpgrades: [],
   };
 }
 
@@ -644,6 +649,43 @@ export function processOfflineProgress(state: GameState, elapsedSeconds: number)
   }
 
   return { state: working, actionsProcessed, secondsApplied: elapsedSeconds - remaining, outOfMaterials };
+}
+
+// ---------- Settlement upgrades ----------
+
+export function canBuySettlementUpgrade(
+  state: GameState,
+  upgradeId: SettlementUpgradeId,
+): boolean {
+  if (state.settlementUpgrades.includes(upgradeId)) return false;
+  const def = SETTLEMENT_UPGRADES[upgradeId];
+  if (!def) return false;
+  if (def.requires && !state.settlementUpgrades.includes(def.requires)) return false;
+  const levels = getSkillLevels(state);
+  if (!def.prereqs.every((p) => (levels[p.skill] ?? 0) >= p.level)) return false;
+  return canAffordInputs(state.resources, def.cost);
+}
+
+export function buySettlementUpgrade(
+  state: GameState,
+  upgradeId: SettlementUpgradeId,
+): GameState {
+  if (!canBuySettlementUpgrade(state, upgradeId)) return state;
+  const def = SETTLEMENT_UPGRADES[upgradeId];
+  const resources = { ...state.resources };
+  for (const c of def.cost) {
+    resources[c.resource] = (resources[c.resource] ?? 0) - c.amount;
+  }
+  return {
+    ...state,
+    resources,
+    settlementUpgrades: [...state.settlementUpgrades, upgradeId],
+  };
+}
+
+export function getTributeCap(state: GameState): number {
+  const levels = getSkillLevels(state);
+  return tributeCap(levels.construction, state.settlementUpgrades.includes("treasury"));
 }
 
 export { AGES };

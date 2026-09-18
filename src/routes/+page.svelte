@@ -8,6 +8,7 @@
   import Inventory from "$lib/components/Inventory.svelte";
   import Shop from "$lib/components/Shop.svelte";
   import CombatView from "$lib/components/CombatView.svelte";
+  import SettlementView from "$lib/components/SettlementView.svelte";
   import SkillUnlockModal from "$lib/components/SkillUnlockModal.svelte";
   import AnimationOverlay from "$lib/components/AnimationOverlay.svelte";
   import GainToastStack from "$lib/components/GainToastStack.svelte";
@@ -22,7 +23,7 @@
   let isDebug = $derived(page.url.searchParams.has("debug"));
 
   let selectedSkill = $state<SkillId | null>(null);
-  let centerTab = $state<"train" | "story" | "depths" | "achievements">("train");
+  let centerTab = $state<"train" | "story" | "depths" | "settlement" | "achievements">("train");
   let achievementCount = $derived(Object.keys(game.state.achievements).length);
   let rightTab = $state<"inventory" | "shop">("inventory");
 
@@ -85,6 +86,7 @@
       ageBonus={game.ageBonus}
       skillPoints={game.state.skillPoints}
       warSpoils={game.state.gacha.gold}
+      tributeCap={game.tributeCap}
       levels={game.levels}
       resources={game.state.resources}
       ageAdvanceStatus={game.ageAdvanceStatus}
@@ -150,6 +152,15 @@
           </button>
           <button
             class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
+            'settlement'
+              ? 'border-b-2 border-primary text-foreground'
+              : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => (centerTab = "settlement")}
+          >
+            Settlement
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
             'achievements'
               ? 'border-b-2 border-primary text-foreground'
               : 'text-muted-foreground hover:text-foreground'}"
@@ -189,6 +200,11 @@
             <div class="p-3">
               <CombatView {game} mode="depths" />
             </div>
+          {:else if centerTab === "settlement"}
+            <SettlementView
+              state={game.state}
+              onBuy={(upgradeId) => game.buySettlementUpgradeAction(upgradeId)}
+            />
           {:else if centerTab === "achievements"}
             <AchievementsView state={game.state} levels={game.levels} />
           {/if}

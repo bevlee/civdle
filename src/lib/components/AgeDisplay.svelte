@@ -12,6 +12,7 @@
     ageBonus,
     skillPoints,
     warSpoils,
+    tributeCap,
     levels,
     resources,
     ageAdvanceStatus,
@@ -23,6 +24,7 @@
     ageBonus: AgeBonus;
     skillPoints: number;
     warSpoils: number;
+    tributeCap: number;
     levels: Record<SkillId, number>;
     resources: Partial<Record<ResourceId, number>>;
     ageAdvanceStatus: AgeAdvanceStatus;
@@ -104,9 +106,11 @@
       {/each}
     </div>
     <div class="flex items-center gap-4">
-      <div class="relative flex items-center gap-2" title="War Spoils — earned in combat, spent on summons">
-        <span class="text-sm text-muted-foreground">⚔ War Spoils</span>
-        <Badge variant="secondary" class="text-sm tabular-nums">{warSpoils}</Badge>
+      <div class="relative flex items-center gap-2" title="Tribute — earned in combat, spent on summons{tributeCap < Infinity ? `. Cap: ${tributeCap}` : ''}">
+        <span class="text-sm text-muted-foreground">⚔ Tribute</span>
+        <Badge variant="secondary" class="text-sm tabular-nums">
+          {warSpoils}{tributeCap < Infinity ? `/${tributeCap}` : ''}
+        </Badge>
         {#each spoilsEvents as event (event.id)}
           <FloatingText
             id={event.id}

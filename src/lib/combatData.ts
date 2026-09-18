@@ -228,22 +228,32 @@ export const ROLL_RATES: { stars: number; rate: number }[] = [
   { stars: 1, rate: 0.49 },
 ];
 
-export function rollRarity(rand: () => number = Math.random): number {
-  const r = rand();
+export function rollRarity(
+  rand: () => number = Math.random,
+  maxStars = 5,
+  rates: { stars: number; rate: number }[] = ROLL_RATES,
+): number {
+  const capped = rates.filter((r) => r.stars <= maxStars);
+  const total = capped.reduce((sum, r) => sum + r.rate, 0);
+  const r = rand() * total;
   let acc = 0;
-  for (const { stars, rate } of ROLL_RATES) {
+  for (const { stars, rate } of capped) {
     acc += rate;
     if (r < acc) return stars;
   }
-  return 1;
+  return capped.length > 0 ? capped[capped.length - 1].stars : 1;
 }
 
 export function unitsOfRarity(stars: number): UnitDef[] {
   return UNIT_LIST.filter((d) => d.baseStars === stars);
 }
 
-export function rollCard(rand: () => number = Math.random): UnitCard {
-  const stars = rollRarity(rand);
+export function rollCard(
+  rand: () => number = Math.random,
+  maxStars = 5,
+  rates: { stars: number; rate: number }[] = ROLL_RATES,
+): UnitCard {
+  const stars = rollRarity(rand, maxStars, rates);
   const pool = unitsOfRarity(stars);
   const def = pool[Math.floor(rand() * pool.length)];
   return createCard(def.id, def.baseStars);

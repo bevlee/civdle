@@ -21,6 +21,7 @@
     onDragOverChange,
     onDrop,
     onSelect,
+    maxStars = 5,
     onSummon,
     onOpenPack,
   }: {
@@ -29,6 +30,7 @@
     gold: number;
     rollCost: number;
     packCost: number;
+    maxStars?: number;
     locked?: boolean;
     /** Card currently being dragged anywhere on the screen. */
     draggingId?: string | null;
@@ -167,13 +169,21 @@
       >
         🎁 Open 10 ({packCost} ⚔)
       </Button>
+      {#if maxStars < 5}
+        <span
+          class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300"
+          title="Build the War Forge (Smithing) to unlock higher stars"
+        >
+          Max {maxStars}★
+        </span>
+      {/if}
     </div>
   </div>
 
   <div class="max-h-80 overflow-y-auto px-3 pb-3">
     {#if sorted.length === 0}
       <p class="py-6 text-center text-sm text-muted-foreground">
-        No units yet — summon one with War Spoils.{gold < rollCost ? " Win battles to earn more." : ""}
+        No units yet — summon one with Tribute.{gold < rollCost ? " Win battles to earn more." : ""}
       </p>
     {:else}
       <div class="flex flex-wrap gap-2">

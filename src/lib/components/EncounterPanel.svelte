@@ -66,8 +66,8 @@
           Scout the enemy army below, then build a party that counters it. If you lose, the same army waits — change your composition and try again.
         </p>
         <p>
-          The <b>Main Story</b> is a linear climb with a <b>boss</b> every 5 levels; each win pays its level in War Spoils.
-          <b>The Depths</b> go on forever, scale gently, can be fought on <b>Auto</b>, and pay passive spoils for every 5 depths cleared.
+          The <b>Main Story</b> is a linear climb with a <b>boss</b> every 5 levels; each win pays its level in Tribute.
+          <b>The Depths</b> go on forever, scale gently, can be fought on <b>Auto</b>, and pay passive Tribute for every 5 depths cleared.
         </p>
       </div>
       <button class="shrink-0 text-muted-foreground hover:text-foreground" onclick={onDismissTutorial} title="Got it">✕</button>

@@ -13,7 +13,9 @@ import {
   type GameStats,
   advanceAge,
   applyAction,
+  buySettlementUpgrade,
   canBuyGlobalUpgrade,
+  canBuySettlementUpgrade,
   computeActionResult,
   computeUnlocks,
   createInitialState,
@@ -22,6 +24,7 @@ import {
   getAgeBonus,
   getSkillEligibleAgeIndex,
   getSkillLevels,
+  getTributeCap,
   hasMaxedSkill,
   migrateUpgradeIds,
   processOfflineProgress,
@@ -51,6 +54,8 @@ import { movePartyCard } from "./party";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
 import { checkAchievements } from "./achievements";
 import { untrack } from "svelte";
+import type { SettlementUpgradeId } from "./settlementData";
+import { getEffectiveRollRates, maxSummonStars } from "./settlementData";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
@@ -97,6 +102,7 @@ function loadFromStorage(): GameState {
     if (!parsed || !parsed.skills) return createInitialState();
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
     if (!parsed.achievements || typeof parsed.achievements !== "object") parsed.achievements = {};
+    if (!Array.isArray(parsed.settlementUpgrades)) parsed.settlementUpgrades = [];
     parsed.stats = { ...createInitialStats(), ...(parsed.stats ?? {}) };
 
     const oldGacha = parsed.gacha as (Partial<GachaState> & { heroes?: unknown }) | undefined;
@@ -234,9 +240,11 @@ export class CivdleGame {
     if (!gacha.depths.encounter) {
       gacha = { ...gacha, depths: { ...gacha.depths, encounter: generateDepthsEncounter(gacha.depths.level) } };
     }
-    // Passive Depths income keeps flowing while away.
+    // Passive Depths income keeps flowing while away, clamped to tribute cap.
     const offlineTicks = Math.floor(Math.max(0, elapsedSeconds * 1000) / DEPTHS_INCOME_INTERVAL_MS);
-    const offlineSpoils = offlineTicks * depthsIncomePer10s(gacha.depths.level - 1);
+    const rawOfflineSpoils = offlineTicks * depthsIncomePer10s(gacha.depths.level - 1);
+    const offlineCap = getTributeCap(finalState);
+    const offlineSpoils = Math.min(rawOfflineSpoils, Math.max(0, offlineCap - gacha.gold));
     if (offlineSpoils > 0) gacha = { ...gacha, gold: gacha.gold + offlineSpoils };
     finalState = { ...finalState, gacha };
     this.state = finalState;
@@ -246,7 +254,7 @@ export class CivdleGame {
     if (offline.actionsProcessed > 0) {
       welcome.push(`${offline.actionsProcessed} action${offline.actionsProcessed === 1 ? "" : "s"} completed`);
     }
-    if (offlineSpoils > 0) welcome.push(`${offlineSpoils} War Spoils earned from The Depths`);
+    if (offlineSpoils > 0) welcome.push(`${offlineSpoils} Tribute earned from The Depths`);
     if (welcome.length > 0) this.message = `Welcome back! ${welcome.join(" and ")} while away.`;
 
     if (this.state.activeSkill) {
@@ -463,8 +471,12 @@ export class CivdleGame {
   #tickDepthsIncome(): void {
     const amount = this.depthsIncome;
     if (amount <= 0) return;
-    this.#setGacha({ gold: this.state.gacha.gold + amount });
-    this.eventQueue.emit<SpoilsGainEventData>("spoilsGain", { amount });
+    const cap = this.tributeCap;
+    const current = this.state.gacha.gold;
+    if (current >= cap) return;
+    const gained = Math.min(amount, cap - current);
+    this.#setGacha({ gold: current + gained });
+    this.eventQueue.emit<SpoilsGainEventData>("spoilsGain", { amount: gained });
   }
 
   #handleOutcome(outcome: ApplyActionOutcome): void {
@@ -568,9 +580,33 @@ export class CivdleGame {
     return depthsIncomePer10s(this.depthsCleared);
   }
 
+  get #settlementSet(): Set<SettlementUpgradeId> {
+    return new Set(this.state.settlementUpgrades);
+  }
+
+  get #maxSummonStars(): number {
+    return maxSummonStars(this.#settlementSet);
+  }
+
+  get #rollRates(): { stars: number; rate: number }[] {
+    return getEffectiveRollRates(this.#settlementSet);
+  }
+
+  get tributeCap(): number {
+    return getTributeCap(this.state);
+  }
+
+  get maxSummonStars(): number {
+    return this.#maxSummonStars;
+  }
+
+  #clampTribute(gold: number): number {
+    return Math.min(gold, this.tributeCap);
+  }
+
   rollCard(): void {
     if (this.state.gacha.gold < GACHA_COST) return;
-    const card = rollCard();
+    const card = rollCard(Math.random, this.#maxSummonStars, this.#rollRates);
     this.#setGacha({
       gold: this.state.gacha.gold - GACHA_COST,
       cards: [...this.state.gacha.cards, card],
@@ -584,7 +620,9 @@ export class CivdleGame {
 
   rollPack(): void {
     if (this.state.gacha.gold < PACK_COST) return;
-    const cards = Array.from({ length: PACK_SIZE }, () => rollCard());
+    const maxS = this.#maxSummonStars;
+    const rates = this.#rollRates;
+    const cards = Array.from({ length: PACK_SIZE }, () => rollCard(Math.random, maxS, rates));
     this.#setGacha({
       gold: this.state.gacha.gold - PACK_COST,
       cards: [...this.state.gacha.cards, ...cards],
@@ -595,6 +633,12 @@ export class CivdleGame {
       bestSummonStars: cards.reduce((best, c) => Math.max(best, c.stars), this.state.stats.bestSummonStars),
     });
     this.eventQueue.emit<SummonPackEventData>("summonPack", { cards });
+  }
+
+  buySettlementUpgradeAction(upgradeId: SettlementUpgradeId): void {
+    const next = buySettlementUpgrade(this.state, upgradeId);
+    if (next === this.state) return;
+    this.state = next;
   }
 
   /** Cards that could be merged into `cardId` (same unit, same stars). */
@@ -738,7 +782,7 @@ export class CivdleGame {
     }
     const storyLevel = g.storyLevel + 1;
     this.#setGacha({
-      gold: g.gold + g.storyLevel,
+      gold: this.#clampTribute(g.gold + g.storyLevel),
       storyLevel,
       encounter: storyLevel <= MAX_ENEMY_LEVEL ? generateStoryEncounter(storyLevel) : null,
       battle: null,

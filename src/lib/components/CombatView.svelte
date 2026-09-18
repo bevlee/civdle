@@ -181,10 +181,10 @@
 <div class="flex flex-col gap-3">
   <!-- Header -->
   <div class="flex flex-wrap items-center justify-between gap-2">
-    <div class="relative flex items-center gap-1.5" title="War Spoils — earned in the Main Story and from The Depths, spent on summons">
+    <div class="relative flex items-center gap-1.5" title="Tribute — earned in the Main Story and from The Depths, spent on summons">
       <span class="text-lg">⚔</span>
       <span class="text-sm font-bold tabular-nums">{gacha.gold}</span>
-      <span class="text-xs text-muted-foreground">War Spoils</span>
+      <span class="text-xs text-muted-foreground">Tribute</span>
       {#each spoilsEvents as event (event.id)}
         <FloatingText
           id={event.id}
@@ -216,7 +216,7 @@
         <span class="font-medium">Depth {gacha.depths.level}</span>
         <span
           class="text-xs text-muted-foreground"
-          title={`Every ${DEPTHS_TIER_SIZE} depths cleared pays +${DEPTHS_SPOILS_PER_TIER} War Spoils every 10 seconds`}
+          title={`Every ${DEPTHS_TIER_SIZE} depths cleared pays +${DEPTHS_SPOILS_PER_TIER} Tribute every 10 seconds`}
         >
           {#if depthsIncome > 0}
             +{depthsIncome} ⚔ / 10s
@@ -341,7 +341,7 @@
         <div class="mt-2 flex items-center justify-between">
           {#if battle.status === "won" && mode === "story"}
             <span class="text-sm font-semibold text-green-400">
-              {storyBoss ? "Boss defeated!" : "Victory!"} +{gacha.storyLevel} War Spoils
+              {storyBoss ? "Boss defeated!" : "Victory!"} +{gacha.storyLevel} Tribute
             </span>
           {:else if battle.status === "won"}
             <span class="text-sm font-semibold text-green-400">
@@ -436,6 +436,7 @@
     gold={gacha.gold}
     rollCost={GACHA_COST}
     packCost={PACK_COST}
+    maxStars={game.maxSummonStars}
     locked={anyPlaying}
     {draggingId}
     dropActive={draggingFromParty}
