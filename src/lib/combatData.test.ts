@@ -85,10 +85,10 @@ describe("rollRarity", () => {
 describe("stars", () => {
   it("scales stats by 1.4 per star above base", () => {
     const s = computeCardStats("devil", 7);
-    expect(s.hp).toBe(Math.floor(215 * 1.4 * 1.4));
-    expect(s.atk).toBe(Math.floor(30 * 1.96));
+    expect(s.hp).toBe(Math.floor(207 * 1.4 * 1.4));
+    expect(s.atk).toBe(Math.floor(31 * 1.96));
     expect(s.spd).toBe(13);
-    expect(computeCardStats("devil", 5)).toEqual({ hp: 215, atk: 30, def: 22, spd: 13 });
+    expect(computeCardStats("devil", 5)).toEqual({ hp: 207, atk: 31, def: 23, spd: 13 });
   });
 
   it("merges only identical same-star cards below 10★", () => {
