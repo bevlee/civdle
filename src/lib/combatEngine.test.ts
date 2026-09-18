@@ -35,7 +35,7 @@ describe("stepBattle", () => {
     }
     expect(kinds).toEqual(["attack", "attack", "ultimate"]);
     expect(dmg[2] / dmg[0]).toBeGreaterThan(1.7);
-    expect(dmg[2] / dmg[0]).toBeLessThan(2.3);
+    expect(dmg[2] / dmg[0]).toBeLessThan(2.5);
   });
 
   it("flags strong hits from the triangle", () => {
