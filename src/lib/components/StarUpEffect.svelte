@@ -38,12 +38,12 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="pointer-events-auto absolute inset-0 flex items-center justify-center overflow-hidden bg-black/75 backdrop-blur-[2px]"
+  class="pointer-events-auto animate-overlay-fadein absolute inset-0 flex items-center justify-center overflow-hidden bg-black/90 backdrop-blur-[2px]"
   class:animate-screen-shake={phase === "flash"}
   onclick={handleClick}
 >
   {#if phase === "flash"}
-    <div class="absolute inset-0 bg-white"></div>
+    <div class="absolute inset-0 bg-yellow-950/90"></div>
   {/if}
 
   {#if phase === "result"}
