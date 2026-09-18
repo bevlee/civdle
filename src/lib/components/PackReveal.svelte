@@ -80,12 +80,12 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="pointer-events-auto absolute inset-0 flex items-center justify-center overflow-hidden bg-black/80 backdrop-blur-[2px]"
+  class="pointer-events-auto animate-overlay-fadein absolute inset-0 flex items-center justify-center overflow-hidden bg-black/90 backdrop-blur-[2px]"
   onclick={handleClick}
 >
   {#key flashKey}
     {#if flashKey > 0}
-      <div class="animate-screen-flash absolute inset-0 bg-yellow-200"></div>
+      <div class="animate-screen-flash absolute inset-0 bg-yellow-900/80"></div>
     {/if}
   {/key}
 

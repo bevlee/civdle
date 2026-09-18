@@ -190,6 +190,18 @@
   animation: civdle-screen-flash 0.3s ease-out forwards;
 }
 
+@keyframes civdle-overlay-fadein {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-overlay-fadein {
+  animation: civdle-overlay-fadein 0.3s ease-out forwards;
+}
+
 @keyframes civdle-zoom-text {
   0% {
     transform: scale(0.5);
