@@ -18,6 +18,7 @@ import {
   SKILLS,
   SKILL_ORDER,
   XP_PER_ACTION,
+  XP_SCALING_RATE,
 } from "./gameData";
 import type { GachaState } from "./combatEngine";
 import { createInitialGachaState } from "./combatEngine";
@@ -425,7 +426,8 @@ export function computeActionResult(
   const effects = getActionEffects(skillId, owned, ageIndex, globalUpgrades);
 
   const time = Math.max(0.2, (BASE_ACTION_TIME - effects.flatTimeReduction) * effects.timeMult) * effects.postFloorTimeMult;
-  const xp = Math.round(XP_PER_ACTION * effects.xpMult);
+  const scaledBaseXp = Math.round(XP_PER_ACTION * Math.pow(XP_SCALING_RATE, level));
+  const xp = Math.round(scaledBaseXp * effects.xpMult);
 
   const outputs = resolveOutputs(recipe.outputs, level, ageIndex, effects.outputLevelOverrides).map((o, i) => {
     let amount = o.amount + (effects.outputBonuses[o.resource] ?? 0);
@@ -450,7 +452,7 @@ export function computeActionResult(
     baseTime: BASE_ACTION_TIME,
     timeModifiers: effects.timeModifiers,
     xp,
-    baseXp: XP_PER_ACTION,
+    baseXp: scaledBaseXp,
     xpModifiers: effects.xpModifiers,
     outputs,
     chancedOutputs,
