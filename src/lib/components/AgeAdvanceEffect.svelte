@@ -36,7 +36,7 @@
     style:border-color={color}
   >
     <p class="text-3xl font-black tracking-tight sm:text-5xl">
-      Age of {event.data.ageName}!
+      {event.data.ageName} achieved!
     </p>
   </div>
 </div>
