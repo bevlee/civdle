@@ -21,6 +21,7 @@
   import type { Pose } from "./Sprite.svelte";
   import DamagePopup from "./DamagePopup.svelte";
   import EncounterPanel from "./EncounterPanel.svelte";
+  import TutorialOverlay from "./TutorialOverlay.svelte";
   import ArmyInventory from "./ArmyInventory.svelte";
   import CardDetailModal from "./CardDetailModal.svelte";
   import CombatStatsPanel from "./CombatStatsPanel.svelte";
@@ -251,6 +252,12 @@
     </p>
   {/if}
 
+  <TutorialOverlay
+    step={gacha.tutorialStep}
+    onNext={() => game.advanceTutorial()}
+    onSkip={() => game.skipTutorial()}
+  />
+
   <!-- Arena -->
   {#if battle}
     <div class="relative overflow-hidden rounded-lg border border-border bg-muted/30 p-3">
@@ -393,8 +400,6 @@
       {encounter}
       {partyCards}
       {mode}
-      tutorialSeen={gacha.tutorialSeen}
-      onDismissTutorial={() => game.markTutorialSeen()}
     />
   {:else if mode === "story" && game.storyComplete}
     <div class="rounded-lg border border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">

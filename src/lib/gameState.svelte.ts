@@ -50,6 +50,7 @@ import {
   type UnitCard,
   type UnitId,
 } from "./combatData";
+import { TOTAL_TUTORIAL_STEPS } from "./tutorial";
 import { movePartyCard } from "./party";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
 import { checkAchievements } from "./achievements";
@@ -119,7 +120,11 @@ function loadFromStorage(): GameState {
       const party = Array.isArray(g.party) ? g.party.slice(0, PARTY_SIZE) : [];
       while (party.length < PARTY_SIZE) party.push(null);
       g.party = party;
-      if (typeof g.tutorialSeen !== "boolean") g.tutorialSeen = false;
+      if (typeof (g as any).tutorialSeen === "boolean") {
+        (g as any).tutorialStep = (g as any).tutorialSeen ? TOTAL_TUTORIAL_STEPS : 0;
+        delete (g as any).tutorialSeen;
+      }
+      if (typeof g.tutorialStep !== "number") g.tutorialStep = 0;
       if (typeof g.storyLevel !== "number") {
         // Saves from the free-level-select era: continue from the highest
         // level reached and roll a fresh encounter for it.
@@ -790,8 +795,15 @@ export class CivdleGame {
     });
   }
 
-  markTutorialSeen(): void {
-    this.#setGacha({ tutorialSeen: true });
+  advanceTutorial(): void {
+    const g = this.state.gacha;
+    if (g.tutorialStep < TOTAL_TUTORIAL_STEPS) {
+      this.#setGacha({ tutorialStep: g.tutorialStep + 1 });
+    }
+  }
+
+  skipTutorial(): void {
+    this.#setGacha({ tutorialStep: TOTAL_TUTORIAL_STEPS });
   }
 
   advanceAgeAction(): void {
