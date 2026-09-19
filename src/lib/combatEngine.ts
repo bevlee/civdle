@@ -13,6 +13,8 @@ import {
 } from "./combatData";
 import type { ArmyMods } from "./traits";
 import { computeArmyMods } from "./traits";
+import type { Position } from "./position";
+import { indexToPosition } from "./position";
 
 export interface Fighter {
   id: string;
@@ -20,6 +22,7 @@ export interface Fighter {
   name: string;
   stars: number;
   attackType: AttackType;
+  position: Position;
   hp: number;
   maxHp: number;
   atk: number;
@@ -106,7 +109,7 @@ export function createInitialGachaState(): GachaState {
   };
 }
 
-function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: ArmyMods): Fighter {
+function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: ArmyMods, position: Position): Fighter {
   const def = UNITS[card.unitId];
   const s = computeCardStats(card.unitId, card.stars);
   return {
@@ -115,6 +118,7 @@ function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: Arm
     name: def.name,
     stars: card.stars,
     attackType: def.attackType,
+    position,
     hp: 0,
     maxHp: Math.max(1, Math.floor(s.hp * own.hpMult)),
     atk: Math.max(1, Math.floor(s.atk * own.atkMult)),
@@ -143,8 +147,8 @@ export function startBattle(playerCards: UnitCard[], encounter: Encounter): Batt
   const playerMods = computeArmyMods(playerCards);
   const enemyMods = enemyModsFor(encounter);
   const fighters = [
-    ...playerCards.map((c) => cardToFighter(c, false, playerMods, enemyMods)),
-    ...encounter.cards.map((c) => cardToFighter(c, true, enemyMods, playerMods)),
+    ...playerCards.map((c, i) => cardToFighter(c, false, playerMods, enemyMods, indexToPosition(i))),
+    ...encounter.cards.map((c, i) => cardToFighter(c, true, enemyMods, playerMods, indexToPosition(i))),
   ];
   for (const f of fighters) f.hp = f.maxHp;
   return {
