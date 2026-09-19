@@ -23,6 +23,7 @@
   import EncounterPanel from "./EncounterPanel.svelte";
   import ArmyInventory from "./ArmyInventory.svelte";
   import CardDetailModal from "./CardDetailModal.svelte";
+  import CombatStatsPanel from "./CombatStatsPanel.svelte";
   import { cn } from "$lib/utils";
 
   let { game, mode }: { game: CivdleGame; mode: BattleMode } = $props();
@@ -348,6 +349,10 @@
             {/if}
           </div>
         {/each}
+      </div>
+
+      <div class="mt-2">
+        <CombatStatsPanel {playerFighters} {enemyFighters} />
       </div>
 
       <div class="mt-2 max-h-24 overflow-y-auto rounded border border-border/30 bg-background/30 p-1.5 text-[11px] leading-relaxed">
