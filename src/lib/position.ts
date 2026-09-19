@@ -4,6 +4,8 @@
 //
 // This module must NOT import from combatEngine to avoid circular deps.
 
+import type { AttackType } from "./combatData";
+
 /** 1-indexed slot in the battle formation (1–5). */
 export type Position = 1 | 2 | 3 | 4 | 5;
 
@@ -52,4 +54,34 @@ export function selectTarget<T extends { position: number; hp: number }>(
     if (t) return t;
   }
   return undefined;
+}
+
+/**
+ * Select ultimate targets based on the attacker's attack type.
+ * - melee: single target (first in attack order, same as basic attacks)
+ * - ranged: all alive back-row enemies; if none alive, all alive front-row
+ * - magic: all alive enemies
+ *
+ * Returns an empty array when no candidates are alive.
+ */
+export function selectUltimateTargets<T extends { position: number; hp: number }>(
+  attackType: AttackType,
+  candidates: T[],
+): T[] {
+  const alive = candidates.filter((c) => c.hp > 0);
+  if (alive.length === 0) return [];
+
+  switch (attackType) {
+    case "melee": {
+      const t = selectTarget(alive);
+      return t ? [t] : [];
+    }
+    case "ranged": {
+      const backRow = alive.filter((c) => isBackRow(c.position as Position));
+      if (backRow.length > 0) return backRow;
+      return alive.filter((c) => isFrontRow(c.position as Position));
+    }
+    case "magic":
+      return alive;
+  }
 }

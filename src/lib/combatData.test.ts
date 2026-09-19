@@ -23,6 +23,8 @@ import {
   DEPTHS_SCALE,
   DEPTHS_TIER_SIZE,
   DEPTHS_SPOILS_PER_TIER,
+  enemyCountForLevel,
+  depthsEnemyCount,
   getTypeMultiplier,
   mergeCards,
   rollCard,
@@ -117,17 +119,23 @@ describe("attack triangle", () => {
 });
 
 describe("generateEncounter", () => {
-  it("fields at most 3 enemies, mostly of the archetype's type", () => {
+  it("fields up to 5 enemies at high levels, mostly of the archetype's type", () => {
     const rand = lcg(3);
     for (let level = 1; level <= 30; level++) {
       const enc = generateEncounter(level, rand);
       expect(ARCHETYPE_IDS).toContain(enc.archetype);
-      expect(enc.cards.length).toBeLessThanOrEqual(3);
+      expect(enc.cards.length).toBeLessThanOrEqual(5);
       const type = ENEMY_ARCHETYPES[enc.archetype].attackType;
       const typed = enc.cards.filter((c) => UNITS[c.unitId].attackType === type).length;
       expect(typed).toBeGreaterThanOrEqual(Math.min(2, enc.cards.length));
       for (const c of enc.cards) expect(c.stars).toBeLessThanOrEqual(MAX_STARS);
     }
+    // Verify scaling tiers
+    expect(enemyCountForLevel(2)).toBe(1);
+    expect(enemyCountForLevel(5)).toBe(2);
+    expect(enemyCountForLevel(10)).toBe(3);
+    expect(enemyCountForLevel(19)).toBe(4);
+    expect(enemyCountForLevel(20)).toBe(5);
   });
 
   it("only uses 1★ units at level 1", () => {
@@ -148,14 +156,15 @@ describe("story bosses", () => {
     expect([5, 10, 15, 20, 25, 30].map(bossStarsForLevel)).toEqual([5, 6, 7, 8, 9, 10]);
   });
 
-  it("boss encounters have one boss plus two minions from 4 levels lower", () => {
+  it("boss encounters have one boss plus scaling minions from 4 levels lower", () => {
     const rand = lcg(11);
     for (let k = 1; k <= 6; k++) {
       const level = k * BOSS_EVERY;
+      const expectedMinions = Math.min(4, 1 + k);
       const enc = generateStoryEncounter(level, rand);
       expect(enc.bossId, `L${level}`).toBeTruthy();
       expect(enc.statMult).toBe(BOSS_ARMY_MULT);
-      expect(enc.cards).toHaveLength(3);
+      expect(enc.cards).toHaveLength(1 + expectedMinions);
       const boss = enc.cards.find((c) => c.id === enc.bossId)!;
       expect(boss.stars).toBe(bossStarsForLevel(level));
       expect(UNITS[boss.unitId].baseStars).toBe(5);
@@ -163,7 +172,7 @@ describe("story bosses", () => {
       // The archetype follows the boss so the matchup readout stays honest.
       expect(ENEMY_ARCHETYPES[enc.archetype].attackType).toBe(UNITS[boss.unitId].attackType);
       const minions = enc.cards.filter((c) => c.id !== enc.bossId);
-      expect(minions).toHaveLength(2);
+      expect(minions).toHaveLength(expectedMinions);
       // Minions are regular enemies of level - 4: their bonus stars step up by one per boss.
       const expectedBonus = Math.floor((level - 4 - 1) / 5);
       for (const m of minions) {
@@ -175,7 +184,7 @@ describe("story bosses", () => {
   it("non-boss story levels are ordinary encounters", () => {
     const enc = generateStoryEncounter(7, lcg(2));
     expect(enc.bossId).toBeUndefined();
-    expect(enc.cards.length).toBeLessThanOrEqual(3);
+    expect(enc.cards.length).toBeLessThanOrEqual(5);
   });
 });
 
@@ -194,16 +203,22 @@ describe("the depths", () => {
     expect(depthsTargetStrength(2) / depthsTargetStrength(1)).toBeCloseTo(DEPTHS_SCALE, 10);
   });
 
-  it("grows the roster slowly and never above 3 enemies", () => {
+  it("grows the roster slowly and up to 5 enemies at deep depths", () => {
     const rand = lcg(6);
     expect(generateDepthsEncounter(1, rand).cards).toHaveLength(1);
     for (let d = 1; d <= 200; d += 7) {
       const enc = generateDepthsEncounter(d, rand);
-      expect(enc.cards.length).toBeLessThanOrEqual(3);
+      expect(enc.cards.length).toBeLessThanOrEqual(5);
       expect(ARCHETYPE_IDS).toContain(enc.archetype);
       for (const c of enc.cards) expect(c.stars).toBeLessThanOrEqual(MAX_STARS);
     }
-    expect(generateDepthsEncounter(50, rand).cards).toHaveLength(3);
+    // Verify scaling tiers
+    expect(depthsEnemyCount(2)).toBe(1);
+    expect(depthsEnemyCount(5)).toBe(2);
+    expect(depthsEnemyCount(12)).toBe(3);
+    expect(depthsEnemyCount(24)).toBe(4);
+    expect(depthsEnemyCount(25)).toBe(5);
+    expect(generateDepthsEncounter(50, rand).cards).toHaveLength(5);
   });
 
   it("pays 10 spoils per 10s for every 5 depths cleared", () => {
