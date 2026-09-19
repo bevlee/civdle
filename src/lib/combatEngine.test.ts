@@ -63,6 +63,35 @@ describe("stepBattle", () => {
   });
 });
 
+describe("position-based targeting", () => {
+  it("targets front-row enemies first (position 2 before back row)", () => {
+    // Create a party of one strong attacker vs two enemies at positions 1 (back) and 2 (front).
+    // The attacker should always hit position 2 first.
+    const player = createCard("devil", 5);
+    const e = enc([createCard("zombie"), createCard("zombie")]);
+    const s0 = startBattle([player], e);
+
+    // Verify enemies are at positions 1 and 2
+    const enemies = s0.fighters.filter((f) => f.isEnemy);
+    expect(enemies.map((e) => e.position).sort()).toEqual([1, 2]);
+
+    // Step until the player acts
+    let s = s0;
+    let guard = 0;
+    while (guard++ < 20) {
+      s = stepBattle(s, always(0.5));
+      if (s.lastAction && !s.fighters.find((f) => f.id === s.lastAction!.actorId)?.isEnemy) {
+        break;
+      }
+    }
+
+    // The player's first hit should target the position-2 enemy
+    const targetId = s.lastAction!.hits[0].targetId;
+    const targeted = s.fighters.find((f) => f.id === targetId)!;
+    expect(targeted.position).toBe(2);
+  });
+});
+
 describe("encounter stat multiplier", () => {
   it("scales enemy HP, ATK and DEF but not the player's", () => {
     const base = enc([createCard("zombie")], "volley");

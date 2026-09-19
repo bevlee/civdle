@@ -14,7 +14,7 @@ import {
 import type { ArmyMods } from "./traits";
 import { computeArmyMods } from "./traits";
 import type { Position } from "./position";
-import { indexToPosition } from "./position";
+import { indexToPosition, selectTarget } from "./position";
 
 export interface Fighter {
   id: string;
@@ -223,7 +223,7 @@ export function stepBattle(state: BattleState, rand: () => number = Math.random)
 
   if (opponents.length > 0) {
     const oppMods = actor.isEnemy ? state.playerMods : state.enemyMods;
-    const target = opponents[Math.floor(rand() * opponents.length)];
+    const target = selectTarget(opponents)!;
     const strikes = !isUltimate && rand() < own.doubleHitChance ? 2 : 1;
     for (let i = 0; i < strikes && target.hp > 0; i++) {
       if (rand() < oppMods.dodgeChance) {

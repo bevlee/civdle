@@ -37,3 +37,19 @@ export function indexToPosition(index: number): Position {
   }
   return pos as Position;
 }
+
+/**
+ * Select the first alive opponent in attack order (front row first: 2, 4, 1, 3, 5).
+ * Returns `undefined` when no candidate is alive.
+ *
+ * Uses a generic constraint so this module stays free of combatEngine imports.
+ */
+export function selectTarget<T extends { position: number; hp: number }>(
+  candidates: T[],
+): T | undefined {
+  for (const pos of ATTACK_ORDER) {
+    const t = candidates.find((c) => c.position === pos && c.hp > 0);
+    if (t) return t;
+  }
+  return undefined;
+}

@@ -7,6 +7,7 @@ import {
   indexToPosition,
   isBackRow,
   isFrontRow,
+  selectTarget,
 } from "./position";
 
 describe("position constants", () => {
@@ -67,5 +68,51 @@ describe("indexToPosition", () => {
     expect(() => indexToPosition(-1)).toThrow(RangeError);
     expect(() => indexToPosition(5)).toThrow(RangeError);
     expect(() => indexToPosition(10)).toThrow(RangeError);
+  });
+});
+
+describe("selectTarget", () => {
+  const unit = (position: number, hp: number) => ({ position, hp });
+
+  it("picks the first alive front-row target (position 2 before 4)", () => {
+    const candidates = [unit(1, 10), unit(2, 10), unit(3, 10), unit(4, 10), unit(5, 10)];
+    expect(selectTarget(candidates)?.position).toBe(2);
+  });
+
+  it("picks position 4 when position 2 is dead", () => {
+    const candidates = [unit(1, 10), unit(2, 0), unit(3, 10), unit(4, 10), unit(5, 10)];
+    expect(selectTarget(candidates)?.position).toBe(4);
+  });
+
+  it("falls through to back row when front row is dead", () => {
+    const candidates = [unit(1, 10), unit(2, 0), unit(3, 10), unit(4, 0), unit(5, 10)];
+    expect(selectTarget(candidates)?.position).toBe(1);
+  });
+
+  it("follows full attack order: 2, 4, 1, 3, 5", () => {
+    // Kill them one by one in attack order, verifying who gets picked
+    const alive = [unit(1, 10), unit(2, 10), unit(3, 10), unit(4, 10), unit(5, 10)];
+    const order: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const t = selectTarget(alive);
+      expect(t).toBeDefined();
+      order.push(t!.position);
+      t!.hp = 0;
+    }
+    expect(order).toEqual([2, 4, 1, 3, 5]);
+  });
+
+  it("returns undefined when no candidates are alive", () => {
+    const candidates = [unit(1, 0), unit(2, 0)];
+    expect(selectTarget(candidates)).toBeUndefined();
+  });
+
+  it("returns undefined for an empty array", () => {
+    expect(selectTarget([])).toBeUndefined();
+  });
+
+  it("works when only some positions are present", () => {
+    const candidates = [unit(3, 10), unit(5, 10)];
+    expect(selectTarget(candidates)?.position).toBe(3);
   });
 });
