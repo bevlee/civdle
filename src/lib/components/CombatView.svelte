@@ -11,6 +11,7 @@
     isBossLevel,
   } from "$lib/combatData";
   import type { BattleMode, Fighter, Hit } from "$lib/combatEngine";
+  import { isFrontRow, POSITIONS } from "$lib/position";
   import { activeSynergies, TRAIT_SYNERGIES } from "$lib/traits";
   import type { CivdleGame, SpoilsGainEventData } from "$lib/gameState.svelte";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
@@ -264,61 +265,89 @@
         {/key}
       {/if}
 
-      <div class="flex items-start justify-between gap-3">
-        <div class="flex flex-col gap-1">
-          <div class="flex flex-wrap gap-1">
-            {#each synergies.filter((s) => s.tier > 0) as s (s.trait)}
-              <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary" title={TRAIT_SYNERGIES[s.trait].tiers[s.tier - 1]}>
-                {TRAIT_SYNERGIES[s.trait].name} {s.count}
+      <!-- Synergy bars -->
+      <div class="mb-2 flex items-start justify-between gap-3">
+        <div class="flex flex-wrap gap-1">
+          {#each synergies.filter((s) => s.tier > 0) as s (s.trait)}
+            <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary" title={TRAIT_SYNERGIES[s.trait].tiers[s.tier - 1]}>
+              {TRAIT_SYNERGIES[s.trait].name} {s.count}
+            </span>
+          {/each}
+        </div>
+        <div class="flex flex-wrap justify-end gap-1">
+          {#if encounter}
+            <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300">
+              {ENEMY_ARCHETYPES[encounter.archetype].name}
+            </span>
+            {#if encounter.statMult && encounter.statMult > 1.005}
+              <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300">
+                +{Math.round((encounter.statMult - 1) * 100)}% stats
               </span>
-            {/each}
-          </div>
-          <div class="flex flex-wrap gap-2">
-            {#each playerFighters as f (f.id)}
-              <div class={cn("relative", fighterClass(f))}>
-                <UnitCard unitId={f.unitId} stars={f.stars} size="sm" hp={f.hp} maxHp={f.maxHp} pose={fighterPose(f)} animate={isPlaying} />
-                {#each popups.filter((p) => p.targetId === f.id) as p (p.id)}
+            {/if}
+          {/if}
+          {#each activeSynergies(encounter?.cards ?? []).filter((s) => s.tier > 0) as s (s.trait)}
+            <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300" title={TRAIT_SYNERGIES[s.trait].tiers[s.tier - 1]}>
+              {TRAIT_SYNERGIES[s.trait].name} {s.count}
+            </span>
+          {/each}
+        </div>
+      </div>
+
+      <!-- 5-position formation grid -->
+      <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3 gap-y-1">
+        {#each POSITIONS as pos}
+          {@const playerF = playerFighters.find(f => f.position === pos)}
+          {@const enemyF = enemyFighters.find(f => f.position === pos)}
+          {@const front = isFrontRow(pos)}
+
+          <!-- Player side -->
+          <div class="flex items-center justify-end gap-1.5">
+            {#if front}
+              <span class="text-[9px] font-bold tracking-wider text-primary/60 uppercase">Front</span>
+            {/if}
+            {#if playerF}
+              <div class={cn("relative rounded", front && "border-l-2 border-primary/50 pl-0.5", fighterClass(playerF))}>
+                <UnitCard unitId={playerF.unitId} stars={playerF.stars} size="sm" hp={playerF.hp} maxHp={playerF.maxHp} pose={fighterPose(playerF)} animate={isPlaying} />
+                {#each popups.filter((p) => p.targetId === playerF.id) as p (p.id)}
                   <DamagePopup id={p.id} hit={p.hit} heal={p.heal} isUltimate={p.isUltimate} onDone={removePopup} />
                 {/each}
               </div>
-            {/each}
-          </div>
-        </div>
-
-        <span class="mt-8 text-lg font-bold text-muted-foreground/50">VS</span>
-
-        <div class="flex flex-col items-end gap-1">
-          <div class="flex flex-wrap justify-end gap-1">
-            {#if encounter}
-              <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300">
-                {ENEMY_ARCHETYPES[encounter.archetype].name}
-              </span>
-              {#if encounter.statMult && encounter.statMult > 1.005}
-                <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300">
-                  +{Math.round((encounter.statMult - 1) * 100)}% stats
-                </span>
-              {/if}
+            {:else}
+              <div class="flex h-[4.5rem] w-20 items-center justify-center rounded border border-dashed border-border/40 text-[10px] text-muted-foreground/40">
+                {pos}
+              </div>
             {/if}
-            {#each activeSynergies(encounter?.cards ?? []).filter((s) => s.tier > 0) as s (s.trait)}
-              <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300" title={TRAIT_SYNERGIES[s.trait].tiers[s.tier - 1]}>
-                {TRAIT_SYNERGIES[s.trait].name} {s.count}
-              </span>
-            {/each}
           </div>
-          <div class="flex flex-wrap justify-end gap-2">
-            {#each enemyFighters as f (f.id)}
-              <div class={cn("relative", fighterClass(f))}>
-                {#if encounter?.bossId === f.id}
+
+          <!-- VS column -->
+          {#if pos === 3}
+            <span class="text-lg font-bold text-muted-foreground/50">VS</span>
+          {:else}
+            <div></div>
+          {/if}
+
+          <!-- Enemy side -->
+          <div class="flex items-center gap-1.5">
+            {#if enemyF}
+              <div class={cn("relative rounded", front && "border-r-2 border-destructive/50 pr-0.5", fighterClass(enemyF))}>
+                {#if encounter?.bossId === enemyF.id}
                   <span class="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1.5 text-[9px] font-black tracking-wider text-white shadow">BOSS</span>
                 {/if}
-                <UnitCard unitId={f.unitId} stars={f.stars} size="sm" hp={f.hp} maxHp={f.maxHp} pose={fighterPose(f)} animate={isPlaying} flipSprite />
-                {#each popups.filter((p) => p.targetId === f.id) as p (p.id)}
+                <UnitCard unitId={enemyF.unitId} stars={enemyF.stars} size="sm" hp={enemyF.hp} maxHp={enemyF.maxHp} pose={fighterPose(enemyF)} animate={isPlaying} flipSprite />
+                {#each popups.filter((p) => p.targetId === enemyF.id) as p (p.id)}
                   <DamagePopup id={p.id} hit={p.hit} heal={p.heal} isUltimate={p.isUltimate} onDone={removePopup} />
                 {/each}
               </div>
-            {/each}
+            {:else}
+              <div class="flex h-[4.5rem] w-20 items-center justify-center rounded border border-dashed border-border/40 text-[10px] text-muted-foreground/40">
+                {pos}
+              </div>
+            {/if}
+            {#if front}
+              <span class="text-[9px] font-bold tracking-wider text-red-400/60 uppercase">Front</span>
+            {/if}
           </div>
-        </div>
+        {/each}
       </div>
 
       <div class="mt-2 max-h-24 overflow-y-auto rounded border border-border/30 bg-background/30 p-1.5 text-[11px] leading-relaxed">
@@ -386,18 +415,23 @@
         </span>
       {/each}
     </div>
-    <div class="flex gap-2">
+    <div class="grid grid-cols-5 gap-2">
       {#each partySlots as card, i (i)}
+        {@const posNum = i + 1}
+        {@const front = posNum === 2 || posNum === 4}
         {@const isOver = dragOverSlot === i && draggingId !== null && draggingId !== card?.id}
         <div
           role="group"
-          aria-label={`Party slot ${i + 1}`}
-          class={cn("rounded-lg transition-shadow", isOver && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+          aria-label={`Party slot ${posNum}`}
+          class={cn("flex flex-col items-center rounded-lg transition-shadow", isOver && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
           ondragover={(e) => slotDragOver(e, i)}
           ondragenter={(e) => slotDragOver(e, i)}
           ondragleave={() => (dragOverSlot === i ? (dragOverSlot = null) : null)}
           ondrop={(e) => slotDrop(e, i)}
         >
+          <span class={cn("mb-0.5 text-[9px] font-bold tracking-wider uppercase", front ? "text-primary" : "text-muted-foreground/60")}>
+            {front ? "Front" : "Back"}
+          </span>
           {#if card}
             <button
               class={cn(
@@ -422,7 +456,7 @@
               )}
             >
               <span class="text-lg">+</span>
-              <span>{isOver ? "Drop here" : `Slot ${i + 1}`}</span>
+              <span>{isOver ? "Drop here" : `Pos ${posNum}`}</span>
             </div>
           {/if}
         </div>
