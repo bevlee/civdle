@@ -6,13 +6,21 @@ import {
   ENEMY_ARCHETYPES,
   PARTY_SIZE,
   STARTING_GOLD,
-  ULT_DAMAGE_MULT,
+  ULT_MULT,
   UNITS,
   computeCardStats,
   getTypeMultiplier,
 } from "./combatData";
 import type { ArmyMods } from "./traits";
 import { computeArmyMods } from "./traits";
+import type { Position } from "./position";
+import { indexToPosition, selectTarget, selectUltimateTargets } from "./position";
+
+export interface FighterStats {
+  damageDealt: number;
+  healingDone: number;
+  damageTaken: number;
+}
 
 export interface Fighter {
   id: string;
@@ -20,6 +28,7 @@ export interface Fighter {
   name: string;
   stars: number;
   attackType: AttackType;
+  position: Position;
   hp: number;
   maxHp: number;
   atk: number;
@@ -29,6 +38,7 @@ export interface Fighter {
   turns: number;
   isEnemy: boolean;
   traits: Trait[];
+  stats: FighterStats;
 }
 
 export interface Hit {
@@ -44,6 +54,7 @@ export interface Hit {
 export interface BattleAction {
   kind: "attack" | "ultimate";
   actorId: string;
+  attackType: AttackType;
   hits: Hit[];
   healed: number;
   turnHeal: number;
@@ -85,7 +96,7 @@ export interface GachaState {
   depths: DepthsState;
   battle: BattleState | null;
   battleMode: BattleMode | null;
-  tutorialSeen: boolean;
+  tutorialStep: number;
 }
 
 export function createInitialDepthsState(): DepthsState {
@@ -102,11 +113,11 @@ export function createInitialGachaState(): GachaState {
     depths: createInitialDepthsState(),
     battle: null,
     battleMode: null,
-    tutorialSeen: false,
+    tutorialStep: 0,
   };
 }
 
-function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: ArmyMods): Fighter {
+function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: ArmyMods, position: Position): Fighter {
   const def = UNITS[card.unitId];
   const s = computeCardStats(card.unitId, card.stars);
   return {
@@ -115,6 +126,7 @@ function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: Arm
     name: def.name,
     stars: card.stars,
     attackType: def.attackType,
+    position,
     hp: 0,
     maxHp: Math.max(1, Math.floor(s.hp * own.hpMult)),
     atk: Math.max(1, Math.floor(s.atk * own.atkMult)),
@@ -124,6 +136,7 @@ function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: Arm
     turns: 0,
     isEnemy,
     traits: def.traits,
+    stats: { damageDealt: 0, healingDone: 0, damageTaken: 0 },
   };
 }
 
@@ -143,8 +156,8 @@ export function startBattle(playerCards: UnitCard[], encounter: Encounter): Batt
   const playerMods = computeArmyMods(playerCards);
   const enemyMods = enemyModsFor(encounter);
   const fighters = [
-    ...playerCards.map((c) => cardToFighter(c, false, playerMods, enemyMods)),
-    ...encounter.cards.map((c) => cardToFighter(c, true, enemyMods, playerMods)),
+    ...playerCards.map((c, i) => cardToFighter(c, false, playerMods, enemyMods, indexToPosition(i))),
+    ...encounter.cards.map((c, i) => cardToFighter(c, true, enemyMods, playerMods, indexToPosition(i))),
   ];
   for (const f of fighters) f.hp = f.maxHp;
   return {
@@ -170,7 +183,11 @@ export function computeDamage(
   const effDef = target.def * (1 - mods.defIgnore);
   let dmg = attacker.atk * clamp(1 + 0.05 * (attacker.atk - effDef), 0.3, 3);
   dmg *= getTypeMultiplier(attacker.attackType, target.attackType);
-  dmg *= isUltimate ? ULT_DAMAGE_MULT * mods.ultMult : mods.basicMult;
+  if (isUltimate) {
+    dmg *= ULT_MULT[attacker.attackType] * mods.ultMult;
+  } else {
+    dmg *= mods.basicMult;
+  }
   if (crit) dmg *= 2;
   if (target.hp < target.maxHp * 0.5) dmg *= 1 + mods.executeBonus;
   return Math.max(1, Math.round(dmg));
@@ -197,7 +214,7 @@ function advanceInitiative(fighters: Fighter[]): Fighter | null {
 export function stepBattle(state: BattleState, rand: () => number = Math.random): BattleState {
   if (state.status !== "playing") return state;
 
-  const fighters = state.fighters.map((f) => ({ ...f }));
+  const fighters = state.fighters.map((f) => ({ ...f, stats: { ...f.stats } }));
   const log: BattleLogEntry[] = [];
   const actor = advanceInitiative(fighters);
   if (!actor) return state;
@@ -210,6 +227,7 @@ export function stepBattle(state: BattleState, rand: () => number = Math.random)
     const before = actor.hp;
     actor.hp = Math.min(actor.maxHp, actor.hp + Math.floor(actor.maxHp * own.turnHealPct));
     turnHeal = actor.hp - before;
+    actor.stats.healingDone += turnHeal;
   }
 
   const isUltimate = actor.turns % own.ultEvery === 0;
@@ -219,33 +237,66 @@ export function stepBattle(state: BattleState, rand: () => number = Math.random)
 
   if (opponents.length > 0) {
     const oppMods = actor.isEnemy ? state.playerMods : state.enemyMods;
-    const target = opponents[Math.floor(rand() * opponents.length)];
-    const strikes = !isUltimate && rand() < own.doubleHitChance ? 2 : 1;
-    for (let i = 0; i < strikes && target.hp > 0; i++) {
-      if (rand() < oppMods.dodgeChance) {
-        hits.push({ targetId: target.id, damage: 0, crit: false, strong: false, weak: false, dodged: true, killed: false });
-        continue;
+
+    if (isUltimate) {
+      // Ultimate: attack-type-specific targeting, no dodge, no double-hit
+      const targets = selectUltimateTargets(actor.attackType, opponents);
+      for (const target of targets) {
+        if (target.hp <= 0) continue;
+        const crit = rand() < own.critChance;
+        const damage = computeDamage(actor, target, own, true, crit);
+        const typeMult = getTypeMultiplier(actor.attackType, target.attackType);
+        target.hp = Math.max(0, target.hp - damage);
+        const killed = target.hp <= 0;
+        actor.stats.damageDealt += damage;
+        target.stats.damageTaken += damage;
+        hits.push({ targetId: target.id, damage, crit, strong: typeMult > 1, weak: typeMult < 1, dodged: false, killed });
+        if (own.lifesteal > 0) {
+          const before = actor.hp;
+          actor.hp = Math.min(actor.maxHp, actor.hp + Math.floor(damage * own.lifesteal));
+          const ls = actor.hp - before;
+          healed += ls;
+          actor.stats.healingDone += ls;
+        }
+        log.push({
+          text: `${actor.name} unleashes an ULTIMATE on ${target.name} for ${damage}${crit ? " (crit!)" : ""}${typeMult > 1 ? " ▲" : ""}`,
+          type: "ultimate",
+        });
+        if (killed) log.push({ text: `${target.name} is defeated!`, type: "death" });
       }
-      const crit = rand() < own.critChance;
-      const damage = computeDamage(actor, target, own, isUltimate, crit);
-      const typeMult = getTypeMultiplier(actor.attackType, target.attackType);
-      target.hp = Math.max(0, target.hp - damage);
-      const killed = target.hp <= 0;
-      hits.push({ targetId: target.id, damage, crit, strong: typeMult > 1, weak: typeMult < 1, dodged: false, killed });
-      if (own.lifesteal > 0) {
-        const before = actor.hp;
-        actor.hp = Math.min(actor.maxHp, actor.hp + Math.floor(damage * own.lifesteal));
-        healed += actor.hp - before;
+    } else {
+      // Basic attack: single target, can dodge, can double-hit
+      const target = selectTarget(opponents)!;
+      const strikes = rand() < own.doubleHitChance ? 2 : 1;
+      for (let i = 0; i < strikes && target.hp > 0; i++) {
+        if (rand() < oppMods.dodgeChance) {
+          hits.push({ targetId: target.id, damage: 0, crit: false, strong: false, weak: false, dodged: true, killed: false });
+          continue;
+        }
+        const crit = rand() < own.critChance;
+        const damage = computeDamage(actor, target, own, false, crit);
+        const typeMult = getTypeMultiplier(actor.attackType, target.attackType);
+        target.hp = Math.max(0, target.hp - damage);
+        const killed = target.hp <= 0;
+        actor.stats.damageDealt += damage;
+        target.stats.damageTaken += damage;
+        hits.push({ targetId: target.id, damage, crit, strong: typeMult > 1, weak: typeMult < 1, dodged: false, killed });
+        if (own.lifesteal > 0) {
+          const before = actor.hp;
+          actor.hp = Math.min(actor.maxHp, actor.hp + Math.floor(damage * own.lifesteal));
+          const ls = actor.hp - before;
+          healed += ls;
+          actor.stats.healingDone += ls;
+        }
+        log.push({
+          text: `${actor.name} attacks ${target.name} for ${damage}${crit ? " (crit!)" : ""}${typeMult > 1 ? " ▲" : ""}`,
+          type: "attack",
+        });
+        if (killed) log.push({ text: `${target.name} is defeated!`, type: "death" });
       }
-      const verb = isUltimate ? "unleashes an ULTIMATE on" : "attacks";
-      log.push({
-        text: `${actor.name} ${verb} ${target.name} for ${damage}${crit ? " (crit!)" : ""}${typeMult > 1 ? " ▲" : ""}`,
-        type: isUltimate ? "ultimate" : "attack",
-      });
-      if (killed) log.push({ text: `${target.name} is defeated!`, type: "death" });
-    }
-    if (hits.every((h) => h.dodged)) {
-      log.push({ text: `${target.name} dodges ${actor.name}'s attack`, type: "attack" });
+      if (hits.every((h) => h.dodged)) {
+        log.push({ text: `${target.name} dodges ${actor.name}'s attack`, type: "attack" });
+      }
     }
   }
 
@@ -265,7 +316,7 @@ export function stepBattle(state: BattleState, rand: () => number = Math.random)
     fighters,
     status,
     turn: state.turn + 1,
-    lastAction: { kind: isUltimate ? "ultimate" : "attack", actorId: actor.id, hits, healed, turnHeal },
+    lastAction: { kind: isUltimate ? "ultimate" : "attack", actorId: actor.id, attackType: actor.attackType, hits, healed, turnHeal },
     log: [...state.log, ...log].slice(-60),
   };
 }

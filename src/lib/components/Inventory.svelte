@@ -1,8 +1,6 @@
 <script lang="ts">
   import { Card, CardContent } from "$lib/components/ui/card";
-  import FloatingText from "./FloatingText.svelte";
   import { RESOURCES, type ResourceId } from "$lib/gameData";
-  import type { QueuedEvent } from "$lib/eventQueue.svelte";
   import { cn } from "$lib/utils";
 
   const RESOURCE_SECTIONS: { label: string; resources: ResourceId[] }[] = [
@@ -41,30 +39,15 @@
   let {
     resources,
     highlightedResources,
-    events = [],
-    onDismissEvent,
   }: {
     resources: Partial<Record<ResourceId, number>>;
     highlightedResources?: Set<ResourceId>;
-    events?: QueuedEvent[];
-    onDismissEvent?: (id: string) => void;
   } = $props();
-
-  let gainEvents = $derived(
-    events.filter(
-      (e): e is QueuedEvent<{ resource: ResourceId; amount: number }> =>
-        e.type === "resourceGain",
-    ),
-  );
 
   let hasAny = $derived(
     Object.values(resources).some((v) => (v ?? 0) >= 1),
   );
 
-  function formatGain(amount: number): string {
-    const rounded = Math.round(amount * 10) / 10;
-    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-  }
 </script>
 
 {#if !hasAny}
@@ -87,9 +70,6 @@
           <div class="grid grid-cols-2 gap-1.5">
             {#each entries as { id, amount } (id)}
               {@const highlighted = highlightedResources?.has(id)}
-              {@const gainEvent = gainEvents.find(
-                (e) => e.data.resource === id,
-              )}
               <Card
                 class={cn(
                   "relative gap-0 overflow-visible py-1.5 transition-colors",
@@ -111,15 +91,6 @@
                     {amount.toLocaleString()}
                   </span>
                 </CardContent>
-                {#if gainEvent && onDismissEvent}
-                  <FloatingText
-                    id={gainEvent.id}
-                    text={`+${formatGain(gainEvent.data.amount)}`}
-                    class="text-xs text-emerald-400"
-                    duration={900}
-                    onDone={onDismissEvent}
-                  />
-                {/if}
               </Card>
             {/each}
           </div>

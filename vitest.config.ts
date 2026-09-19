@@ -1,8 +1,11 @@
 import { defineConfig } from "vitest/config";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 
-// Standalone config so unit tests of the pure engine modules don't boot the
-// SvelteKit plugin.
+// Exercise browser-side runes and effects without booting SvelteKit or a DOM.
 export default defineConfig({
+  plugins: [svelte({ configFile: false, dynamicCompileOptions: () => ({ generate: "client" }) })],
+  resolve: { conditions: ["browser"] },
+  ssr: { resolve: { conditions: ["browser"] }, noExternal: ["svelte"] },
   test: {
     include: ["src/**/*.test.ts"],
     environment: "node",

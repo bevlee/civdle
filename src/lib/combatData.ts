@@ -216,7 +216,7 @@ export function createCard(unitId: UnitId, stars = UNITS[unitId].baseStars): Uni
 
 export const GACHA_COST = 1;
 export const PACK_SIZE = 10;
-export const PACK_COST = 95;
+export const PACK_COST = GACHA_COST * PACK_SIZE;
 export const STARTING_GOLD = 10;
 
 // Ordered rarest-first so cumulative rolling is straightforward.
@@ -341,15 +341,24 @@ export interface Encounter {
   statMult?: number;
 }
 
-export const PARTY_SIZE = 3;
+export const PARTY_SIZE = 5;
 export const MAX_ENEMY_LEVEL = 30;
 export const ULT_EVERY_TURNS = 3;
 export const ULT_DAMAGE_MULT = 2;
 
+/** Per-attack-type ultimate damage multipliers. */
+export const ULT_MULT: Record<AttackType, number> = {
+  melee: 3,
+  ranged: 2,
+  magic: 1.25,
+};
+
 export function enemyCountForLevel(level: number): number {
   if (level <= 2) return 1;
-  if (level <= 4) return 2;
-  return 3;
+  if (level <= 5) return 2;
+  if (level <= 10) return 3;
+  if (level <= 19) return 4;
+  return 5;
 }
 
 export function maxRarityForLevel(level: number): number {
@@ -418,14 +427,16 @@ export function generateBossEncounter(level: number, rand: () => number = Math.r
   const bossDef = pool[Math.floor(rand() * pool.length)];
   const boss: UnitCard = { id: "boss", unitId: bossDef.id, stars };
   // Minions are ordinary enemies from 4 levels below, so their bonus stars
-  // step up by one with every boss.
+  // step up by one with every boss. Minion count scales with boss tier.
+  const minionCount = Math.min(4, 1 + k);
   const minionLevel = Math.max(1, level - 4);
-  const minions = generateEncounter(minionLevel, rand)
-    .cards.slice(0, 2)
-    .map((c, i) => ({ ...c, id: `minion-${i}` }));
-  while (minions.length < 2) {
-    const extra = generateEncounter(minionLevel, rand).cards[0];
-    minions.push({ ...extra, id: `minion-${minions.length}` });
+  const minions: UnitCard[] = [];
+  while (minions.length < minionCount) {
+    const batch = generateEncounter(minionLevel, rand).cards;
+    for (const c of batch) {
+      if (minions.length >= minionCount) break;
+      minions.push({ ...c, id: `minion-${minions.length}` });
+    }
   }
   return {
     archetype: BOSS_ARCHETYPE_FOR_TYPE[bossDef.attackType],
@@ -461,7 +472,9 @@ export function depthsTargetStrength(depth: number): number {
 export function depthsEnemyCount(depth: number): number {
   if (depth <= 2) return 1;
   if (depth <= 5) return 2;
-  return 3;
+  if (depth <= 12) return 3;
+  if (depth <= 24) return 4;
+  return 5;
 }
 
 /** Rarer units appear deeper for variety; their stats are normalised so this is flavour, not difficulty. */

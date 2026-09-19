@@ -8,6 +8,7 @@
     type UnitCard as UnitCardT,
   } from "$lib/combatData";
   import type { BattleMode } from "$lib/combatEngine";
+  import { isFrontRow, indexToPosition } from "$lib/position";
   import UnitCard from "./UnitCard.svelte";
   import { cn } from "$lib/utils";
 
@@ -15,14 +16,10 @@
     encounter,
     partyCards,
     mode = "story",
-    tutorialSeen,
-    onDismissTutorial,
   }: {
     encounter: Encounter;
     partyCards: UnitCardT[];
     mode?: BattleMode;
-    tutorialSeen: boolean;
-    onDismissTutorial: () => void;
   } = $props();
 
   let boss = $derived(encounter.bossId ? encounter.cards.find((c) => c.id === encounter.bossId) ?? null : null);
@@ -54,26 +51,6 @@
 </script>
 
 <div class="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3">
-  {#if !tutorialSeen}
-    <div class="flex items-start justify-between gap-2 rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs">
-      <div class="flex flex-col gap-1">
-        <p class="font-semibold text-sky-300">How to win fights</p>
-        <p>
-          Every unit is <b>⚔ Melee</b>, <b>🏹 Ranged</b> or <b>✨ Magic</b>.
-          ⚔ beats 🏹, 🏹 beats ✨, ✨ beats ⚔. Strong hits deal <b>×1.5</b> (shown with a red ▲), weak hits deal ×0.75.
-        </p>
-        <p>
-          Scout the enemy army below, then build a party that counters it. If you lose, the same army waits — change your composition and try again.
-        </p>
-        <p>
-          The <b>Main Story</b> is a linear climb with a <b>boss</b> every 5 levels; each win pays its level in Tribute.
-          <b>The Depths</b> go on forever, scale gently, can be fought on <b>Auto</b>, and pay passive Tribute for every 5 depths cleared.
-        </p>
-      </div>
-      <button class="shrink-0 text-muted-foreground hover:text-foreground" onclick={onDismissTutorial} title="Got it">✕</button>
-    </div>
-  {/if}
-
   <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
     {#if boss}
       <span class="rounded-md bg-red-600 px-2 py-0.5 text-sm font-black tracking-wider text-white">BOSS</span>
@@ -96,7 +73,7 @@
     {/if}
     <span class="text-xs text-muted-foreground">
       {#if boss}
-        {UNITS[boss.unitId].name} leads two minions. {arch.blurb}
+        {UNITS[boss.unitId].name} leads {minions.length} minion{minions.length === 1 ? "" : "s"}. {arch.blurb}
       {:else}
         {arch.blurb}
       {/if}
@@ -107,20 +84,34 @@
     <span><span class="text-red-400">Weakness:</span> {arch.weakness}</span>
   </div>
 
-  <div class="flex flex-wrap items-end gap-2">
-    {#if boss}
-      <div class="relative">
-        <span class="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1.5 text-[9px] font-black tracking-wider text-white shadow">BOSS</span>
-        <UnitCard unitId={boss.unitId} stars={boss.stars} size="md" showTraits />
+  <div class="flex flex-col gap-1">
+    {#each encounter.cards as card, idx (card.id)}
+      {@const pos = indexToPosition(idx)}
+      {@const front = isFrontRow(pos)}
+      {@const isBoss = card.id === encounter.bossId}
+      <div class="flex items-center gap-2">
+        <span
+          class={cn(
+            "w-7 shrink-0 rounded px-1 py-0.5 text-center text-[10px] font-bold",
+            front
+              ? "bg-destructive/25 text-red-300"
+              : "bg-muted text-muted-foreground",
+          )}
+          title={front ? `Position ${pos} — Front row (targeted first)` : `Position ${pos} — Back row`}
+        >
+          {pos}{front ? "F" : ""}
+        </span>
+        <div class="relative">
+          {#if isBoss}
+            <span class="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1.5 text-[9px] font-black tracking-wider text-white shadow">BOSS</span>
+          {/if}
+          <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
+        </div>
+        {#if front}
+          <span class="text-[10px] text-red-400/70">front row</span>
+        {/if}
       </div>
-      {#each minions as card (card.id)}
-        <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
-      {/each}
-    {:else}
-      {#each encounter.cards as card (card.id)}
-        <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
-      {/each}
-    {/if}
+    {/each}
   </div>
 
   <div class="flex flex-col gap-1 rounded-md border border-border/60 bg-background/40 px-2 py-1.5 text-xs">

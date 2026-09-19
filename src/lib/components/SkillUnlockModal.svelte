@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
   import { RESOURCES, SKILLS, type SkillId } from "$lib/gameData";
@@ -14,18 +14,25 @@
   } = $props();
 
   let visible = $state(false);
+  let dismissTimeout: ReturnType<typeof setTimeout> | null = null;
 
   onMount(() => {
-    requestAnimationFrame(() => (visible = true));
+    const frame = requestAnimationFrame(() => (visible = true));
+    return () => cancelAnimationFrame(frame);
   });
 
-  const def = SKILLS[skillId];
-  const recipes = def.recipes;
-  const prereqs = def.prereqs;
+  onDestroy(() => {
+    if (dismissTimeout !== null) clearTimeout(dismissTimeout);
+  });
+
+  const def = $derived(SKILLS[skillId]);
+  const recipes = $derived(def.recipes);
+  const prereqs = $derived(def.prereqs);
 
   function handleDismiss() {
+    if (dismissTimeout !== null) return;
     visible = false;
-    setTimeout(onDismiss, 200);
+    dismissTimeout = setTimeout(onDismiss, 200);
   }
 </script>
 
