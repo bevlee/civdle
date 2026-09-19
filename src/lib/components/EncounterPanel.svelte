@@ -8,6 +8,7 @@
     type UnitCard as UnitCardT,
   } from "$lib/combatData";
   import type { BattleMode } from "$lib/combatEngine";
+  import { isFrontRow, indexToPosition } from "$lib/position";
   import UnitCard from "./UnitCard.svelte";
   import { cn } from "$lib/utils";
 
@@ -96,7 +97,7 @@
     {/if}
     <span class="text-xs text-muted-foreground">
       {#if boss}
-        {UNITS[boss.unitId].name} leads two minions. {arch.blurb}
+        {UNITS[boss.unitId].name} leads {minions.length} minion{minions.length === 1 ? "" : "s"}. {arch.blurb}
       {:else}
         {arch.blurb}
       {/if}
@@ -107,20 +108,34 @@
     <span><span class="text-red-400">Weakness:</span> {arch.weakness}</span>
   </div>
 
-  <div class="flex flex-wrap items-end gap-2">
-    {#if boss}
-      <div class="relative">
-        <span class="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1.5 text-[9px] font-black tracking-wider text-white shadow">BOSS</span>
-        <UnitCard unitId={boss.unitId} stars={boss.stars} size="md" showTraits />
+  <div class="flex flex-col gap-1">
+    {#each encounter.cards as card, idx (card.id)}
+      {@const pos = indexToPosition(idx)}
+      {@const front = isFrontRow(pos)}
+      {@const isBoss = card.id === encounter.bossId}
+      <div class="flex items-center gap-2">
+        <span
+          class={cn(
+            "w-7 shrink-0 rounded px-1 py-0.5 text-center text-[10px] font-bold",
+            front
+              ? "bg-destructive/25 text-red-300"
+              : "bg-muted text-muted-foreground",
+          )}
+          title={front ? `Position ${pos} — Front row (targeted first)` : `Position ${pos} — Back row`}
+        >
+          {pos}{front ? "F" : ""}
+        </span>
+        <div class="relative">
+          {#if isBoss}
+            <span class="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1.5 text-[9px] font-black tracking-wider text-white shadow">BOSS</span>
+          {/if}
+          <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
+        </div>
+        {#if front}
+          <span class="text-[10px] text-red-400/70">front row</span>
+        {/if}
       </div>
-      {#each minions as card (card.id)}
-        <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
-      {/each}
-    {:else}
-      {#each encounter.cards as card (card.id)}
-        <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
-      {/each}
-    {/if}
+    {/each}
   </div>
 
   <div class="flex flex-col gap-1 rounded-md border border-border/60 bg-background/40 px-2 py-1.5 text-xs">
