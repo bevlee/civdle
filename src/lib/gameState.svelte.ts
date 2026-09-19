@@ -194,6 +194,7 @@ export class CivdleGame {
   #incomeInterval: ReturnType<typeof setInterval> | null = null;
   #handleUnload: (() => void) | null = null;
   #achievementRoot: (() => void) | null = null;
+  #resetting = false;
 
   get levels() {
     return getSkillLevels(this.state);
@@ -269,8 +270,8 @@ export class CivdleGame {
     if (this.state.gacha.depths.auto) this.startDepthsFight();
 
     this.#incomeInterval = setInterval(() => this.#tickDepthsIncome(), DEPTHS_INCOME_INTERVAL_MS);
-    this.#saveInterval = setInterval(() => saveToStorage(this.state), SAVE_INTERVAL_MS);
-    this.#handleUnload = () => saveToStorage(this.state);
+    this.#saveInterval = setInterval(() => this.#save(), SAVE_INTERVAL_MS);
+    this.#handleUnload = () => this.#save();
     window.addEventListener("beforeunload", this.#handleUnload);
     this.#startAchievementWatcher();
 
@@ -296,8 +297,13 @@ export class CivdleGame {
         window.removeEventListener("beforeunload", this.#handleUnload);
         this.#handleUnload = null;
       }
-      saveToStorage(this.state);
+      this.#save();
     };
+  }
+
+  #save(): void {
+    // Reset must survive unload, a pending autosave, and component teardown.
+    if (!this.#resetting) saveToStorage(this.state);
   }
 
   // ----- Achievements -----
@@ -372,9 +378,6 @@ export class CivdleGame {
         this.eventQueue.emit("skillUnlock", { skillId: unlockedSkillId });
       }
 
-      for (const gain of outcome.gains) {
-        this.eventQueue.emit("resourceGain", { resource: gain.resource, amount: gain.amount });
-      }
       if (outcome.gains.length > 0) {
         this.eventQueue.emit("actionGain", { skillId, gains: outcome.gains } satisfies ActionGainEventData);
       }
@@ -605,10 +608,6 @@ export class CivdleGame {
     return this.#maxSummonStars;
   }
 
-  #clampTribute(gold: number): number {
-    return Math.min(gold, this.tributeCap);
-  }
-
   rollCard(): void {
     if (this.state.gacha.gold < GACHA_COST) return;
     const card = rollCard(Math.random, this.#maxSummonStars, this.#rollRates);
@@ -751,10 +750,8 @@ export class CivdleGame {
     const g = this.state.gacha;
     if (g.depths.auto === auto) return;
     this.#setGacha({ depths: { ...g.depths, auto } });
-    if (!auto) {
-      this.#clearAutoTimeout();
-      return;
-    }
+    // The pending timer still dismisses results; it checks auto before restarting.
+    if (!auto) return;
     if (g.battle && g.battle.status !== "playing" && g.battleMode === "depths") {
       this.#scheduleAutoDismiss(true);
     } else if (!g.battle) {
@@ -787,7 +784,7 @@ export class CivdleGame {
     }
     const storyLevel = g.storyLevel + 1;
     this.#setGacha({
-      gold: this.#clampTribute(g.gold + g.storyLevel),
+      gold: g.gold + Math.min(g.storyLevel, Math.max(0, this.tributeCap - g.gold)),
       storyLevel,
       encounter: storyLevel <= MAX_ENEMY_LEVEL ? generateStoryEncounter(storyLevel) : null,
       battle: null,
@@ -901,7 +898,8 @@ export class CivdleGame {
 
   debugResetSave(): void {
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem("civdle-save");
+      this.#resetting = true;
+      window.localStorage.removeItem(SAVE_KEY);
       window.location.reload();
     }
   }

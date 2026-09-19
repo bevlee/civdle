@@ -255,10 +255,12 @@
   </div>
 
   {#if game.pendingUnlocks.length > 0}
-    <SkillUnlockModal
-      skillId={game.pendingUnlocks[0]}
-      onDismiss={() => game.dismissUnlock()}
-    />
+    {#key game.pendingUnlocks[0]}
+      <SkillUnlockModal
+        skillId={game.pendingUnlocks[0]}
+        onDismiss={() => game.dismissUnlock()}
+      />
+    {/key}
   {/if}
 
   <GainToastStack
