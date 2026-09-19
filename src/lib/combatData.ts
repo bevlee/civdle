@@ -341,7 +341,7 @@ export interface Encounter {
   statMult?: number;
 }
 
-export const PARTY_SIZE = 3;
+export const PARTY_SIZE = 5;
 export const MAX_ENEMY_LEVEL = 30;
 export const ULT_EVERY_TURNS = 3;
 export const ULT_DAMAGE_MULT = 2;
