@@ -10,6 +10,7 @@
     UNITS,
     isBossLevel,
   } from "$lib/combatData";
+  import type { AttackType } from "$lib/combatData";
   import type { BattleMode, Fighter, Hit } from "$lib/combatEngine";
   import { isFrontRow, POSITIONS } from "$lib/position";
   import { activeSynergies, TRAIT_SYNERGIES } from "$lib/traits";
@@ -20,6 +21,7 @@
   import UnitCard from "./UnitCard.svelte";
   import type { Pose } from "./Sprite.svelte";
   import DamagePopup from "./DamagePopup.svelte";
+  import CombatProjectile from "./CombatProjectile.svelte";
   import EncounterPanel from "./EncounterPanel.svelte";
   import TutorialOverlay from "./TutorialOverlay.svelte";
   import ArmyInventory from "./ArmyInventory.svelte";
@@ -62,9 +64,12 @@
 
   // ----- Per-turn animation state, driven by battle.turn -----
   interface Popup { id: string; targetId: string; hit?: Hit; heal?: number; isUltimate: boolean }
+  interface Projectile { id: string; actorId: string; attackType: "ranged" | "magic"; fromEnemy: boolean }
   let popups = $state<Popup[]>([]);
+  let projectiles = $state<Projectile[]>([]);
   let actingId = $state<string | null>(null);
   let actingKind = $state<"attack" | "ultimate" | null>(null);
+  let actingAttackType = $state<AttackType | null>(null);
   let hitIds = $state<Set<string>>(new Set());
   let ultBanner = $state<{ name: string; key: number } | null>(null);
   let lastSeenTurn = -1;
@@ -80,6 +85,7 @@
     const action = b.lastAction;
     actingId = action.actorId;
     actingKind = action.kind;
+    actingAttackType = action.attackType;
     hitIds = new Set(action.hits.map((h) => h.targetId));
     const fresh: Popup[] = action.hits.map((hit) => ({
       id: `p${++popupCounter}`,
@@ -91,6 +97,17 @@
       fresh.push({ id: `p${++popupCounter}`, targetId: action.actorId, heal: action.healed + action.turnHeal, isUltimate: false });
     }
     popups = [...popups, ...fresh];
+    if (action.attackType !== "melee" && action.kind !== "ultimate") {
+      const actor = b.fighters.find((f) => f.id === action.actorId);
+      if (actor) {
+        projectiles = [...projectiles, {
+          id: `proj${++popupCounter}`,
+          actorId: action.actorId,
+          attackType: action.attackType as "ranged" | "magic",
+          fromEnemy: actor.isEnemy,
+        }];
+      }
+    }
     if (action.kind === "ultimate") {
       const actor = b.fighters.find((f) => f.id === action.actorId);
       ultBanner = { name: actor?.name ?? "", key: b.turn };
@@ -98,6 +115,7 @@
     const clear = setTimeout(() => {
       actingId = null;
       actingKind = null;
+      actingAttackType = null;
       hitIds = new Set();
     }, action.kind === "ultimate" ? 1300 : 600);
     return () => clearTimeout(clear);
@@ -107,10 +125,17 @@
     popups = popups.filter((p) => p.id !== id);
   }
 
+  function removeProjectile(id: string) {
+    projectiles = projectiles.filter((p) => p.id !== id);
+  }
+
   function fighterClass(f: Fighter): string {
     if (f.hp <= 0) return "card-dead";
     if (actingId === f.id) {
       if (actingKind === "ultimate") return "card-ult";
+      if (actingAttackType === "melee") return f.isEnemy ? "card-melee-left" : "card-melee-right";
+      if (actingAttackType === "ranged") return "card-ranged";
+      if (actingAttackType === "magic") return "card-magic";
       return f.isEnemy ? "card-lunge-left" : "card-lunge-right";
     }
     if (hitIds.has(f.id)) return "card-hit";
@@ -319,6 +344,9 @@
                 {#each popups.filter((p) => p.targetId === playerF.id) as p (p.id)}
                   <DamagePopup id={p.id} hit={p.hit} heal={p.heal} isUltimate={p.isUltimate} onDone={removePopup} />
                 {/each}
+                {#each projectiles.filter((p) => p.actorId === playerF.id) as proj (proj.id)}
+                  <CombatProjectile id={proj.id} attackType={proj.attackType} fromEnemy={false} onDone={removeProjectile} />
+                {/each}
               </div>
             {:else}
               <div class="flex h-[4.5rem] w-20 items-center justify-center rounded border border-dashed border-border/40 text-[10px] text-muted-foreground/40">
@@ -344,6 +372,9 @@
                 <UnitCard unitId={enemyF.unitId} stars={enemyF.stars} size="sm" hp={enemyF.hp} maxHp={enemyF.maxHp} pose={fighterPose(enemyF)} animate={isPlaying} flipSprite />
                 {#each popups.filter((p) => p.targetId === enemyF.id) as p (p.id)}
                   <DamagePopup id={p.id} hit={p.hit} heal={p.heal} isUltimate={p.isUltimate} onDone={removePopup} />
+                {/each}
+                {#each projectiles.filter((p) => p.actorId === enemyF.id) as proj (proj.id)}
+                  <CombatProjectile id={proj.id} attackType={proj.attackType} fromEnemy={true} onDone={removeProjectile} />
                 {/each}
               </div>
             {:else}

@@ -636,6 +636,67 @@
   animation: wl-arena-flash 0.9s ease-out forwards;
 }
 
+@keyframes wl-melee-teleport-right {
+  0% { transform: translateX(0) scale(1); opacity: 1; }
+  15% { transform: translateX(0) scale(0.8); opacity: 0.3; }
+  20% { transform: translateX(60px) scale(1.15); opacity: 1; }
+  50% { transform: translateX(60px) scale(1.15); }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+@keyframes wl-melee-teleport-left {
+  0% { transform: translateX(0) scale(1); opacity: 1; }
+  15% { transform: translateX(0) scale(0.8); opacity: 0.3; }
+  20% { transform: translateX(-60px) scale(1.15); opacity: 1; }
+  50% { transform: translateX(-60px) scale(1.15); }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+.card-melee-right {
+  animation: wl-melee-teleport-right 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  z-index: 5;
+}
+.card-melee-left {
+  animation: wl-melee-teleport-left 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  z-index: 5;
+}
+
+@keyframes wl-ranged-charge {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.06) translateX(-2px); }
+  100% { transform: scale(1); }
+}
+.card-ranged {
+  animation: wl-ranged-charge 0.4s ease-out;
+  z-index: 5;
+}
+
+@keyframes wl-magic-cast {
+  0% { transform: scale(1); filter: brightness(1); }
+  30% { transform: scale(1.08); filter: brightness(1.4) saturate(1.3); }
+  60% { transform: scale(1.08); filter: brightness(1.6) saturate(1.4); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+.card-magic {
+  animation: wl-magic-cast 0.5s ease-in-out;
+  z-index: 5;
+}
+
+@keyframes wl-fly-right {
+  0% { transform: translateX(0) translateY(-50%); opacity: 1; }
+  80% { transform: translateX(120px) translateY(-50%); opacity: 1; }
+  100% { transform: translateX(140px) translateY(-50%); opacity: 0; }
+}
+@keyframes wl-fly-left {
+  0% { transform: translateX(0) translateY(-50%); opacity: 1; }
+  80% { transform: translateX(-120px) translateY(-50%); opacity: 1; }
+  100% { transform: translateX(-140px) translateY(-50%); opacity: 0; }
+}
+.projectile-fly-right {
+  animation: wl-fly-right 0.4s ease-in forwards;
+}
+.projectile-fly-left {
+  animation: wl-fly-left 0.4s ease-in forwards;
+}
+
 @keyframes wl-popup {
   0% {
     transform: translate(-50%, 0) scale(0.6);

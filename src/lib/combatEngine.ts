@@ -54,6 +54,7 @@ export interface Hit {
 export interface BattleAction {
   kind: "attack" | "ultimate";
   actorId: string;
+  attackType: AttackType;
   hits: Hit[];
   healed: number;
   turnHeal: number;
@@ -315,7 +316,7 @@ export function stepBattle(state: BattleState, rand: () => number = Math.random)
     fighters,
     status,
     turn: state.turn + 1,
-    lastAction: { kind: isUltimate ? "ultimate" : "attack", actorId: actor.id, hits, healed, turnHeal },
+    lastAction: { kind: isUltimate ? "ultimate" : "attack", actorId: actor.id, attackType: actor.attackType, hits, healed, turnHeal },
     log: [...state.log, ...log].slice(-60),
   };
 }
