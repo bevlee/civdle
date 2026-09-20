@@ -124,14 +124,14 @@
   ondragleave={handleDragLeave}
   ondrop={handleDrop}
 >
-  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+  <div class="flex flex-wrap items-center justify-between gap-2 px-3 pt-2">
     <div class="flex items-center gap-2">
       <h3 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         Army ({cards.length})
       </h3>
       {#if dropActive}
         <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary">
-          Drop here to remove from party
+          Drop here to remove from battlefield
         </span>
       {:else if mergeable.size > 0}
         <span class="rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] text-green-300" title="Cards with a merge partner">
@@ -139,7 +139,7 @@
         </span>
       {/if}
     </div>
-    <div class="flex items-center gap-1.5">
+    <div class="flex flex-wrap items-center gap-1.5">
       <label class="text-[10px] text-muted-foreground" for="army-sort">Sort</label>
       <select
         id="army-sort"
@@ -157,8 +157,8 @@
       >
         {sortDesc ? "▼" : "▲"}
       </button>
-      <Button size="sm" disabled={locked || gold < rollCost} onclick={onSummon} class="ml-1">
-        🎲 Summon ({rollCost} ⚔)
+      <Button size="sm" disabled={locked || gold < rollCost} onclick={onSummon} class="ml-1 h-6 px-2 text-[10px]">
+        Summon {rollCost} ⚔
       </Button>
       <Button
         size="sm"
@@ -166,8 +166,9 @@
         disabled={locked || gold < packCost}
         onclick={onOpenPack}
         title="Open 10 cards at once"
+        class="h-6 px-2 text-[10px]"
       >
-        🎁 Open 10 ({packCost} ⚔)
+        Open 10 · {packCost} ⚔
       </Button>
       {#if maxStars < 5}
         <span
@@ -180,13 +181,13 @@
     </div>
   </div>
 
-  <div class="max-h-80 overflow-y-auto px-3 pb-3">
+  <div class="max-h-60 overflow-y-auto px-3 pb-1">
     {#if sorted.length === 0}
       <p class="py-6 text-center text-sm text-muted-foreground">
         No units yet — summon one with Tribute.{gold < rollCost ? " Win battles to earn more." : ""}
       </p>
     {:else}
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-1.5 pt-1">
         {#each sorted as card (card.id)}
           {@const inParty = partyIds.has(card.id)}
           <button
@@ -200,9 +201,10 @@
             ondragstart={(e) => onDragStart(e, card.id)}
             ondragend={onDragEnd}
             onclick={() => onSelect(card.id)}
-            title={`${UNITS[card.unitId].name} — drag to a party slot`}
+            aria-label={`${UNITS[card.unitId].name}, ${card.stars} stars${inParty ? ", deployed" : ""}`}
+            title={`${UNITS[card.unitId].name} — drag onto the battlefield, or click for details`}
           >
-            <UnitCard unitId={card.unitId} stars={card.stars} size="tile" />
+            <UnitCard unitId={card.unitId} stars={card.stars} size="tile" class="h-14 w-14 rounded-md border" />
             {#if inParty}
               <span class="absolute -top-1 -left-1 rounded bg-primary px-1 text-[9px] font-bold text-primary-foreground">P</span>
             {/if}
@@ -214,4 +216,5 @@
       </div>
     {/if}
   </div>
+  <p class="px-3 pb-2 text-[10px] text-muted-foreground">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or select an empty position and then a card."}</p>
 </div>

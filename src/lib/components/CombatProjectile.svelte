@@ -1,50 +1,45 @@
 <script lang="ts">
+  import type { BattlePlayback } from "$lib/battlePlayback";
   import { onMount } from "svelte";
+  import { timeline } from "$lib/combatAnimation";
 
-  let {
-    id,
-    attackType,
-    fromEnemy = false,
-    onDone,
-  }: {
-    id: string;
-    attackType: "ranged" | "magic";
-    fromEnemy?: boolean;
-    onDone: (id: string) => void;
+  let { playback, id, attackType, x, y, dx, dy, angle, ultimate = false, onDone }: {
+    playback: BattlePlayback;
+    id: string; attackType: "ranged" | "magic";
+    x: number; y: number; dx: number; dy: number; angle: number;
+    ultimate?: boolean; onDone: (id: string) => void;
   } = $props();
-
+  let duration = $derived(ultimate ? timeline.ultimateMs : timeline.attackMs);
   onMount(() => {
-    const timeout = setTimeout(() => onDone(id), 500);
-    return () => clearTimeout(timeout);
+    const cancel = playback.schedule(() => onDone(id), duration * timeline.impactAt);
+    return cancel;
   });
 </script>
 
-<div
-  class="pointer-events-none absolute top-1/2 z-10 -translate-y-1/2"
-  class:left-full={!fromEnemy}
-  class:right-full={fromEnemy}
-  style={fromEnemy ? "transform-origin: right center" : "transform-origin: left center"}
->
-  {#if attackType === "ranged"}
-    <div
-      class="projectile-arrow"
-      class:projectile-fly-right={!fromEnemy}
-      class:projectile-fly-left={fromEnemy}
-    >
-      <svg width="24" height="10" viewBox="0 0 24 10" class="drop-shadow-[0_0_4px_rgba(255,200,50,0.8)]">
-        <line x1="0" y1="5" x2="18" y2="5" stroke="#fbbf24" stroke-width="2" />
-        <polygon points="18,1 24,5 18,9" fill="#f59e0b" />
-        <line x1="0" y1="5" x2="3" y2="2" stroke="#fbbf24" stroke-width="1.5" />
-        <line x1="0" y1="5" x2="3" y2="8" stroke="#fbbf24" stroke-width="1.5" />
+<div class="projectile" class:ultimate aria-hidden="true"
+  style:left={`${x}px`} style:top={`${y}px`} style:--dx={`${dx}px`} style:--dy={`${dy}px`}
+  style:--delay={`${duration * timeline.launchAt}ms`} style:--flight={`${duration * (timeline.impactAt - timeline.launchAt)}ms`}>
+  <div class="projectile-body" style:transform={`translate(-50%, -50%) rotate(${angle}deg)`}>
+    {#if attackType === "ranged"}
+      <svg width={ultimate ? 34 : 26} height="12" viewBox="0 0 34 12" class="arrow">
+        <path d="M1 6H26M2 2L7 6L2 10" fill="none" stroke="#fbbf24" stroke-width="2" />
+        <path d="M25 1L34 6L25 11Z" fill="#f59e0b" />
       </svg>
-    </div>
-  {:else}
-    <div
-      class="projectile-magic"
-      class:projectile-fly-right={!fromEnemy}
-      class:projectile-fly-left={fromEnemy}
-    >
-      <div class="h-3.5 w-3.5 rounded-full bg-violet-400 shadow-[0_0_8px_3px_rgba(167,139,250,0.7),0_0_16px_6px_rgba(139,92,246,0.4)]"></div>
-    </div>
-  {/if}
+    {:else}
+      <div class="magic-bolt"></div>
+    {/if}
+  </div>
 </div>
+
+<style>
+  .projectile { position: absolute; z-index: 12; pointer-events: none; animation: fly var(--flight) linear var(--delay) both; }
+  .arrow { filter: drop-shadow(0 0 4px #ffc832cc); }
+  .magic-bolt { width: 12px; height: 12px; border-radius: 50%; background: #c4b5fd; box-shadow: 0 0 8px 3px #a78bfaad, 0 0 16px 6px #8b5cf666; }
+  .ultimate .magic-bolt { width: 18px; height: 18px; background: #eee7ff; }
+  @keyframes fly {
+    0% { transform: translate(0, 0); opacity: 0; }
+    5% { opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) { .projectile { display: none; } }
+</style>

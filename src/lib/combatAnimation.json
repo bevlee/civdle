@@ -1,0 +1,18 @@
+{
+  "attackMs": 600,
+  "ultimateMs": 1300,
+  "launchAt": 0.25,
+  "impactAt": 0.6,
+  "maxBlinkPx": 60,
+  "blinkWidthFraction": 0.08,
+  "frames": [
+    { "offset": 0, "travel": 0, "scale": 1, "opacity": 1 },
+    { "offset": 0.1, "travel": 0, "scale": 0.8, "opacity": 0 },
+    { "offset": 0.15, "travel": 1, "scale": 0.8, "opacity": 0 },
+    { "offset": 0.22, "travel": 1, "scale": 1.15, "opacity": 1 },
+    { "offset": 0.65, "travel": 1, "scale": 1.15, "opacity": 1 },
+    { "offset": 0.72, "travel": 1, "scale": 0.8, "opacity": 0 },
+    { "offset": 0.8, "travel": 0, "scale": 0.8, "opacity": 0 },
+    { "offset": 1, "travel": 0, "scale": 1, "opacity": 1 }
+  ]
+}

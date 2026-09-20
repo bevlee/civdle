@@ -1,0 +1,58 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { BattleAudio } from "./battleAudio";
+
+function audioHarness() {
+  const oscillators: { type: OscillatorType; stop: ReturnType<typeof vi.fn> }[] = [];
+  const parameter = () => ({ setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() });
+  const context = {
+    state: "running", currentTime: 0, destination: {}, resume: vi.fn(async () => {}), close: vi.fn(async () => {}),
+    createOscillator() {
+      const voice = { type: "sine" as OscillatorType, frequency: parameter(), connect: vi.fn((gain) => gain), disconnect: vi.fn(), start: vi.fn(), stop: vi.fn(), onended: null };
+      oscillators.push(voice);
+      return voice;
+    },
+    createGain() { return { gain: parameter(), connect: vi.fn(), disconnect: vi.fn() }; },
+  };
+  const constructor = vi.fn(function () { return context; });
+  vi.stubGlobal("AudioContext", constructor);
+  return { oscillators, context, constructor };
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("ultimate audio", () => {
+  it("creates no audio until the player enables sounds", () => {
+    const { constructor } = audioHarness();
+    new BattleAudio().play("magic", 1);
+    expect(constructor).not.toHaveBeenCalled();
+  });
+
+  it("uses a thump, arrow triplet, and distinct magic chord", async () => {
+    const { oscillators } = audioHarness();
+    const audio = new BattleAudio();
+    expect(await audio.setMuted(false)).toBe(false);
+    audio.play("melee", 1);
+    expect(oscillators.map(o => o.type)).toEqual(["triangle"]);
+    audio.play("ranged", 2);
+    expect(oscillators).toHaveLength(4);
+    audio.play("magic", 0.5);
+    expect(oscillators.slice(4).map(o => o.type)).toEqual(["sine", "sine", "sine"]);
+    await audio.setMuted(true);
+    expect(oscillators.every(o => o.stop.mock.calls.length === 2)).toBe(true);
+    audio.play("melee", 1);
+    expect(oscillators).toHaveLength(7);
+  });
+
+  it("keeps a later mute when an earlier audio unlock finishes", async () => {
+    const { context, oscillators } = audioHarness();
+    let unlock!: () => void;
+    context.resume.mockImplementation(() => new Promise<void>(resolve => { unlock = resolve; }));
+    const audio = new BattleAudio();
+    const enabling = audio.setMuted(false);
+    await audio.setMuted(true);
+    unlock();
+    expect(await enabling).toBe(true);
+    audio.play("magic", 1);
+    expect(oscillators).toHaveLength(0);
+  });
+});

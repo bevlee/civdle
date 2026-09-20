@@ -1,15 +1,18 @@
 <script lang="ts">
+  import type { BattlePlayback } from "$lib/battlePlayback";
   import { onMount } from "svelte";
   import type { Hit } from "$lib/combatEngine";
   import { cn } from "$lib/utils";
 
   let {
+    playback,
     id,
     hit,
     heal,
     isUltimate = false,
     onDone,
   }: {
+    playback: BattlePlayback;
     id: string;
     hit?: Hit;
     heal?: number;
@@ -18,8 +21,8 @@
   } = $props();
 
   onMount(() => {
-    const timeout = setTimeout(() => onDone(id), 1100);
-    return () => clearTimeout(timeout);
+    const cancel = playback.schedule(() => onDone(id), 1100);
+    return cancel;
   });
 </script>
 

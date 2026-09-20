@@ -148,11 +148,11 @@ export function enemyModsFor(encounter: Encounter): ArmyMods {
   return mods;
 }
 
-export function startBattle(playerCards: UnitCard[], encounter: Encounter): BattleState {
-  const playerMods = computeArmyMods(playerCards);
+export function startBattle(playerSlots: (UnitCard | null)[], encounter: Encounter): BattleState {
+  const playerMods = computeArmyMods(playerSlots.filter((card): card is UnitCard => card !== null));
   const enemyMods = enemyModsFor(encounter);
   const fighters = [
-    ...playerCards.map((c, i) => cardToFighter(c, false, playerMods, enemyMods, indexToPosition(i))),
+    ...playerSlots.flatMap((card, i) => card ? [cardToFighter(card, false, playerMods, enemyMods, indexToPosition(i))] : []),
     ...encounter.cards.map((c, i) => cardToFighter(c, true, enemyMods, playerMods, indexToPosition(i))),
   ];
   for (const f of fighters) f.hp = f.maxHp;

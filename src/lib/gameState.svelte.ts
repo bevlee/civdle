@@ -1,3 +1,5 @@
+import { BattlePlayback, type BattleSpeed } from "./battlePlayback";
+import { BattleAudio } from "./battleAudio";
 import {
   DEBUG_GLOBAL_UPGRADES,
   GLOBAL_UPGRADES,
@@ -184,6 +186,30 @@ export class CivdleGame {
   message = $state<string | null>(null);
   pendingUnlocks = $state<SkillId[]>([]);
   #progress = $state(0);
+  battlePaused = $state(false);
+  battleSpeed = $state<BattleSpeed>(1);
+  battleMuted = $state(true);
+  battlePlayback = new BattlePlayback();
+  battleAudio = new BattleAudio();
+
+  setBattlePaused(paused: boolean) {
+    this.battlePaused = paused;
+    this.battlePlayback.configure({ speed: this.battleSpeed, paused });
+    if (paused) this.battleAudio.stop();
+  }
+
+  setBattleSpeed(speed: BattleSpeed) {
+    if (![0.5, 1, 2].includes(speed)) return;
+    this.battleSpeed = speed;
+    this.battlePlayback.configure({ speed, paused: this.battlePaused });
+  }
+
+  async setBattleMuted(muted: boolean) {
+    this.battleMuted = muted;
+    const result = await this.battleAudio.setMuted(muted);
+    if (this.battleMuted === muted) this.battleMuted = result;
+  }
+
 
   eventQueue = new EventQueue();
   #actionTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -191,8 +217,8 @@ export class CivdleGame {
   #actionStart = 0;
   #actionDuration = 0;
   #saveInterval: ReturnType<typeof setInterval> | null = null;
-  #battleTimeout: ReturnType<typeof setTimeout> | null = null;
-  #autoTimeout: ReturnType<typeof setTimeout> | null = null;
+  #battleTimeout: (() => void) | null = null;
+  #autoTimeout: (() => void) | null = null;
   #incomeInterval: ReturnType<typeof setInterval> | null = null;
   #handleUnload: (() => void) | null = null;
   #achievementRoot: (() => void) | null = null;
@@ -223,10 +249,13 @@ export class CivdleGame {
   }
 
   get partyCards(): UnitCard[] {
-    return this.state.gacha.party
-      .filter((id): id is string => id !== null)
-      .map((id) => this.state.gacha.cards.find((c) => c.id === id))
-      .filter((c): c is UnitCard => c !== undefined);
+    return this.partySlots.filter((card): card is UnitCard => card !== null);
+  }
+
+  get partySlots(): (UnitCard | null)[] {
+    return this.state.gacha.party.map((id) =>
+      this.state.gacha.cards.find((card) => card.id === id) ?? null,
+    );
   }
 
   init(): () => void {
@@ -282,6 +311,8 @@ export class CivdleGame {
       this.#clearProgressLoop();
       this.#clearBattleLoop();
       this.#clearAutoTimeout();
+      this.battlePlayback.clear();
+      this.battleAudio.dispose();
       if (this.#incomeInterval) {
         clearInterval(this.#incomeInterval);
         this.#incomeInterval = null;
@@ -430,7 +461,7 @@ export class CivdleGame {
 
   #scheduleBattleStep(delayMs: number): void {
     this.#clearBattleLoop();
-    this.#battleTimeout = setTimeout(() => {
+    this.#battleTimeout = this.battlePlayback.schedule(() => {
       this.#battleTimeout = null;
       const battle = this.state.gacha.battle;
       if (!battle || battle.status !== "playing") return;
@@ -456,14 +487,14 @@ export class CivdleGame {
 
   #clearBattleLoop(): void {
     if (this.#battleTimeout) {
-      clearTimeout(this.#battleTimeout);
+      this.#battleTimeout();
       this.#battleTimeout = null;
     }
   }
 
   #scheduleAutoDismiss(continueDepths: boolean): void {
     this.#clearAutoTimeout();
-    this.#autoTimeout = setTimeout(() => {
+    this.#autoTimeout = this.battlePlayback.schedule(() => {
       this.#autoTimeout = null;
       if (this.inBattle) return;
       this.dismissBattle();
@@ -473,7 +504,7 @@ export class CivdleGame {
 
   #clearAutoTimeout(): void {
     if (this.#autoTimeout) {
-      clearTimeout(this.#autoTimeout);
+      this.#autoTimeout();
       this.#autoTimeout = null;
     }
   }
@@ -722,12 +753,13 @@ export class CivdleGame {
     if (this.inBattle || this.state.gacha.battle || this.storyComplete) return;
     const party = this.partyCards;
     if (party.length === 0) return;
+    this.setBattlePaused(false);
     const g = this.state.gacha;
     const encounter = g.encounter ?? generateStoryEncounter(g.storyLevel);
     this.#clearAutoTimeout();
     this.#setGacha({
       encounter,
-      battle: startBattle(party, encounter),
+      battle: startBattle(this.partySlots, encounter),
       battleMode: "story",
       depths: { ...g.depths, auto: false },
     });
@@ -738,11 +770,12 @@ export class CivdleGame {
     if (this.inBattle || this.state.gacha.battle) return;
     const party = this.partyCards;
     if (party.length === 0) return;
+    this.setBattlePaused(false);
     const g = this.state.gacha;
     const encounter = g.depths.encounter ?? generateDepthsEncounter(g.depths.level);
     this.#setGacha({
       depths: { ...g.depths, encounter },
-      battle: startBattle(party, encounter),
+      battle: startBattle(this.partySlots, encounter),
       battleMode: "depths",
     });
     this.#scheduleBattleStep(ATTACK_STEP_MS);
@@ -769,6 +802,7 @@ export class CivdleGame {
   dismissBattle(): void {
     const battle = this.state.gacha.battle;
     if (!battle || battle.status === "playing") return;
+    this.setBattlePaused(false);
     const g = this.state.gacha;
     const mode = g.battleMode;
     if (battle.status !== "won") {

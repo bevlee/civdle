@@ -57,6 +57,23 @@ describe("story Tribute rewards", () => {
 });
 
 describe("Depths Auto", () => {
+  it.each(["story", "depths"] as const)("keeps deployed units in their chosen positions in %s battles", (mode) => {
+    const tank = createCard("dendroid");
+    const mage = createCard("mage");
+    game.state.gacha.cards = [tank, mage];
+    game.assignCardToParty(tank.id, 3);
+    game.assignCardToParty(mage.id, 4);
+    if (mode === "story") game.startStoryFight();
+    else game.startDepthsFight();
+    expect(game.state.gacha.battle?.fighters.filter(f => !f.isEnemy).map(f => ({ id: f.id, position: f.position }))).toEqual([
+      { id: tank.id, position: 4 },
+      { id: mage.id, position: 5 },
+    ]);
+    game.assignCardToParty(mage.id, 0);
+    expect(game.state.gacha.party[4]).toBe(mage.id);
+    expect(game.state.gacha.party[0]).toBeNull();
+  });
+
   it("dismisses a completed battle after Auto is disabled without starting another", () => {
     equipWinner();
     game.setDepthsAuto(true);
@@ -155,5 +172,39 @@ describe("save lifecycle", () => {
     cleanup();
     cleanup = undefined;
     expect(JSON.parse(storage.get("civdle-save")!).gacha.gold).toBe(456);
+  });
+});
+
+describe("battle playback controls", () => {
+  it.each(["story", "depths"] as const)("pauses %s combat and resumes without skipping a turn", mode => {
+    equipWinner();
+    if (mode === "story") game.startStoryFight();
+    else game.startDepthsFight();
+    vi.advanceTimersByTime(300);
+    game.setBattlePaused(true);
+    vi.advanceTimersByTime(10000);
+    expect(game.state.gacha.battle?.turn).toBe(0);
+    game.setBattleSpeed(2);
+    game.setBattlePaused(false);
+    vi.advanceTimersByTime(299);
+    expect(game.state.gacha.battle?.turn).toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(game.state.gacha.battle?.turn).toBe(1);
+  });
+
+  it("holds a completed auto battle while paused and resumes its result timer", () => {
+    equipWinner();
+    game.setDepthsAuto(true);
+    finishBattle();
+    const level = game.state.gacha.depths.level;
+    game.setBattlePaused(true);
+    vi.advanceTimersByTime(10000);
+    expect(game.state.gacha.depths.level).toBe(level);
+    expect(game.state.gacha.battle?.status).toBe("won");
+    game.setBattleSpeed(0.5);
+    game.setBattlePaused(false);
+    vi.advanceTimersByTime(DEPTHS_AUTO_PAUSE_MS * 2);
+    expect(game.state.gacha.depths.level).toBe(level + 1);
+    expect(game.state.gacha.battle?.turn).toBe(0);
   });
 });

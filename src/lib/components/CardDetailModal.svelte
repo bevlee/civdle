@@ -4,6 +4,7 @@
     FACTIONS,
     MAX_STARS,
     UNITS,
+    ULTIMATES,
     computeCardStats,
     type UnitCard as UnitCardT,
   } from "$lib/combatData";
@@ -22,6 +23,7 @@
     statMult = 1,
     onAddToParty,
     onRemoveFromParty,
+    onChoosePosition,
     onMerge,
     onDiscard,
     onClose,
@@ -35,6 +37,7 @@
     statMult?: number;
     onAddToParty?: () => void;
     onRemoveFromParty?: () => void;
+    onChoosePosition?: () => void;
     onMerge?: (partnerId: string) => void;
     onDiscard?: () => void;
     onClose: () => void;
@@ -97,6 +100,10 @@
       </p>
 
       <div class="flex flex-col gap-1">
+        <p class="rounded border border-amber-400/20 bg-amber-400/5 px-2 py-1 text-xs">
+          <strong>{ULTIMATES[def.attackType].name}</strong> · Ultimate<br />
+          {ULTIMATES[def.attackType].description} Triggers every third personal action, or every second with an army cadence bonus.
+        </p>
         {#each def.traits as trait (trait)}
           {@const syn = TRAIT_SYNERGIES[trait]}
           <div class="rounded border border-border/60 px-2 py-1 text-xs">
@@ -113,6 +120,9 @@
 
       {#if !readOnly}
         <div class="mt-auto flex flex-wrap gap-1.5">
+          {#if onChoosePosition}
+            <Button size="sm" disabled={locked} onclick={onChoosePosition}>Choose battlefield position</Button>
+          {/if}
           {#if inParty}
             <Button size="sm" variant="outline" disabled={locked} onclick={onRemoveFromParty}>Remove from party</Button>
           {:else}

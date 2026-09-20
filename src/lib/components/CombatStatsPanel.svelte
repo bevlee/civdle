@@ -1,68 +1,57 @@
 <script lang="ts">
-  import type { Fighter } from "$lib/combatEngine";
-  import { isFrontRow } from "$lib/position";
+  import type { Fighter, FighterStats } from "$lib/combatEngine";
+  import Sprite from "./Sprite.svelte";
 
   let { playerFighters, enemyFighters }: { playerFighters: Fighter[]; enemyFighters: Fighter[] } = $props();
-
-  let side = $state<"player" | "enemy">("player");
-
-  let fighters = $derived(
-    (side === "player" ? playerFighters : enemyFighters)
-      .toSorted((a, b) => a.position - b.position),
-  );
-
-  const fmt = new Intl.NumberFormat();
-
-  function formatStat(value: number): string {
-    return value === 0 ? "—" : fmt.format(value);
-  }
-
-  function posLabel(f: Fighter): string {
-    return `${f.position}${isFrontRow(f.position) ? "F" : ""}`;
-  }
+  const metrics: { key: keyof FighterStats; label: string }[] = [
+    { key: "damageDealt", label: "Damage" },
+    { key: "healingDone", label: "Healing" },
+    { key: "damageTaken", label: "Taken" },
+  ];
+  let metric = $state<keyof FighterStats>("damageDealt");
+  let fighters = $derived([...playerFighters, ...enemyFighters].toSorted((a, b) => b.stats[metric] - a.stats[metric]));
+  let maximum = $derived(Math.max(1, ...fighters.map(f => f.stats[metric])));
+  let playerTotal = $derived(playerFighters.reduce((sum, f) => sum + f.stats[metric], 0));
+  let enemyTotal = $derived(enemyFighters.reduce((sum, f) => sum + f.stats[metric], 0));
+  const fmt = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 </script>
 
-<div class="rounded border border-border/40 bg-muted/20 px-2 py-1.5">
-  <!-- Toggle -->
-  <div class="mb-1.5 flex gap-1">
-    <button
-      class="rounded px-2 py-0.5 text-[11px] font-medium transition-colors {side === 'player' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}"
-      onclick={() => (side = "player")}
-    >
-      Your Units
-    </button>
-    <button
-      class="rounded px-2 py-0.5 text-[11px] font-medium transition-colors {side === 'enemy' ? 'bg-destructive/20 text-red-300' : 'text-muted-foreground hover:text-foreground'}"
-      onclick={() => (side = "enemy")}
-    >
-      Enemy Units
-    </button>
+<section class="combat-stats" aria-label="Combat statistics">
+  <div class="metric-tabs" aria-label="Statistic">
+    {#each metrics as item}
+      <button class:active={metric === item.key} aria-pressed={metric === item.key} onclick={() => metric = item.key}>{item.label}</button>
+    {/each}
   </div>
-
-  <!-- Stats table -->
-  <table class="w-full text-[11px] tabular-nums">
-    <thead>
-      <tr class="text-left text-muted-foreground">
-        <th class="w-8 pb-0.5 font-medium">Pos</th>
-        <th class="pb-0.5 font-medium">Unit</th>
-        <th class="w-14 pb-0.5 text-right font-medium">Dmg</th>
-        <th class="w-14 pb-0.5 text-right font-medium">Heal</th>
-        <th class="w-14 pb-0.5 text-right font-medium">Taken</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each fighters as f (f.id)}
-        {@const dead = f.hp <= 0}
-        <tr class={dead ? "text-muted-foreground/50 line-through" : ""}>
-          <td class={isFrontRow(f.position) ? "text-primary font-semibold" : "text-muted-foreground"}>
-            {posLabel(f)}
-          </td>
-          <td class="truncate max-w-[8rem]">{f.name}</td>
-          <td class="text-right text-orange-400">{formatStat(f.stats.damageDealt)}</td>
-          <td class="text-right text-green-400">{formatStat(f.stats.healingDone)}</td>
-          <td class="text-right text-red-400">{formatStat(f.stats.damageTaken)}</td>
-        </tr>
+  <p class="totals">You {fmt.format(playerTotal)} <span>·</span> Enemy {fmt.format(enemyTotal)}</p>
+  {#if fighters.length > 0}
+    <div class="stat-rows">
+      {#each fighters as fighter (fighter.id)}
+        <div class="stat-row" title={`${fighter.isEnemy ? "Enemy" : "Your army"} · ${fighter.name} · Position ${fighter.position}: ${fighter.stats[metric]}`}>
+          <Sprite unitId={fighter.unitId} class="w-4" />
+          <span class="stat-name">{fighter.name}</span>
+          <div class="stat-track"><div class:enemy={fighter.isEnemy} style:width={`${100 * fighter.stats[metric] / maximum}%`}></div></div>
+          <span class="stat-value">{fmt.format(fighter.stats[metric])}</span>
+        </div>
       {/each}
-    </tbody>
-  </table>
-</div>
+    </div>
+  {:else}
+    <p class="empty">Damage, healing, and hits taken will appear here when battle begins.</p>
+  {/if}
+</section>
+
+<style>
+  .combat-stats { border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: #ffffff02; }
+  .metric-tabs { display: flex; gap: 4px; }
+  .metric-tabs button { padding: 5px 8px; border-radius: 4px; font-size: 10px; color: var(--muted-foreground); cursor: pointer; }
+  .metric-tabs button.active { background: #e4e4e4; color: #181818; font-weight: 600; }
+  .totals { text-align: right; font-size: 9px; color: var(--muted-foreground); margin: 7px 0; font-variant-numeric: tabular-nums; }
+  .totals span { padding: 0 3px; }
+  .stat-rows { display: flex; flex-direction: column; gap: 6px; }
+  .stat-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) minmax(35px, 1fr) 25px; gap: 6px; align-items: center; font-size: 10px; }
+  .stat-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat-track { background: #ffffff08; height: 7px; border-radius: 2px; overflow: hidden; }
+  .stat-track > div { height: 100%; background: #f59b42; transition: width 250ms; border-radius: 2px; }
+  .stat-track > div.enemy { background: #956461; }
+  .stat-value { text-align: right; font-variant-numeric: tabular-nums; }
+  .empty { font-size: 11px; line-height: 1.6; color: var(--muted-foreground); padding: 12px 0 4px; }
+</style>

@@ -377,6 +377,13 @@ export const ULT_MULT: Record<AttackType, number> = {
   magic: 1.25,
 };
 
+/** Player-facing names describe existing ultimate mechanics. */
+export const ULTIMATES: Record<AttackType, { name: string; short: string; description: string }> = {
+  melee: { name: "Crushing Blow", short: `Melee · ${ULT_MULT.melee}× · single target`, description: `Melee deals ${ULT_MULT.melee}× damage to one enemy, targeting the front row first.` },
+  ranged: { name: "Volley", short: `Ranged · ${ULT_MULT.ranged}× · back row`, description: `Ranged deals ${ULT_MULT.ranged}× damage to every living back-row enemy, or every living front-row enemy if the back row is empty.` },
+  magic: { name: "Arcane Burst", short: `Magic · ${ULT_MULT.magic}× · all enemies`, description: `Magic deals ${ULT_MULT.magic}× damage to every living enemy.` },
+};
+
 export function enemyCountForLevel(level: number): number {
   if (level <= 2) return 1;
   if (level <= 5) return 2;

@@ -21,7 +21,7 @@
   } = $props();
 </script>
 
-<nav class="flex w-56 shrink-0 flex-col gap-1 border-r border-border p-3">
+<nav class="flex w-28 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border p-2 sm:w-36 lg:w-44">
   <h2
     class="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
   >

@@ -111,6 +111,7 @@
 
     <div class="flex min-h-0 flex-1">
       <!-- Left: Skill panel -->
+      <div class={centerTab === "story" || centerTab === "depths" ? "hidden sm:contents" : "contents"}>
       <SkillPanel
         state={game.state}
         levels={game.levels}
@@ -119,10 +120,11 @@
         events={game.events}
         onDismissEvent={(id) => game.dismissEvent(id)}
       />
+      </div>
 
       <!-- Center: Train / Combat -->
       <main class="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div class="flex border-b border-border">
+        <div class="flex shrink-0 overflow-x-auto whitespace-nowrap border-b border-border">
           <button
             class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
             'train'
@@ -212,6 +214,7 @@
       </main>
 
       <!-- Right: Inventory / Shop -->
+      {#if centerTab !== "story" && centerTab !== "depths"}
       <aside
         class="flex w-72 shrink-0 flex-col border-l border-border"
       >
@@ -251,6 +254,7 @@
           {/if}
         </div>
       </aside>
+      {/if}
     </div>
   </div>
 
