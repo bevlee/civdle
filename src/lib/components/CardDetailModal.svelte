@@ -8,7 +8,7 @@
     computeCardStats,
     type UnitCard as UnitCardT,
   } from "$lib/combatData";
-  import { TRAIT_SYNERGIES } from "$lib/traits";
+  import { countTraits, tierFor, TRAIT_SYNERGIES } from "$lib/traits";
   import { RARITY_NAMES, rarityColor } from "$lib/rarity";
   import { Button } from "$lib/components/ui/button";
   import UnitCard from "./UnitCard.svelte";
@@ -23,9 +23,8 @@
     statMult = 1,
     onAddToParty,
     onRemoveFromParty,
-    onChoosePosition,
+    partyCards = [],
     onMerge,
-    onDiscard,
     onClose,
   }: {
     card: UnitCardT;
@@ -37,12 +36,12 @@
     statMult?: number;
     onAddToParty?: () => void;
     onRemoveFromParty?: () => void;
-    onChoosePosition?: () => void;
+    partyCards?: UnitCardT[];
     onMerge?: (partnerId: string) => void;
-    onDiscard?: () => void;
     onClose: () => void;
   } = $props();
 
+  let traitCounts = $derived(countTraits(partyCards));
   let def = $derived(UNITS[card.unitId]);
   let baseStats = $derived(computeCardStats(card.unitId, card.stars));
   let stats = $derived(statMult !== 1 ? {
@@ -111,22 +110,22 @@
               <span class={trait === "ascendant" ? "font-bold text-yellow-300" : "font-semibold"}>{syn.name}</span>
               <span class="text-[10px] text-muted-foreground">{syn.description}</span>
             </div>
-            <div class="text-[10px] text-muted-foreground">
-              {syn.thresholds[0]}: {syn.tiers[0]} · {syn.thresholds[1]}: {syn.tiers[1]}
-            </div>
+            {#each syn.tiers as bonus, index}
+              {@const active = tierFor(trait, traitCounts.get(trait) ?? 0) === index + 1}
+              <p class={active ? "text-[10px] text-amber-300 font-semibold" : "text-[10px] text-muted-foreground"}>
+                {syn.thresholds[index]}: {bonus}{active ? " · Active" : ""}
+              </p>
+            {/each}
           </div>
         {/each}
       </div>
 
       {#if !readOnly}
         <div class="mt-auto flex flex-wrap gap-1.5">
-          {#if onChoosePosition}
-            <Button size="sm" disabled={locked} onclick={onChoosePosition}>Choose battlefield position</Button>
-          {/if}
           {#if inParty}
-            <Button size="sm" variant="outline" disabled={locked} onclick={onRemoveFromParty}>Remove from party</Button>
+            <Button size="sm" variant="outline" disabled={locked} onclick={() => { onRemoveFromParty?.(); onClose(); }}>Remove from party</Button>
           {:else}
-            <Button size="sm" disabled={partyFull || locked} onclick={onAddToParty}>
+            <Button size="sm" disabled={partyFull || locked} onclick={() => { onAddToParty?.(); onClose(); }}>
               {partyFull ? "Party full" : "Add to party"}
             </Button>
           {/if}
@@ -150,7 +149,6 @@
               ⇈ Merge (need another {card.stars}★)
             {/if}
           </Button>
-          <Button size="sm" variant="ghost" class="text-red-400" disabled={locked} onclick={onDiscard}>Discard</Button>
         </div>
       {/if}
     </div>

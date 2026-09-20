@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CivdleGame, ATTACK_STEP_MS, DEPTHS_AUTO_PAUSE_MS } from "./gameState.svelte";
+import { CivdleGame, ATTACK_STEP_MS, ULT_STEP_MS, DEPTHS_AUTO_PAUSE_MS } from "./gameState.svelte";
 import { createCard, GACHA_COST, PACK_SIZE } from "./combatData";
 import { xpForLevel } from "./gameEngine";
 
@@ -50,7 +50,11 @@ describe("story Tribute rewards", () => {
     equipWinner();
     game.startStoryFight();
     finishBattle();
-    vi.advanceTimersByTime(DEPTHS_AUTO_PAUSE_MS);
+    vi.advanceTimersByTime(10000);
+    expect(game.state.gacha.battle?.status).toBe("won");
+    expect(game.state.gacha.storyLevel).toBe(3);
+    game.dismissBattle();
+    game.dismissBattle();
     expect(game.state.gacha.gold).toBe(expected);
     expect(game.state.gacha.storyLevel).toBe(4);
   });
@@ -74,24 +78,28 @@ describe("Depths Auto", () => {
     expect(game.state.gacha.party[0]).toBeNull();
   });
 
-  it("dismisses a completed battle after Auto is disabled without starting another", () => {
+  it("holds a completed battle after Auto is disabled until Continue", () => {
     equipWinner();
     game.setDepthsAuto(true);
     finishBattle();
     game.setDepthsAuto(false);
-    vi.advanceTimersByTime(DEPTHS_AUTO_PAUSE_MS);
+    vi.advanceTimersByTime(10000);
+    expect(game.state.gacha.battle?.status).toBe("won");
+    game.dismissBattle();
     expect(game.state.gacha.battle).toBeNull();
     expect(game.state.gacha.depths.level).toBe(2);
     game.startStoryFight();
     expect(game.state.gacha.battleMode).toBe("story");
   });
 
-  it("finishes and dismisses the current fight when Auto is disabled mid-battle", () => {
+  it("holds the result when Auto is disabled mid-battle", () => {
     equipWinner();
     game.setDepthsAuto(true);
     game.setDepthsAuto(false);
     finishBattle();
-    vi.advanceTimersByTime(DEPTHS_AUTO_PAUSE_MS);
+    vi.advanceTimersByTime(10000);
+    expect(game.state.gacha.battle?.status).toBe("won");
+    game.dismissBattle();
     expect(game.state.gacha.battle).toBeNull();
     expect(game.state.gacha.depths.level).toBe(2);
   });
@@ -100,7 +108,7 @@ describe("Depths Auto", () => {
     equipWinner();
     game.setDepthsAuto(true);
     finishBattle();
-    vi.advanceTimersByTime(DEPTHS_AUTO_PAUSE_MS);
+    vi.advanceTimersByTime(DEPTHS_AUTO_PAUSE_MS + (game.state.gacha.battle?.lastAction?.kind === "ultimate" ? ULT_STEP_MS : ATTACK_STEP_MS));
     expect(game.state.gacha.depths.level).toBe(2);
     expect(game.inBattle).toBe(true);
   });
@@ -203,7 +211,7 @@ describe("battle playback controls", () => {
     expect(game.state.gacha.battle?.status).toBe("won");
     game.setBattleSpeed(0.5);
     game.setBattlePaused(false);
-    vi.advanceTimersByTime(DEPTHS_AUTO_PAUSE_MS * 2);
+    vi.advanceTimersByTime((DEPTHS_AUTO_PAUSE_MS + (game.state.gacha.battle?.lastAction?.kind === "ultimate" ? ULT_STEP_MS : ATTACK_STEP_MS)) * 2);
     expect(game.state.gacha.depths.level).toBe(level + 1);
     expect(game.state.gacha.battle?.turn).toBe(0);
   });

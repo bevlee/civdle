@@ -482,7 +482,7 @@ export class CivdleGame {
         } else {
           this.#bumpStats({ battlesLost: this.state.stats.battlesLost + 1 });
         }
-        this.#scheduleAutoDismiss(g.battleMode === "depths" && g.depths.auto);
+        if (g.battleMode === "depths" && g.depths.auto) this.#scheduleAutoDismiss(true, next.lastAction?.kind === "ultimate" ? ULT_STEP_MS : ATTACK_STEP_MS);
       }
     }, delayMs);
   }
@@ -494,14 +494,14 @@ export class CivdleGame {
     }
   }
 
-  #scheduleAutoDismiss(continueDepths: boolean): void {
+  #scheduleAutoDismiss(continueDepths: boolean, animationMs = ULT_STEP_MS): void {
     this.#clearAutoTimeout();
     this.#autoTimeout = this.battlePlayback.schedule(() => {
       this.#autoTimeout = null;
       if (this.inBattle) return;
       this.dismissBattle();
       if (continueDepths && this.state.gacha.depths.auto) this.startDepthsFight();
-    }, DEPTHS_AUTO_PAUSE_MS);
+    }, animationMs + DEPTHS_AUTO_PAUSE_MS);
   }
 
   #clearAutoTimeout(): void {
@@ -651,8 +651,12 @@ export class CivdleGame {
     return hasCelestialAltar(this.#settlementSet);
   }
 
+  get #hasPendingSummon(): boolean {
+    return this.eventQueue.events.some(e => e.type === "summon" || e.type === "summonPack");
+  }
+
   rollCard(): void {
-    if (this.state.gacha.gold < GACHA_COST) return;
+    if (this.state.gacha.gold < GACHA_COST || this.#hasPendingSummon) return;
     const card = rollCard(Math.random, this.#maxSummonStars, this.#rollRates);
     this.#setGacha({
       gold: this.state.gacha.gold - GACHA_COST,
@@ -666,7 +670,7 @@ export class CivdleGame {
   }
 
   rollPack(): void {
-    if (this.state.gacha.gold < PACK_COST) return;
+    if (this.state.gacha.gold < PACK_COST || this.#hasPendingSummon) return;
     const maxS = this.#maxSummonStars;
     const rates = this.#rollRates;
     const cards = Array.from({ length: PACK_SIZE }, () => rollCard(Math.random, maxS, rates));
@@ -683,7 +687,7 @@ export class CivdleGame {
   }
 
   rollLegendaryPack(): void {
-    if (!this.hasCelestialAltar || this.state.gacha.gold < LEGENDARY_PACK_COST) return;
+    if (!this.hasCelestialAltar || this.state.gacha.gold < LEGENDARY_PACK_COST || this.#hasPendingSummon) return;
     const guaranteedRates = [{ stars: 5, rate: 1.0 }];
     const cards = Array.from({ length: LEGENDARY_PACK_SIZE }, () => rollCard(Math.random, 5, guaranteedRates));
     this.#setGacha({
@@ -811,8 +815,7 @@ export class CivdleGame {
     const g = this.state.gacha;
     if (g.depths.auto === auto) return;
     this.#setGacha({ depths: { ...g.depths, auto } });
-    // The pending timer still dismisses results; it checks auto before restarting.
-    if (!auto) return;
+    if (!auto) { this.#clearAutoTimeout(); return; }
     if (g.battle && g.battle.status !== "playing" && g.battleMode === "depths") {
       this.#scheduleAutoDismiss(true);
     } else if (!g.battle) {
@@ -828,6 +831,8 @@ export class CivdleGame {
   dismissBattle(): void {
     const battle = this.state.gacha.battle;
     if (!battle || battle.status === "playing") return;
+    this.#clearAutoTimeout();
+    this.battleAudio.stop();
     this.setBattlePaused(false);
     const g = this.state.gacha;
     const mode = g.battleMode;

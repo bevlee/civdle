@@ -46,7 +46,7 @@
   let selectedCardId = $state<string | null>(null);
   let selectedCard = $derived(gacha.cards.find(c => c.id === selectedCardId) ?? null);
   let selectedSlot = $state<number | null>(null);
-  let placingCardId = $state<string | null>(null);
+  let resultReady = $state(false);
   let inspectedEnemy = $state<UnitCard | null>(null);
   let draggingId = $state<string | null>(null);
   let dragOverSlot = $state<number | null>(null);
@@ -74,6 +74,7 @@
     projectiles = [];
     ultBanner = null;
     pendingImpact = false;
+    resultReady = false;
     if (!b?.lastAction) { popups = []; return; }
     const action = b.lastAction;
     const actor = b.fighters.find(f => f.id === action.actorId);
@@ -113,13 +114,24 @@
       if (ultimate) ultBanner = { name: actor.name, type: action.attackType, key: b.turn };
       impact = game.battlePlayback.schedule(() => {
         if (ultimate) game.battleAudio.play(action.attackType, game.battleSpeed);
+        else if (action.hits.some(hit => !hit.dodged)) game.battleAudio.hit(action.attackType, game.battleSpeed);
+        if (b.fighters.some(f => f.hp <= 0 && beforeImpact.some(old => old.id === f.id && old.hp > 0))) {
+          game.battleAudio.death(game.battleSpeed);
+        }
         pendingImpact = false;
         hitIds = new Set(action.hits.filter(hit => !hit.dodged).map(hit => hit.targetId));
         const fresh: Popup[] = action.hits.map(hit => ({ id: `p${++popupCounter}`, targetId: hit.targetId, hit, isUltimate: ultimate }));
         if (action.healed > 0 || action.turnHeal > 0) fresh.push({ id: `p${++popupCounter}`, targetId: actor.id, heal: action.healed + action.turnHeal, isUltimate: false });
         popups = [...popups, ...fresh];
       }, duration * timeline.impactAt);
-      clear = game.battlePlayback.schedule(() => { actingId = null; hitIds = new Set(); ultBanner = null; }, duration);
+      clear = game.battlePlayback.schedule(() => {
+        actingId = null; hitIds = new Set(); ultBanner = null;
+        if (b.status !== "playing") {
+          selectedCardId = null;
+          resultReady = true;
+          game.battleAudio.result(b.status === "won");
+        }
+      }, duration);
     });
     return () => { cancelled = true; impact?.(); clear?.(); };
   });
@@ -132,7 +144,6 @@
   $effect(() => {
     if (formationLocked) {
       selectedSlot = null;
-      placingCardId = null;
       endDrag();
     }
   });
@@ -154,7 +165,6 @@
     e.dataTransfer.effectAllowed = "move";
     draggingId = cardId;
     selectedSlot = null;
-    placingCardId = null;
   }
 
   function endDrag() { draggingId = null; dragOverSlot = null; dragOverInventory = false; }
@@ -176,10 +186,7 @@
   function inventoryDrop(cardId: string) { game.removeCardFromParty(cardId); endDrag(); }
   function selectSlot(slot: number, card: UnitCard | null) {
     if (formationLocked) return;
-    if (placingCardId) {
-      game.assignCardToParty(placingCardId, slot);
-      placingCardId = null;
-    } else if (card) {
+    if (card) {
       selectedCardId = card.id;
     } else {
       selectedSlot = selectedSlot === slot ? null : slot;
@@ -196,15 +203,25 @@
     game.mergeCards(selectedCardId, partnerId);
     selectedCardId = null;
   }
-  function handleDiscard() {
-    if (selectedCard && confirm(`Discard ${selectedCard.stars}★ ${UNITS[selectedCard.unitId].name}?`)) {
-      game.discardCard(selectedCard.id);
-      selectedCardId = null;
-    }
+  function openResult(node: HTMLDialogElement) {
+    node.showModal();
+    return { destroy: () => node.close() };
   }
+
+  function continueBattle() {
+    const auto = mode === "depths" && gacha.depths.auto;
+    game.dismissBattle();
+    if (auto) game.startDepthsFight();
+  }
+
+  $effect(() => {
+    game.battleMuted;
+    game.battleAudio.setMusicPlaying(isPlaying && !game.battlePaused);
+    return () => game.battleAudio.setMusicPlaying(false);
+  });
 </script>
 
-<svelte:window onkeydown={(event) => { if (event.key === "Escape") { selectedSlot = null; placingCardId = null; endDrag(); } }} />
+<svelte:window onkeydown={(event) => { if (event.key === "Escape") { selectedSlot = null; endDrag(); } }} />
 
 {#snippet effects(fighter: Fighter | undefined)}
   {#if fighter}
@@ -238,15 +255,15 @@
           <button aria-label={`${speed}× battle speed`} aria-pressed={game.battleSpeed === speed} onclick={() => game.setBattleSpeed(speed as BattleSpeed)}>{speed === 0.5 ? "½" : speed}×</button>
         {/each}
       </div>
-      <button class="sound-toggle" aria-label="Ultimate sounds" aria-pressed={!game.battleMuted} onclick={() => game.setBattleMuted(!game.battleMuted)}>Sound: {game.battleMuted ? "off" : "on"}</button>
+      <button class="sound-toggle" aria-label="Battle sounds" aria-pressed={!game.battleMuted} onclick={() => game.setBattleMuted(!game.battleMuted)}>Sound: {game.battleMuted ? "off" : "on"}</button>
       {#if game.battlePaused}<span role="status">Battle paused</span>{/if}
     </div>
 
     {#if showHelp}
       <div class="help-panel">
         <p>Drag units from your army onto the battlefield. Front positions 2 and 4 take hits first. Drag a fielded unit back to your army to remove it, or onto another unit to swap them.</p>
-        <p>Prefer clicking? Select an empty position, then a card. A unit’s details also let you choose its position. Formations are locked during battle.</p>
-        <p>Each unit uses its ultimate automatically every third personal action, replacing its normal attack. Speed affects how quickly that unit acts. Two Ascendants make your army’s ultimates trigger every second action; enemy armies with two Ascendants do the same.</p>
+        <p>Prefer clicking? Select an empty position, then a card. Formations are locked during battle.</p>
+        <p>Each unit uses its ultimate automatically every third personal action, replacing its normal attack. Speed affects how quickly that unit acts. Two Ascendants make your army’s ultimates trigger every second action; Coven enemies also use a two-action cycle.</p>
         <ul>{#each Object.values(ULTIMATES) as ultimate}<li><strong>{ultimate.name}:</strong> {ultimate.description}</li>{/each}</ul>
         <p>Ultimates cannot be dodged or double-hit. They can crit, apply type advantage, and benefit from army bonuses.</p>
         <TutorialOverlay step={gacha.tutorialStep} onNext={() => game.advanceTutorial()} onSkip={() => game.skipTutorial()} />
@@ -254,7 +271,7 @@
     {/if}
     {#if otherBattleActive}<p class="notice">A battle is running in {gacha.battleMode === "story" ? "Campaign" : "The Depths"}. Your formation is locked until it finishes.</p>{/if}
 
-    <section class="battlefield" aria-label="Battlefield" class:placing={draggingId !== null || placingCardId !== null}>
+    <section class="battlefield" aria-label="Battlefield" class:placing={draggingId !== null}>
       <div class="army-headings">
         <div>
           <h3>Your army</h3>
@@ -343,11 +360,11 @@
       </div>
       <footer class="battlefield-footer" aria-live="polite">
         {#if battleDone}
-          <span>{game.battlePaused ? "Paused" : "Continuing…"}</span>
+          <span>{mode === "depths" && gacha.depths.auto ? "Auto continuing…" : game.battlePaused ? "Paused" : "Continuing…"}</span>
         {:else if isPlaying}<span>{game.battlePaused ? "Battle paused" : "Battle in progress"} · Turn {battle?.turn}</span><span>Formation locked</span>
-        {:else if selectedSlot !== null || placingCardId}
-          <span>{placingCardId ? "Choose a position on the battlefield." : `Choose a card from your army for position ${selectedSlot! + 1}.`}</span>
-          <button onclick={() => { selectedSlot = null; placingCardId = null; }}>Cancel</button>
+        {:else if selectedSlot !== null}
+          <span>{`Choose a card from your army for position ${selectedSlot! + 1}.`}</span>
+          <button onclick={() => { selectedSlot = null; }}>Cancel</button>
         {:else}<span>Front row takes hits first.</span><span>{partyCards.length}/{PARTY_SIZE} deployed</span>{/if}
       </footer>
     </section>
@@ -372,12 +389,28 @@
   </aside>
 </div>
 
+{#if battleDone && resultReady}
+  <dialog class="result-shell" use:openResult oncancel={e => e.preventDefault()} aria-labelledby="result-title">
+    <div class="battle-result" class:victory={battle?.status === "won"}>
+      <span class="result-emblem" aria-hidden="true">{battle?.status === "won" ? "✦" : "⚔"}</span>
+      <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`} · {battle?.turn} turns</p>
+      <h2 id="result-title">{battle?.status === "won" ? "Victory" : "Defeat"}</h2>
+      <p>{battle?.status === "won"
+        ? mode === "story" ? `+${Math.min(gacha.storyLevel, Math.max(0, game.tributeCap - gacha.gold))} Tribute · Your army marches on.` : "Depth cleared. Venture further into the unknown."
+        : "Your army has fallen. Regroup and try a new formation."}</p>
+      <Button onclick={continueBattle}>Click to continue <span aria-hidden="true">→</span></Button>
+      {#if mode === "depths" && gacha.depths.auto}
+        <button class="stop-auto" onclick={() => game.setDepthsAuto(false)}>Auto continuing · Stop auto</button>
+      {/if}
+    </div>
+  </dialog>
+{/if}
+
 {#if selectedCard}
   <CardDetailModal card={selectedCard} inParty={partyIds.has(selectedCard.id)} partyFull={partyIds.size >= PARTY_SIZE}
     mergePartners={game.mergePartnersFor(selectedCard.id)} locked={formationLocked}
     onAddToParty={() => game.addCardToFirstEmptySlot(selectedCard!.id)} onRemoveFromParty={() => game.removeCardFromParty(selectedCard!.id)}
-    onChoosePosition={() => { placingCardId = selectedCard!.id; selectedSlot = null; selectedCardId = null; }}
-    onMerge={handleMerge} onDiscard={handleDiscard} onClose={() => selectedCardId = null} />
+    partyCards={game.partyCards} onMerge={handleMerge} onClose={() => selectedCardId = null} />
 {/if}
 
 {#if inspectedEnemy}
@@ -389,6 +422,17 @@
   />
 {/if}
 <style>
+  .result-shell { margin: auto; padding: 0; border: 0; background: transparent; color: inherit; width: min(440px, calc(100% - 32px)); max-width: none; }
+  .result-shell::backdrop { background: #08070bd9; backdrop-filter: blur(5px); }
+  .battle-result { width: min(100%, 440px); display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 40px 28px; border: 1px solid #865352; border-radius: 18px; text-align: center; background: radial-gradient(ellipse at top, #442325, #151217 70%); box-shadow: 0 24px 100px #0008; }
+  .battle-result.victory { border-color: #92753d; background: radial-gradient(ellipse at top, #45391d, #151517 70%); }
+  .result-emblem { font-size: 48px; color: #ce8885; line-height: 1; }
+  .victory .result-emblem { color: #efd08a; }
+  .battle-result h2 { font-size: 46px; font-weight: 750; letter-spacing: -1px; line-height: 1; }
+  .battle-result p { color: #b9afb1; font-size: 13px; line-height: 1.7; }
+  .battle-result .result-eyebrow { text-transform: uppercase; font-size: 10px; letter-spacing: 2px; }
+  .stop-auto { font-size: 11px; color: #b9afb1; text-decoration: underline; cursor: pointer; }
+
   .combat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 236px; align-items: start; gap: 18px; }
   .playback-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 10px; color: var(--muted-foreground); }
   .playback-controls > div { display: flex; gap: 2px; }
