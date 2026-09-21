@@ -449,7 +449,7 @@ export class CivdleGame {
         } else {
           this.#bumpStats({ battlesLost: this.state.stats.battlesLost + 1 });
         }
-        this.#scheduleAutoDismiss(g.battleMode === "depths" && g.depths.auto);
+        if (g.battleMode === "depths" && g.depths.auto) this.#scheduleAutoDismiss();
       }
     }, delayMs);
   }
@@ -461,13 +461,13 @@ export class CivdleGame {
     }
   }
 
-  #scheduleAutoDismiss(continueDepths: boolean): void {
+  #scheduleAutoDismiss(): void {
     this.#clearAutoTimeout();
     this.#autoTimeout = setTimeout(() => {
       this.#autoTimeout = null;
-      if (this.inBattle) return;
+      if (!this.state.gacha.depths.auto || this.inBattle) return;
       this.dismissBattle();
-      if (continueDepths && this.state.gacha.depths.auto) this.startDepthsFight();
+      this.startDepthsFight();
     }, DEPTHS_AUTO_PAUSE_MS);
   }
 
@@ -755,7 +755,7 @@ export class CivdleGame {
     // The pending timer still dismisses results; it checks auto before restarting.
     if (!auto) return;
     if (g.battle && g.battle.status !== "playing" && g.battleMode === "depths") {
-      this.#scheduleAutoDismiss(true);
+      this.#scheduleAutoDismiss();
     } else if (!g.battle) {
       this.startDepthsFight();
     }
