@@ -1,32 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
-  ARCHETYPE_IDS,
-  ENEMY_ARCHETYPES,
-  MAX_STARS,
-  ROLL_RATES,
-  UNITS,
-  UNIT_IDS,
-  UNIT_SPRITES,
-  canMerge,
-  computeCardStats,
-  createCard,
-  generateEncounter,
-  generateStoryEncounter,
-  generateDepthsEncounter,
-  isBossLevel,
-  bossStarsForLevel,
-  depthsIncomePer10s,
-  depthsTargetStrength,
-  encounterStrength,
-  BOSS_ARMY_MULT,
   BOSS_EVERY,
+  BOSS_ARMY_MULT,
   DEPTHS_SCALE,
   DEPTHS_TIER_SIZE,
   DEPTHS_SPOILS_PER_TIER,
-  enemyCountForLevel,
+  FACTIONS,
+  MAX_STARS,
+  ROLL_RATES,
+  STORY_REGIONS,
+  UNITS,
+  UNIT_IDS,
+  UNIT_SPRITES,
+  bossStarsForLevel,
+  canMerge,
+  computeCardStats,
+  createCard,
   depthsEnemyCount,
+  depthsIncomePer10s,
+  depthsTargetStrength,
+  encounterStrength,
+  enemyCountForLevel,
+  generateDepthsEncounter,
+  generateEncounter,
+  generateStoryEncounter,
   getTypeMultiplier,
+  isBossLevel,
   mergeCards,
+  regionForLevel,
   rollCard,
   rollRarity,
 } from "./combatData";
@@ -118,17 +119,59 @@ describe("attack triangle", () => {
   });
 });
 
+describe("story regions", () => {
+  it("has 6 regions covering 30 levels", () => {
+    expect(STORY_REGIONS).toHaveLength(6);
+    for (const region of STORY_REGIONS) {
+      expect(FACTIONS[region.faction]).toBeDefined();
+    }
+  });
+
+  it("maps levels to regions in groups of 5", () => {
+    expect(regionForLevel(1).faction).toBe("ranger");
+    expect(regionForLevel(5).faction).toBe("ranger");
+    expect(regionForLevel(6).faction).toBe("barbarian");
+    expect(regionForLevel(10).faction).toBe("barbarian");
+    expect(regionForLevel(11).faction).toBe("demon");
+    expect(regionForLevel(15).faction).toBe("demon");
+    expect(regionForLevel(16).faction).toBe("necromancer");
+    expect(regionForLevel(20).faction).toBe("necromancer");
+    expect(regionForLevel(21).faction).toBe("wizard");
+    expect(regionForLevel(25).faction).toBe("wizard");
+    expect(regionForLevel(26).faction).toBe("knight");
+    expect(regionForLevel(30).faction).toBe("knight");
+  });
+
+  it("each faction has at least one unit per rarity tier needed", () => {
+    for (const region of STORY_REGIONS) {
+      const factionUnits = UNIT_IDS.filter((id) => UNITS[id].faction === region.faction);
+      expect(factionUnits.length).toBeGreaterThanOrEqual(6);
+      expect(factionUnits.some((id) => UNITS[id].baseStars === 1)).toBe(true);
+    }
+  });
+
+  it("each faction has exactly one ascendant for boss fights", () => {
+    for (const region of STORY_REGIONS) {
+      const ascendants = UNIT_IDS.filter(
+        (id) => UNITS[id].faction === region.faction && UNITS[id].traits.includes("ascendant"),
+      );
+      expect(ascendants, region.faction).toHaveLength(1);
+    }
+  });
+});
+
 describe("generateEncounter", () => {
-  it("fields up to 5 enemies at high levels, mostly of the archetype's type", () => {
+  it("fields enemies from the region's faction", () => {
     const rand = lcg(3);
     for (let level = 1; level <= 30; level++) {
       const enc = generateEncounter(level, rand);
-      expect(ARCHETYPE_IDS).toContain(enc.archetype);
+      const region = regionForLevel(level);
+      expect(enc.faction).toBe(region.faction);
       expect(enc.cards.length).toBeLessThanOrEqual(5);
-      const type = ENEMY_ARCHETYPES[enc.archetype].attackType;
-      const typed = enc.cards.filter((c) => UNITS[c.unitId].attackType === type).length;
-      expect(typed).toBeGreaterThanOrEqual(Math.min(2, enc.cards.length));
-      for (const c of enc.cards) expect(c.stars).toBeLessThanOrEqual(MAX_STARS);
+      for (const c of enc.cards) {
+        expect(UNITS[c.unitId].faction, `L${level}`).toBe(region.faction);
+        expect(c.stars).toBeLessThanOrEqual(MAX_STARS);
+      }
     }
     // Verify scaling tiers
     expect(enemyCountForLevel(2)).toBe(1);
@@ -156,35 +199,38 @@ describe("story bosses", () => {
     expect([5, 10, 15, 20, 25, 30].map(bossStarsForLevel)).toEqual([5, 6, 7, 8, 9, 10]);
   });
 
-  it("boss encounters have one boss plus scaling minions from 4 levels lower", () => {
+  it("boss encounters use the region's faction with scaling minions", () => {
     const rand = lcg(11);
     for (let k = 1; k <= 6; k++) {
       const level = k * BOSS_EVERY;
       const expectedMinions = Math.min(4, 1 + k);
+      const region = regionForLevel(level);
       const enc = generateStoryEncounter(level, rand);
       expect(enc.bossId, `L${level}`).toBeTruthy();
       expect(enc.statMult).toBe(BOSS_ARMY_MULT);
       expect(enc.cards).toHaveLength(1 + expectedMinions);
+      expect(enc.faction).toBe(region.faction);
       const boss = enc.cards.find((c) => c.id === enc.bossId)!;
       expect(boss.stars).toBe(bossStarsForLevel(level));
       expect(UNITS[boss.unitId].baseStars).toBe(5);
+      expect(UNITS[boss.unitId].faction).toBe(region.faction);
       expect(UNITS[boss.unitId].traits.includes("ascendant"), `L${level}`).toBe(k >= 4);
-      // The archetype follows the boss so the matchup readout stays honest.
-      expect(ENEMY_ARCHETYPES[enc.archetype].attackType).toBe(UNITS[boss.unitId].attackType);
       const minions = enc.cards.filter((c) => c.id !== enc.bossId);
       expect(minions).toHaveLength(expectedMinions);
-      // Minions are regular enemies of level - 4: their bonus stars step up by one per boss.
-      const expectedBonus = Math.floor((level - 4 - 1) / 5);
       for (const m of minions) {
-        expect(m.stars - UNITS[m.unitId].baseStars, `L${level} minion`).toBe(expectedBonus);
+        expect(UNITS[m.unitId].faction, `L${level} minion`).toBe(region.faction);
       }
     }
   });
 
-  it("non-boss story levels are ordinary encounters", () => {
+  it("non-boss story levels are ordinary faction encounters", () => {
     const enc = generateStoryEncounter(7, lcg(2));
     expect(enc.bossId).toBeUndefined();
+    expect(enc.faction).toBe("barbarian");
     expect(enc.cards.length).toBeLessThanOrEqual(5);
+    for (const c of enc.cards) {
+      expect(UNITS[c.unitId].faction).toBe("barbarian");
+    }
   });
 });
 
@@ -209,7 +255,7 @@ describe("the depths", () => {
     for (let d = 1; d <= 200; d += 7) {
       const enc = generateDepthsEncounter(d, rand);
       expect(enc.cards.length).toBeLessThanOrEqual(5);
-      expect(ARCHETYPE_IDS).toContain(enc.archetype);
+      expect(enc.faction).toBeDefined();
       for (const c of enc.cards) expect(c.stars).toBeLessThanOrEqual(MAX_STARS);
     }
     // Verify scaling tiers

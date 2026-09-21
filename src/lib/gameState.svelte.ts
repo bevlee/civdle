@@ -134,9 +134,11 @@ function loadFromStorage(): GameState {
       delete g.enemyLevel;
       delete g.maxEnemyLevel;
       if (g.encounter === undefined) g.encounter = null;
+      if (g.encounter && !("faction" in g.encounter)) g.encounter = null;
       if (!g.depths || typeof g.depths.level !== "number") g.depths = createInitialDepthsState();
       if (typeof g.depths.auto !== "boolean") g.depths.auto = false;
       if (g.depths.encounter === undefined) g.depths.encounter = null;
+      if (g.depths.encounter && !("faction" in g.depths.encounter)) g.depths.encounter = null;
     }
     // A persisted battle can be stuck "playing" — never resume one.
     parsed.gacha.battle = null;
@@ -260,7 +262,7 @@ export class CivdleGame {
     if (offline.actionsProcessed > 0) {
       welcome.push(`${offline.actionsProcessed} action${offline.actionsProcessed === 1 ? "" : "s"} completed`);
     }
-    if (offlineSpoils > 0) welcome.push(`${offlineSpoils} Tribute earned from The Depths`);
+    if (offlineSpoils > 0) welcome.push(`${offlineSpoils} Tribute earned from The Abyss`);
     if (welcome.length > 0) this.message = `Welcome back! ${welcome.join(" and ")} while away.`;
 
     if (this.state.activeSkill) {

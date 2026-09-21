@@ -270,70 +270,94 @@ export function mergeCards(a: UnitCard, b: UnitCard): UnitCard {
   return createCard(a.unitId, a.stars + 1);
 }
 
-// ---------- Enemy encounters ----------
+// ---------- Story regions ----------
 
-export type ArchetypeId = "warband" | "volley" | "coven";
-
-export interface ArchetypeDef {
-  id: ArchetypeId;
+export interface StoryRegion {
   name: string;
-  attackType: AttackType;
-  blurb: string;
-  strengths: string;
-  weakness: string;
-  hpMult: number;
-  atkMult: number;
-  defMult: number;
-  spdFlat: number;
-  ultEvery: number;
+  faction: Faction;
+  flavor: string;
+  bossLine: string;
 }
 
-export const ENEMY_ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
-  warband: {
-    id: "warband",
-    name: "Warband",
-    attackType: "melee",
-    blurb: "Armoured brutes who hit hard up close.",
-    strengths: "+25% HP and DEF",
-    weakness: "Slow (−2 SPD). Magic tears through them.",
-    hpMult: 1.25,
-    atkMult: 1,
-    defMult: 1.25,
-    spdFlat: -2,
-    ultEvery: 3,
+export const STORY_REGIONS: StoryRegion[] = [
+  {
+    name: "The Overgrowth",
+    faction: "ranger",
+    flavor: "Ancient forest reclaiming the ruins of a forgotten age.",
+    bossLine: "The forest rejects you. A horn of light pierces the canopy.",
   },
-  volley: {
-    id: "volley",
-    name: "Volley",
-    attackType: "ranged",
-    blurb: "Glass cannons raining arrows and boulders.",
-    strengths: "+30% ATK",
-    weakness: "Fragile (−25% HP). Melee closes the gap fast.",
-    hpMult: 0.75,
-    atkMult: 1.3,
-    defMult: 1,
-    spdFlat: 0,
-    ultEvery: 3,
+  {
+    name: "The Steppes",
+    faction: "barbarian",
+    flavor: "Open plains where warbands roam unchecked.",
+    bossLine: "The earth shakes. The warbands scatter. The Behemoth has come.",
   },
-  coven: {
-    id: "coven",
-    name: "Coven",
-    attackType: "magic",
-    blurb: "Spellcasters who unleash ultimates twice as often.",
-    strengths: "Ultimate every 2nd turn",
-    weakness: "Thin robes (−25% DEF). Ranged units pick them off.",
-    hpMult: 1,
-    atkMult: 1,
-    defMult: 0.75,
-    spdFlat: 0,
-    ultEvery: 2,
+  {
+    name: "The Underhalls",
+    faction: "demon",
+    flavor: "Collapsed mines and volcanic vents seething with fiends.",
+    bossLine: "Sulphur and ash choke the tunnels. Something ancient stirs below.",
   },
-};
+  {
+    name: "The Drowned Coast",
+    faction: "necromancer",
+    flavor: "Flooded ruins where the dead refuse to rest.",
+    bossLine: "The tide pulls back. Bones rise from the silt in a shape too vast to name.",
+  },
+  {
+    name: "The Fallen Citadel",
+    faction: "wizard",
+    flavor: "A ruined tower still crackling with arcane energy.",
+    bossLine: "The walls hum. The Titan wakes from its long watch.",
+  },
+  {
+    name: "The Final March",
+    faction: "knight",
+    flavor: "Your own people's greatest warriors stand as the last test.",
+    bossLine: "The Champion raises a banner. Only the worthy may pass.",
+  },
+];
 
-export const ARCHETYPE_IDS: ArchetypeId[] = ["warband", "volley", "coven"];
+export const STORY_FLAVOR: string[] = [
+  "Scouts report movement in the undergrowth.",
+  "The canopy thickens. Shapes flit between the trees.",
+  "Roots choke the old road. You push through by force.",
+  "A glade opens up — but it's not empty.",
+  "Dust devils race across the dry grass.",
+  "A warband's camp, still smouldering.",
+  "Bone totems line the trail. A warning.",
+  "The drums grow louder.",
+  "The mine entrance yawns open, heat pouring out.",
+  "Claw marks score the tunnel walls.",
+  "A forge still burns in the dark. Someone tends it.",
+  "The air tastes of iron and brimstone.",
+  "Saltwater seeps through crumbling walls.",
+  "The tide leaves things behind that should stay buried.",
+  "A bell tolls from a sunken tower.",
+  "The dead here remember who they were.",
+  "Runes flicker on broken stone. The wards are failing.",
+  "Books lie open on the floor, pages still turning.",
+  "Golems stand in rows, waiting for a command.",
+  "The tower hums louder as you climb.",
+  "Steel gleams in formation. They were expecting you.",
+  "Old banners hang in the hall. These are your people's heroes.",
+  "The proving grounds. No quarter given.",
+  "The Champion's challenge: defeat the greatest of your own.",
+];
+
+export function regionForLevel(level: number): StoryRegion {
+  const idx = Math.min(STORY_REGIONS.length - 1, Math.floor((level - 1) / BOSS_EVERY));
+  return STORY_REGIONS[idx];
+}
+
+export function flavorForLevel(level: number): string {
+  return STORY_FLAVOR[Math.min(level - 1, STORY_FLAVOR.length - 1)];
+}
+
+// ---------- Enemy encounters ----------
 
 export interface Encounter {
-  archetype: ArchetypeId;
+  faction: Faction;
   cards: UnitCard[];
   /** Card id of the boss in a story boss encounter. */
   bossId?: string;
@@ -370,44 +394,29 @@ export function bonusStarsForLevel(level: number): number {
 }
 
 export function generateEncounter(level: number, rand: () => number = Math.random): Encounter {
-  const archetype = ARCHETYPE_IDS[Math.floor(rand() * ARCHETYPE_IDS.length)];
-  const type = ENEMY_ARCHETYPES[archetype].attackType;
+  const region = regionForLevel(level);
+  const faction = region.faction;
   const count = enemyCountForLevel(level);
   const maxRarity = maxRarityForLevel(level);
   const bonus = bonusStarsForLevel(level);
 
-  const eligible = UNIT_LIST.filter((d) => d.baseStars <= maxRarity);
-  const typed = eligible.filter((d) => d.attackType === type);
-  const typedSlots = Math.min(count, 2);
-
+  const factionUnits = UNIT_LIST.filter((d) => d.faction === faction && d.baseStars <= maxRarity);
   const cards: UnitCard[] = [];
   for (let i = 0; i < count; i++) {
-    const pool = i < typedSlots ? typed : eligible;
-    const def = pool[Math.floor(rand() * pool.length)];
+    const def = factionUnits[Math.floor(rand() * factionUnits.length)];
     cards.push({
       id: `enemy-${i}`,
       unitId: def.id,
       stars: Math.min(MAX_STARS, def.baseStars + bonus),
     });
   }
-  return { archetype, cards };
+  return { faction, cards };
 }
 
 // ---------- Main story: bosses every 5 levels ----------
 
 export const BOSS_EVERY = 5;
-export const BOSS_ARCHETYPE_FOR_TYPE: Record<AttackType, ArchetypeId> = {
-  melee: "warband",
-  ranged: "volley",
-  magic: "coven",
-};
-// Bosses are always legendaries: the first three (levels 5, 10, 15) are
-// ordinary 5★ units, the last three (20, 25, 30) are the Ascendants. Regular
-// enemies at those levels already reach the same star counts, so only a
-// legendary base makes the boss a real wall. Verified by simulation.
 export const ASCENDANT_BOSS_FROM = 4;
-// Boss armies get a flat stat bonus so the boss is a bigger wall than the
-// regular level that follows it (which gains a bonus star).
 export const BOSS_ARMY_MULT = 1.3;
 
 export function isBossLevel(level: number): boolean {
@@ -421,25 +430,31 @@ export function bossStarsForLevel(level: number): number {
 
 export function generateBossEncounter(level: number, rand: () => number = Math.random): Encounter {
   const k = Math.floor(level / BOSS_EVERY);
+  const region = regionForLevel(level);
+  const faction = region.faction;
   const stars = bossStarsForLevel(level);
   const ascendant = k >= ASCENDANT_BOSS_FROM;
-  const pool = UNIT_LIST.filter((d) => d.baseStars === 5 && d.traits.includes("ascendant") === ascendant);
+  const pool = UNIT_LIST.filter(
+    (d) => d.faction === faction && d.baseStars === 5 && d.traits.includes("ascendant") === ascendant,
+  );
   const bossDef = pool[Math.floor(rand() * pool.length)];
   const boss: UnitCard = { id: "boss", unitId: bossDef.id, stars };
-  // Minions are ordinary enemies from 4 levels below, so their bonus stars
-  // step up by one with every boss. Minion count scales with boss tier.
   const minionCount = Math.min(4, 1 + k);
   const minionLevel = Math.max(1, level - 4);
+  const minionMaxRarity = maxRarityForLevel(minionLevel);
+  const minionBonus = bonusStarsForLevel(minionLevel);
+  const minionPool = UNIT_LIST.filter((d) => d.faction === faction && d.baseStars <= minionMaxRarity);
   const minions: UnitCard[] = [];
-  while (minions.length < minionCount) {
-    const batch = generateEncounter(minionLevel, rand).cards;
-    for (const c of batch) {
-      if (minions.length >= minionCount) break;
-      minions.push({ ...c, id: `minion-${minions.length}` });
-    }
+  for (let i = 0; i < minionCount; i++) {
+    const def = minionPool[Math.floor(rand() * minionPool.length)];
+    minions.push({
+      id: `minion-${i}`,
+      unitId: def.id,
+      stars: Math.min(MAX_STARS, def.baseStars + minionBonus),
+    });
   }
   return {
-    archetype: BOSS_ARCHETYPE_FOR_TYPE[bossDef.attackType],
+    faction,
     cards: [boss, ...minions],
     bossId: boss.id,
     statMult: BOSS_ARMY_MULT,
@@ -493,24 +508,19 @@ export function encounterStrength(encounter: Encounter): number {
 }
 
 export function generateDepthsEncounter(depth: number, rand: () => number = Math.random): Encounter {
-  const archetype = ARCHETYPE_IDS[Math.floor(rand() * ARCHETYPE_IDS.length)];
-  const type = ENEMY_ARCHETYPES[archetype].attackType;
   const count = depthsEnemyCount(depth);
   const maxRarity = depthsMaxRarity(depth);
   const eligible = UNIT_LIST.filter((d) => d.baseStars <= maxRarity);
-  const typed = eligible.filter((d) => d.attackType === type);
-  const typedSlots = Math.min(count, 2);
   const cards: UnitCard[] = [];
   let strength = 0;
   for (let i = 0; i < count; i++) {
-    const pool = i < typedSlots ? typed : eligible;
-    const def = pool[Math.floor(rand() * pool.length)];
+    const def = eligible[Math.floor(rand() * eligible.length)];
     cards.push({ id: `depth-${i}`, unitId: def.id, stars: def.baseStars });
     strength += unitStrength(def);
   }
-  // Whatever rolled, the army as a whole sits exactly on the depth curve.
   const statMult = (depthsTargetStrength(depth) * count) / strength;
-  return { archetype, cards, statMult };
+  const faction = UNITS[cards[0].unitId].faction;
+  return { faction, cards, statMult };
 }
 
 export const DEPTHS_TIER_SIZE = 5;

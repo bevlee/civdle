@@ -3,7 +3,6 @@
 
 import type { AttackType, Encounter, Trait, UnitCard, UnitId } from "./combatData";
 import {
-  ENEMY_ARCHETYPES,
   PARTY_SIZE,
   STARTING_GOLD,
   ULT_MULT,
@@ -142,13 +141,10 @@ function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: Arm
 
 export function enemyModsFor(encounter: Encounter): ArmyMods {
   const mods = computeArmyMods(encounter.cards);
-  const arch = ENEMY_ARCHETYPES[encounter.archetype];
   const statMult = encounter.statMult ?? 1;
-  mods.hpMult *= arch.hpMult * statMult;
-  mods.atkMult *= arch.atkMult * statMult;
-  mods.defMult *= arch.defMult * statMult;
-  mods.spdFlat += arch.spdFlat;
-  mods.ultEvery = Math.min(mods.ultEvery, arch.ultEvery);
+  mods.hpMult *= statMult;
+  mods.atkMult *= statMult;
+  mods.defMult *= statMult;
   return mods;
 }
 

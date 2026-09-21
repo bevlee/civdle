@@ -2,13 +2,14 @@
   import {
     DEPTHS_TIER_SIZE,
     DEPTHS_SPOILS_PER_TIER,
-    ENEMY_ARCHETYPES,
+    FACTIONS,
     GACHA_COST,
     MAX_ENEMY_LEVEL,
     PACK_COST,
     PARTY_SIZE,
     UNITS,
     isBossLevel,
+    regionForLevel,
   } from "$lib/combatData";
   import type { AttackType } from "$lib/combatData";
   import type { BattleMode, Fighter, Hit } from "$lib/combatEngine";
@@ -209,7 +210,7 @@
 <div class="flex flex-col gap-3">
   <!-- Header -->
   <div class="flex flex-wrap items-center justify-between gap-2">
-    <div class="relative flex items-center gap-1.5" title="Tribute — earned in the Main Story and from The Depths, spent on summons">
+    <div class="relative flex items-center gap-1.5" title="Tribute — earned Through the Ages and from The Abyss, spent on summons">
       <span class="text-lg">⚔</span>
       <span class="text-sm font-bold tabular-nums">{gacha.gold}</span>
       <span class="text-xs text-muted-foreground">Tribute</span>
@@ -227,9 +228,10 @@
     {#if mode === "story"}
       <div class="flex items-center gap-2 text-sm">
         {#if game.storyComplete}
-          <span class="font-medium text-yellow-300">Story complete — all {MAX_ENEMY_LEVEL} levels cleared</span>
+          <span class="font-medium text-yellow-300">Through the Ages — all {MAX_ENEMY_LEVEL} levels conquered</span>
         {:else}
-          <span class="font-medium">Level {gacha.storyLevel}<span class="text-muted-foreground">/{MAX_ENEMY_LEVEL}</span></span>
+          {@const storyRegion = regionForLevel(gacha.storyLevel)}
+          <span class="font-medium">{storyRegion.name} — Level {gacha.storyLevel}<span class="text-muted-foreground">/{MAX_ENEMY_LEVEL}</span></span>
           {#if storyBoss}
             <span class="rounded bg-red-500/25 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-red-300">BOSS</span>
           {/if}
@@ -273,7 +275,7 @@
 
   {#if otherBattleActive}
     <p class="rounded-md border border-border/60 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
-      A {gacha.battleMode === "story" ? "Main Story" : "Depths"} battle is in progress in the other tab.
+      A {gacha.battleMode === "story" ? "Story" : "Abyss"} battle is in progress in the other tab.
     </p>
   {/if}
 
@@ -309,8 +311,13 @@
         </div>
         <div class="flex flex-wrap justify-end gap-1">
           {#if encounter}
-            <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300">
-              {ENEMY_ARCHETYPES[encounter.archetype].name}
+            {@const factionDef = FACTIONS[encounter.faction]}
+            <span
+              class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+              style:background-color="color-mix(in oklch, {factionDef.color} 20%, transparent)"
+              style:color={factionDef.color}
+            >
+              {factionDef.name}
             </span>
             {#if encounter.statMult && encounter.statMult > 1.005}
               <span class="rounded bg-destructive/20 px-1.5 py-0.5 text-[10px] text-red-300">
@@ -429,12 +436,12 @@
   {:else if encounter}
     <EncounterPanel
       {encounter}
-      {partyCards}
       {mode}
+      level={mode === "story" ? gacha.storyLevel : gacha.depths.level}
     />
   {:else if mode === "story" && game.storyComplete}
     <div class="rounded-lg border border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
-      You have conquered the Main Story. The Depths await.
+      You have conquered the wilds. The Abyss awaits below.
     </div>
   {/if}
 

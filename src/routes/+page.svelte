@@ -139,7 +139,7 @@
               : 'text-muted-foreground hover:text-foreground'}"
             onclick={() => (centerTab = "story")}
           >
-            Main Story
+            Through the Ages
           </button>
           <button
             class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
@@ -148,7 +148,7 @@
               : 'text-muted-foreground hover:text-foreground'}"
             onclick={() => (centerTab = "depths")}
           >
-            The Depths
+            The Abyss
           </button>
           <button
             class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
