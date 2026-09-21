@@ -139,7 +139,7 @@
               : 'text-muted-foreground hover:text-foreground'}"
             onclick={() => (centerTab = "story")}
           >
-            Through the Ages
+            Campaign
           </button>
           <button
             class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===

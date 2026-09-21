@@ -5,6 +5,7 @@
     flavorForLevel,
     isBossLevel,
     type Encounter,
+    type UnitCard as UnitCardT,
   } from "$lib/combatData";
   import type { BattleMode } from "$lib/combatEngine";
   import { isFrontRow, indexToPosition } from "$lib/position";
@@ -15,10 +16,12 @@
     encounter,
     mode = "story",
     level = 1,
+    onSelectEnemy,
   }: {
     encounter: Encounter;
     mode?: BattleMode;
     level?: number;
+    onSelectEnemy?: (card: UnitCardT) => void;
   } = $props();
 
   let boss = $derived(encounter.bossId ? encounter.cards.find((c) => c.id === encounter.bossId) ?? null : null);
@@ -86,12 +89,16 @@
         >
           {pos}{front ? "F" : ""}
         </span>
-        <div class="relative">
+        <button
+          class="relative rounded transition-transform hover:scale-105"
+          onclick={() => onSelectEnemy?.({ id: card.id, unitId: card.unitId, stars: card.stars })}
+          title="Click to view stats"
+        >
           {#if isBoss}
             <span class="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1.5 text-[9px] font-black tracking-wider text-white shadow">BOSS</span>
           {/if}
           <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
-        </div>
+        </button>
         {#if front}
           <span class="text-[10px] text-red-400/70">front row</span>
         {/if}

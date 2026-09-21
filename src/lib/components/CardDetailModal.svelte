@@ -14,10 +14,12 @@
 
   let {
     card,
-    inParty,
-    partyFull,
-    mergePartners,
+    inParty = false,
+    partyFull = false,
+    mergePartners = [],
     locked = false,
+    readOnly = false,
+    statMult = 1,
     onAddToParty,
     onRemoveFromParty,
     onMerge,
@@ -25,19 +27,27 @@
     onClose,
   }: {
     card: UnitCardT;
-    inParty: boolean;
-    partyFull: boolean;
-    mergePartners: UnitCardT[];
+    inParty?: boolean;
+    partyFull?: boolean;
+    mergePartners?: UnitCardT[];
     locked?: boolean;
-    onAddToParty: () => void;
-    onRemoveFromParty: () => void;
-    onMerge: (partnerId: string) => void;
-    onDiscard: () => void;
+    readOnly?: boolean;
+    statMult?: number;
+    onAddToParty?: () => void;
+    onRemoveFromParty?: () => void;
+    onMerge?: (partnerId: string) => void;
+    onDiscard?: () => void;
     onClose: () => void;
   } = $props();
 
   let def = $derived(UNITS[card.unitId]);
-  let stats = $derived(computeCardStats(card.unitId, card.stars));
+  let baseStats = $derived(computeCardStats(card.unitId, card.stars));
+  let stats = $derived(statMult !== 1 ? {
+    hp: Math.floor(baseStats.hp * statMult),
+    atk: Math.floor(baseStats.atk * statMult),
+    def: Math.floor(baseStats.def * statMult),
+    spd: baseStats.spd,
+  } : baseStats);
   let type = $derived(ATTACK_TYPES[def.attackType]);
   let canMergeNow = $derived(mergePartners.length > 0 && card.stars < MAX_STARS && !locked);
 
@@ -78,6 +88,10 @@
         <div class="rounded bg-muted px-1 py-1"><div class="text-muted-foreground">SPD</div><div class="font-bold tabular-nums">{stats.spd}</div></div>
       </div>
 
+      {#if statMult > 1.005}
+        <p class="text-[10px] font-semibold text-red-300">+{Math.round((statMult - 1) * 100)}% stat bonus applied</p>
+      {/if}
+
       <p class="text-xs text-muted-foreground">
         {type.icon} {type.name}: beats {ATTACK_TYPES[type.beats].icon} {ATTACK_TYPES[type.beats].name}, weak to {ATTACK_TYPES[type.weakTo].icon} {ATTACK_TYPES[type.weakTo].name}.
       </p>
@@ -97,36 +111,38 @@
         {/each}
       </div>
 
-      <div class="mt-auto flex flex-wrap gap-1.5">
-        {#if inParty}
-          <Button size="sm" variant="outline" disabled={locked} onclick={onRemoveFromParty}>Remove from party</Button>
-        {:else}
-          <Button size="sm" disabled={partyFull || locked} onclick={onAddToParty}>
-            {partyFull ? "Party full" : "Add to party"}
-          </Button>
-        {/if}
-        <Button
-          size="sm"
-          variant={canMergeNow ? "default" : "outline"}
-          class={canMergeNow ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}
-          disabled={!canMergeNow}
-          onclick={() => onMerge(mergePartners[0].id)}
-          title={card.stars >= MAX_STARS
-            ? "Already at max stars"
-            : mergePartners.length === 0
-              ? `Needs another ${card.stars}★ ${def.name}`
-              : `Merge two ${card.stars}★ ${def.name} into one ${card.stars + 1}★`}
-        >
-          {#if card.stars >= MAX_STARS}
-            ✦ Max stars
-          {:else if mergePartners.length > 0}
-            ⇈ Merge {card.stars}★ → {card.stars + 1}★
+      {#if !readOnly}
+        <div class="mt-auto flex flex-wrap gap-1.5">
+          {#if inParty}
+            <Button size="sm" variant="outline" disabled={locked} onclick={onRemoveFromParty}>Remove from party</Button>
           {:else}
-            ⇈ Merge (need another {card.stars}★)
+            <Button size="sm" disabled={partyFull || locked} onclick={onAddToParty}>
+              {partyFull ? "Party full" : "Add to party"}
+            </Button>
           {/if}
-        </Button>
-        <Button size="sm" variant="ghost" class="text-red-400" disabled={locked} onclick={onDiscard}>Discard</Button>
-      </div>
+          <Button
+            size="sm"
+            variant={canMergeNow ? "default" : "outline"}
+            class={canMergeNow ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}
+            disabled={!canMergeNow}
+            onclick={() => onMerge?.(mergePartners[0].id)}
+            title={card.stars >= MAX_STARS
+              ? "Already at max stars"
+              : mergePartners.length === 0
+                ? `Needs another ${card.stars}★ ${def.name}`
+                : `Merge two ${card.stars}★ ${def.name} into one ${card.stars + 1}★`}
+          >
+            {#if card.stars >= MAX_STARS}
+              ✦ Max stars
+            {:else if mergePartners.length > 0}
+              ⇈ Merge {card.stars}★ → {card.stars + 1}★
+            {:else}
+              ⇈ Merge (need another {card.stars}★)
+            {/if}
+          </Button>
+          <Button size="sm" variant="ghost" class="text-red-400" disabled={locked} onclick={onDiscard}>Discard</Button>
+        </div>
+      {/if}
     </div>
   </div>
 </div>

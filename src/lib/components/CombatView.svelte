@@ -63,6 +63,9 @@
   let selectedCardId = $state<string | null>(null);
   let selectedCard = $derived(selectedCardId ? gacha.cards.find((c) => c.id === selectedCardId) ?? null : null);
 
+  import type { UnitCard as UnitCardT } from "$lib/combatData";
+  let inspectedEnemy = $state<UnitCardT | null>(null);
+
   // ----- Per-turn animation state, driven by battle.turn -----
   interface Popup { id: string; targetId: string; hit?: Hit; heal?: number; isUltimate: boolean }
   interface Projectile { id: string; actorId: string; attackType: "ranged" | "magic"; fromEnemy: boolean }
@@ -210,7 +213,7 @@
 <div class="flex flex-col gap-3">
   <!-- Header -->
   <div class="flex flex-wrap items-center justify-between gap-2">
-    <div class="relative flex items-center gap-1.5" title="Tribute — earned Through the Ages and from The Abyss, spent on summons">
+    <div class="relative flex items-center gap-1.5" title="Tribute — earned from Campaign and The Abyss, spent on summons">
       <span class="text-lg">⚔</span>
       <span class="text-sm font-bold tabular-nums">{gacha.gold}</span>
       <span class="text-xs text-muted-foreground">Tribute</span>
@@ -228,7 +231,7 @@
     {#if mode === "story"}
       <div class="flex items-center gap-2 text-sm">
         {#if game.storyComplete}
-          <span class="font-medium text-yellow-300">Through the Ages — all {MAX_ENEMY_LEVEL} levels conquered</span>
+          <span class="font-medium text-yellow-300">Campaign complete — all {MAX_ENEMY_LEVEL} levels conquered</span>
         {:else}
           {@const storyRegion = regionForLevel(gacha.storyLevel)}
           <span class="font-medium">{storyRegion.name} — Level {gacha.storyLevel}<span class="text-muted-foreground">/{MAX_ENEMY_LEVEL}</span></span>
@@ -438,6 +441,7 @@
       {encounter}
       {mode}
       level={mode === "story" ? gacha.storyLevel : gacha.depths.level}
+      onSelectEnemy={(card) => (inspectedEnemy = card)}
     />
   {:else if mode === "story" && game.storyComplete}
     <div class="rounded-lg border border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
@@ -545,5 +549,14 @@
     onMerge={handleMerge}
     onDiscard={handleDiscard}
     onClose={() => (selectedCardId = null)}
+  />
+{/if}
+
+{#if inspectedEnemy}
+  <CardDetailModal
+    card={inspectedEnemy}
+    readOnly
+    statMult={encounter?.statMult ?? 1}
+    onClose={() => (inspectedEnemy = null)}
   />
 {/if}

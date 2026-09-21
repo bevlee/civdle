@@ -27,8 +27,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: "story-vs-depths",
-    title: "Through the Ages vs The Abyss",
-    body: "Through the Ages sends your settlers into 6 wild regions, each guarded by a faction boss. Each win pays Tribute. The Abyss goes forever, scales gently, can Auto, and pays passive Tribute for every 5 cleared.",
+    title: "Campaign vs The Abyss",
+    body: "The Campaign sends your settlers into 6 wild regions, each guarded by a faction boss. Each win pays Tribute. The Abyss goes forever, scales gently, can Auto, and pays passive Tribute for every 5 cleared.",
   },
 ];
 
