@@ -531,10 +531,10 @@ export function generateDepthsEncounter(depth: number, rand: () => number = Math
 }
 
 export const DEPTHS_TIER_SIZE = 5;
-export const DEPTHS_SPOILS_PER_TIER = 10;
-export const DEPTHS_INCOME_INTERVAL_MS = 10_000;
+export const DEPTHS_SPOILS_PER_TIER = 60;
+export const DEPTHS_INCOME_INTERVAL_MS = 60_000;
 
-/** Passive War Spoils per 10 s for the number of depths cleared. */
-export function depthsIncomePer10s(cleared: number): number {
+/** Passive War Spoils per minute for the number of depths cleared. */
+export function depthsIncomePerMinute(cleared: number): number {
   return DEPTHS_SPOILS_PER_TIER * Math.floor(Math.max(0, cleared) / DEPTHS_TIER_SIZE);
 }

@@ -44,7 +44,7 @@ import {
   STARTING_GOLD,
   canMerge,
   createCard,
-  depthsIncomePer10s,
+  depthsIncomePerMinute,
   generateDepthsEncounter,
   generateStoryEncounter,
   mergeCards,
@@ -58,7 +58,7 @@ import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
 import { checkAchievements } from "./achievements";
 import { untrack } from "svelte";
 import type { SettlementUpgradeId } from "./settlementData";
-import { getEffectiveRollRates, maxSummonStars } from "./settlementData";
+import { getEffectiveRollRates, hasCelestialAltar, maxSummonStars } from "./settlementData";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
@@ -68,6 +68,8 @@ export const ATTACK_STEP_MS = 900;
 export const ULT_STEP_MS = 1800;
 // Pause on the result panel before an auto-ground Depths run continues.
 export const DEPTHS_AUTO_PAUSE_MS = 1500;
+export const LEGENDARY_PACK_SIZE = 10;
+export const LEGENDARY_PACK_COST = 100;
 
 export interface SummonEventData {
   card: UnitCard;
@@ -279,7 +281,7 @@ export class CivdleGame {
     }
     // Passive Depths income keeps flowing while away, clamped to tribute cap.
     const offlineTicks = Math.floor(Math.max(0, elapsedSeconds * 1000) / DEPTHS_INCOME_INTERVAL_MS);
-    const rawOfflineSpoils = offlineTicks * depthsIncomePer10s(gacha.depths.level - 1);
+    const rawOfflineSpoils = offlineTicks * depthsIncomePerMinute(gacha.depths.level - 1);
     const offlineCap = getTributeCap(finalState);
     const offlineSpoils = Math.min(rawOfflineSpoils, Math.max(0, offlineCap - gacha.gold));
     if (offlineSpoils > 0) gacha = { ...gacha, gold: gacha.gold + offlineSpoils };
@@ -618,7 +620,7 @@ export class CivdleGame {
 
   /** Passive War Spoils per income tick from The Depths. */
   get depthsIncome(): number {
-    return depthsIncomePer10s(this.depthsCleared);
+    return depthsIncomePerMinute(this.depthsCleared);
   }
 
   get #settlementSet(): Set<SettlementUpgradeId> {
@@ -639,6 +641,14 @@ export class CivdleGame {
 
   get maxSummonStars(): number {
     return this.#maxSummonStars;
+  }
+
+  get rollRates(): { stars: number; rate: number }[] {
+    return this.#rollRates;
+  }
+
+  get hasCelestialAltar(): boolean {
+    return hasCelestialAltar(this.#settlementSet);
   }
 
   rollCard(): void {
@@ -668,6 +678,22 @@ export class CivdleGame {
       cardsSummoned: this.state.stats.cardsSummoned + cards.length,
       packsOpened: this.state.stats.packsOpened + 1,
       bestSummonStars: cards.reduce((best, c) => Math.max(best, c.stars), this.state.stats.bestSummonStars),
+    });
+    this.eventQueue.emit<SummonPackEventData>("summonPack", { cards });
+  }
+
+  rollLegendaryPack(): void {
+    if (!this.hasCelestialAltar || this.state.gacha.gold < LEGENDARY_PACK_COST) return;
+    const guaranteedRates = [{ stars: 5, rate: 1.0 }];
+    const cards = Array.from({ length: LEGENDARY_PACK_SIZE }, () => rollCard(Math.random, 5, guaranteedRates));
+    this.#setGacha({
+      gold: this.state.gacha.gold - LEGENDARY_PACK_COST,
+      cards: [...this.state.gacha.cards, ...cards],
+    });
+    this.#bumpStats({
+      cardsSummoned: this.state.stats.cardsSummoned + cards.length,
+      packsOpened: this.state.stats.packsOpened + 1,
+      bestSummonStars: 5,
     });
     this.eventQueue.emit<SummonPackEventData>("summonPack", { cards });
   }

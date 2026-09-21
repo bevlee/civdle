@@ -85,6 +85,7 @@
               </div>
             {/if}
 
+            {#if def.prereqs.length > 0}
             <div class="flex flex-wrap items-center gap-1.5">
               <span class="text-muted-foreground">Skills:</span>
               {#each def.prereqs as prereq (prereq.skill + prereq.level)}
@@ -102,6 +103,7 @@
                 </span>
               {/each}
             </div>
+            {/if}
 
             <div class="flex flex-wrap items-center gap-1.5">
               <span class="text-muted-foreground">Cost:</span>

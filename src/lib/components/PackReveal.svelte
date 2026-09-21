@@ -71,7 +71,30 @@
   });
 
   function handleClick() {
-    if (done) onDismiss(event.id);
+    if (done) {
+      onDismiss(event.id);
+    } else {
+      const alreadyFlipped = flippedCount;
+      flippedCount = cards.length;
+      for (let i = alreadyFlipped; i < cards.length; i++) {
+        const r = rarities[i];
+        if (r >= 4) shakeKey += 1;
+        if (r === 5) {
+          flashKey += 1;
+          confetti = [
+            ...confetti,
+            ...Array.from({ length: 40 }, () => ({
+              x: Math.random() * 100,
+              drift: (Math.random() - 0.5) * 200,
+              dur: 1.6 + Math.random() * 1.4,
+              delay: Math.random() * 0.3,
+              c: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+            })),
+          ];
+        }
+      }
+      done = true;
+    }
   }
 </script>
 
@@ -136,6 +159,8 @@
             {/each}
           </p>
           <p class="text-sm text-muted-foreground">Click to continue</p>
+        {:else}
+          <p class="text-xs text-white/40">Click to skip</p>
         {/if}
       </div>
     </div>

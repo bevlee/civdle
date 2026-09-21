@@ -3,6 +3,8 @@
   import { Button } from "$lib/components/ui/button";
   import UnitCard from "./UnitCard.svelte";
   import { cn } from "$lib/utils";
+  import { BASE_RATES, FEAST_HALL_RATES, GRAND_FEAST_RATES, ROYAL_FEAST_RATES, EMPERORS_BANQUET_RATES, HEROIC_TRIBUTE_RATES, DIVINE_SUMMONS_RATES, type RollRate } from "$lib/settlementData";
+  import { rarityColor, RARITY_NAMES } from "$lib/rarity";
 
   type SortKey = "rarity" | "stars" | "trait" | "name";
 
@@ -22,8 +24,12 @@
     onDrop,
     onSelect,
     maxStars = 5,
+    rollRates = BASE_RATES,
+    hasCelestialAltar = false,
+    legendaryPackCost = 100,
     onSummon,
     onOpenPack,
+    onOpenLegendaryPack,
   }: {
     cards: UnitCardT[];
     partyIds: Set<string>;
@@ -31,6 +37,9 @@
     rollCost: number;
     packCost: number;
     maxStars?: number;
+    rollRates?: RollRate[];
+    hasCelestialAltar?: boolean;
+    legendaryPackCost?: number;
     locked?: boolean;
     /** Card currently being dragged anywhere on the screen. */
     draggingId?: string | null;
@@ -45,6 +54,7 @@
     onSelect: (cardId: string) => void;
     onSummon: () => void;
     onOpenPack: () => void;
+    onOpenLegendaryPack?: () => void;
   } = $props();
 
   function handleDragOver(e: DragEvent) {
@@ -70,6 +80,18 @@
 
   let sortKey = $state<SortKey>("stars");
   let sortDesc = $state(true);
+  let showRates = $state(false);
+
+  const RATE_TIERS = [
+    { label: "Base", rates: BASE_RATES },
+    { label: "Feast Hall", rates: FEAST_HALL_RATES },
+    { label: "Grand Feast", rates: GRAND_FEAST_RATES },
+    { label: "Royal Feast", rates: ROYAL_FEAST_RATES },
+    { label: "Emperor's Banquet", rates: EMPERORS_BANQUET_RATES },
+    { label: "Heroic Tribute", rates: HEROIC_TRIBUTE_RATES },
+    { label: "Divine Summons", rates: DIVINE_SUMMONS_RATES },
+  ] as const;
+  let activeTierLabel = $derived(RATE_TIERS.find(t => t.rates === rollRates)?.label ?? "Base");
 
   const SORT_LABELS: Record<SortKey, string> = {
     rarity: "Rarity",
@@ -170,6 +192,18 @@
       >
         Open 10 · {packCost} ⚔
       </Button>
+      {#if hasCelestialAltar && onOpenLegendaryPack}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={locked || gold < legendaryPackCost}
+          onclick={onOpenLegendaryPack}
+          title="10 guaranteed 5★ heroes"
+          class="h-6 border-yellow-500/40 px-2 text-[10px] text-yellow-300 hover:bg-yellow-500/10"
+        >
+          10× 5★ · {legendaryPackCost} ⚔
+        </Button>
+      {/if}
       {#if maxStars < 5}
         <span
           class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300"
@@ -178,8 +212,59 @@
           Max {maxStars}★
         </span>
       {/if}
+      <button
+        class="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground"
+        onclick={() => showRates = !showRates}
+        aria-expanded={showRates}
+      >
+        Rates
+      </button>
     </div>
   </div>
+
+  {#if showRates}
+    <div class="mx-3 rounded-lg border border-border bg-muted/40 p-3">
+      <div class="mb-2 flex items-center justify-between">
+        <span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Summon Rates</span>
+        <button class="text-[10px] text-muted-foreground hover:text-foreground" onclick={() => showRates = false}>Close</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-[11px]">
+          <thead>
+            <tr class="text-left text-muted-foreground">
+              <th class="pb-1 pr-3 font-medium">Rarity</th>
+              {#each RATE_TIERS as tier}
+                <th class="pb-1 pr-3 font-medium" class:text-foreground={tier.label === activeTierLabel}>
+                  {tier.label}{tier.label === activeTierLabel ? " ✓" : ""}
+                </th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each [5, 4, 3, 2, 1] as stars}
+              <tr>
+                <td class="py-0.5 pr-3 font-medium" style:color={rarityColor(stars)}>
+                  {"★".repeat(stars)} {RARITY_NAMES[stars]}
+                </td>
+                {#each RATE_TIERS as tier}
+                  {@const rate = tier.rates.find(r => r.stars === stars)?.rate ?? 0}
+                  <td class="py-0.5 pr-3 tabular-nums" class:font-semibold={tier.label === activeTierLabel} class:text-foreground={tier.label === activeTierLabel}>
+                    {(rate * 100).toFixed(0)}%
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+      {#if maxStars < 5}
+        <p class="mt-2 text-[10px] text-muted-foreground">
+          {maxStars < 4 ? "Build the War Forge to unlock 4★ units, then the Master Forge for 5★." : "Build the Master Forge to unlock 5★ units."}
+          Rates above max star are redistributed to lower tiers.
+        </p>
+      {/if}
+    </div>
+  {/if}
 
   <div class="max-h-60 overflow-y-auto px-3 pb-1">
     {#if sorted.length === 0}

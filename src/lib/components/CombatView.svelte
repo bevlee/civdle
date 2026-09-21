@@ -3,6 +3,7 @@
   import { tick, untrack } from "svelte";
   import { attackMotion, blinkDistance, projectilePath, timeline } from "$lib/combatAnimation";
   import { DEPTHS_SPOILS_PER_TIER, DEPTHS_TIER_SIZE, FACTIONS, GACHA_COST, MAX_ENEMY_LEVEL, PACK_COST, PARTY_SIZE, ULTIMATES, UNITS, isBossLevel, regionForLevel, type AttackType, type UnitCard } from "$lib/combatData";
+  import { LEGENDARY_PACK_COST } from "$lib/gameState.svelte";
   import type { BattleMode, BattleState, Fighter, Hit } from "$lib/combatEngine";
   import { isFrontRow, POSITIONS } from "$lib/position";
   import type { CivdleGame } from "$lib/gameState.svelte";
@@ -218,7 +219,7 @@
     <header class="combat-header">
       <div class="level-heading">
         <h2>{mode === "story" ? game.storyComplete ? "Campaign complete" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</h2>
-        {#if mode === "depths"}<span>+{game.depthsIncome} ⚔ / 10s · next tier at depth {nextTierAt}</span>
+        {#if mode === "depths"}<span>+{game.depthsIncome} ⚔ / min · next tier at depth {nextTierAt}</span>
         {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}+{gacha.storyLevel} Tribute</span>{/if}
       </div>
       <div class="battle-controls">
@@ -327,10 +328,21 @@
         {#if ultBanner}
           {#key ultBanner.key}<div class="ultimate-overlay" aria-live="polite"><div class="ult-banner"><strong>{ULTIMATES[ultBanner.type].name}</strong><span>{ultBanner.name} · {ULTIMATES[ultBanner.type].short}</span></div></div>{/key}
         {/if}
+        {#if battleDone}
+          <div class="battle-result-overlay" aria-live="assertive">
+            <div class="battle-result-content" class:win={battle?.status === "won"} class:lose={battle?.status === "lost"}>
+              <span class="result-label">{battle?.status === "won" ? "Victory!" : "Defeated"}</span>
+              {#if battle?.status === "won"}
+                <span class="result-detail">{mode === "story" ? `+${Math.min(gacha.storyLevel, Math.max(0, game.tributeCap - gacha.gold))} Tribute` : `Depth ${gacha.depths.level} cleared`}</span>
+              {:else}
+                <span class="result-detail">Adjust your formation and try again.</span>
+              {/if}
+            </div>
+          </div>
+        {/if}
       </div>
       <footer class="battlefield-footer" aria-live="polite">
         {#if battleDone}
-          <span class:win={battle?.status === "won"}>{battle?.status === "won" ? mode === "story" ? `Victory! +${Math.min(gacha.storyLevel, Math.max(0, game.tributeCap - gacha.gold))} Tribute` : `Depth ${gacha.depths.level} cleared` : "Defeated — adjust your formation and try again."}</span>
           <span>{game.battlePaused ? "Paused" : "Continuing…"}</span>
         {:else if isPlaying}<span>{game.battlePaused ? "Battle paused" : "Battle in progress"} · Turn {battle?.turn}</span><span>Formation locked</span>
         {:else if selectedSlot !== null || placingCardId}
@@ -341,9 +353,9 @@
     </section>
 
     <ArmyInventory cards={gacha.cards} {partyIds} gold={gacha.gold} rollCost={GACHA_COST} packCost={PACK_COST}
-      maxStars={game.maxSummonStars} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
+      maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.hasCelestialAltar} legendaryPackCost={LEGENDARY_PACK_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
       onDragStart={startDrag} onDragEnd={endDrag} onDragOverChange={over => dragOverInventory = over} onDrop={inventoryDrop}
-      onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} />
+      onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} />
   </div>
 
   <aside class="battle-sidebar" aria-label="Battle report">
@@ -428,6 +440,15 @@
   .battlefield-footer { min-height: 30px; display: flex; justify-content: space-between; gap: 8px; font-size: 10px; align-items: center; color: var(--muted-foreground); border-top: 1px solid #ffffff05; }
   .battlefield-footer button { text-decoration: underline; cursor: pointer; }
   .win { color: #9fca98; }
+  .battle-result-overlay { position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: #00000088; backdrop-filter: blur(2px); border-radius: 8px; animation: result-fade-in 0.3s ease-out; pointer-events: none; }
+  .battle-result-content { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 28px; border-radius: 10px; background: #1a1a1aee; border: 1px solid #ffffff18; }
+  .battle-result-content.win { border-color: #9fca9855; }
+  .battle-result-content.lose { border-color: #cf6b6255; }
+  .result-label { font-size: 28px; font-weight: 800; letter-spacing: 1px; }
+  .battle-result-content.win .result-label { color: #9fca98; }
+  .battle-result-content.lose .result-label { color: #cf6b62; }
+  .result-detail { font-size: 13px; color: #aaa; }
+  @keyframes result-fade-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
   .ultimate-overlay { position: absolute; inset: -8px 0 auto; z-index: 8; display: flex; align-items: start; justify-content: center; pointer-events: none; }
   .ultimate-overlay > div { background: #18120be6; border: 1px solid #9c723c55; padding: 5px 12px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; color: #f5c17c; }
   .ultimate-overlay strong { font-size: 12px; letter-spacing: 1px; }

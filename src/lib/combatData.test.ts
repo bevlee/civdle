@@ -17,7 +17,7 @@ import {
   computeCardStats,
   createCard,
   depthsEnemyCount,
-  depthsIncomePer10s,
+  depthsIncomePerMinute,
   depthsTargetStrength,
   encounterStrength,
   enemyCountForLevel,
@@ -267,13 +267,13 @@ describe("the depths", () => {
     expect(generateDepthsEncounter(50, rand).cards).toHaveLength(5);
   });
 
-  it("pays 10 spoils per 10s for every 5 depths cleared", () => {
+  it("pays 60 spoils per minute for every 5 depths cleared", () => {
     expect(DEPTHS_TIER_SIZE).toBe(5);
-    expect(DEPTHS_SPOILS_PER_TIER).toBe(10);
-    expect(depthsIncomePer10s(0)).toBe(0);
-    expect(depthsIncomePer10s(4)).toBe(0);
-    expect(depthsIncomePer10s(5)).toBe(10);
-    expect(depthsIncomePer10s(9)).toBe(10);
-    expect(depthsIncomePer10s(23)).toBe(40);
+    expect(DEPTHS_SPOILS_PER_TIER).toBe(60);
+    expect(depthsIncomePerMinute(0)).toBe(0);
+    expect(depthsIncomePerMinute(4)).toBe(0);
+    expect(depthsIncomePerMinute(5)).toBe(60);
+    expect(depthsIncomePerMinute(9)).toBe(60);
+    expect(depthsIncomePerMinute(23)).toBe(240);
   });
 });

@@ -54,7 +54,12 @@
   });
 
   function handleClick() {
-    if (phase === "revealed") onDismiss(event.id);
+    if (phase === "revealed") {
+      onDismiss(event.id);
+    } else {
+      phase = "revealed";
+      if (rarity >= 4) confetti = makeConfetti(rarity === 5 ? 70 : 24);
+    }
   }
 </script>
 
@@ -108,6 +113,8 @@
         </p>
         <p class="text-sm text-muted-foreground">Click to continue</p>
       </div>
+    {:else}
+      <p class="absolute bottom-6 text-xs text-white/40">Click to skip</p>
     {/if}
   </div>
 </div>

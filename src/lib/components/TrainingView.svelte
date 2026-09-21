@@ -96,6 +96,7 @@
 <div class="flex flex-1 flex-col gap-6 p-6">
   <div>
     <h2 class="text-2xl font-bold">{def.name}</h2>
+    <p class="mt-1 text-sm italic leading-relaxed text-muted-foreground">&ldquo;{def.description}&rdquo;</p>
     <p class="text-sm text-muted-foreground">Level {level} / 99</p>
     <div class="mt-2 flex items-center gap-2">
       <Progress value={xpPct} class="h-2 max-w-sm" />
