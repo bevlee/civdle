@@ -326,11 +326,10 @@
             {@const fighter = enemyFighters.find(f => f.position === position)}
             {@const card = battle ? fighter : encounter?.cards[position - 1]}
             {#if card}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div class="field-position" class:acting={actingId === fighter?.id} data-fighter-id={fighter?.id} class:targeted={pendingImpact && battle?.lastAction?.hits.some(hit => hit.targetId === fighter?.id)} class:front={isFrontRow(position)} style:--position={position}
-                role="img" aria-label={`Enemy position ${position}, ${isFrontRow(position) ? "front" : "back"} row: ${UNITS[card.unitId].name}, ${card.stars} stars`}
-                onclick={() => inspectedEnemy = { id: card.id, unitId: card.unitId, stars: card.stars }} style="cursor: pointer">
+                role="button" tabindex="0" aria-label={`Inspect enemy position ${position}, ${isFrontRow(position) ? "front" : "back"} row: ${UNITS[card.unitId].name}, ${card.stars} stars`}
+                onclick={() => inspectedEnemy = { id: card.id, unitId: card.unitId, stars: card.stars }}
+                onkeydown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inspectedEnemy = { id: card.id, unitId: card.unitId, stars: card.stars }; } }} style="cursor: pointer">
                 {#if encounter?.bossId === card.id}<span class="boss-label">Boss</span>{/if}
                 <div class={fighterClass(fighter)} use:attackMotion={{ active: actingId !== null && actingId === fighter?.id, key: animationKey, ultimate: actingKind === "ultimate", distance: movement * (fighter?.isEnemy ? -1 : 1) }}><BattleUnit {card} {fighter} enemy ultEvery={battle?.enemyMods.ultEvery ?? 3} castingUltimate={actingId === fighter?.id && actingKind === "ultimate"} pose={fighterPose(fighter)} animate={isPlaying} /></div>
                 {@render effects(fighter)}

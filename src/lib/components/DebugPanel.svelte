@@ -57,8 +57,9 @@
           Skills
         </h4>
         <div class="mb-2 flex items-center gap-2">
-          <label class="text-xs text-muted-foreground">Set to Lv</label>
+          <label for="debug-skill-level" class="text-xs text-muted-foreground">Set to Lv</label>
           <input
+            id="debug-skill-level"
             type="number"
             min="1"
             max="99"
@@ -115,8 +116,9 @@
           Resources
         </h4>
         <div class="mb-2 flex items-center gap-2">
-          <label class="text-xs text-muted-foreground">Grant</label>
+          <label for="debug-resource-amount" class="text-xs text-muted-foreground">Grant</label>
           <input
+            id="debug-resource-amount"
             type="number"
             min="1"
             bind:value={resourceAmount}
@@ -163,8 +165,9 @@
         </h4>
         <div class="flex flex-col gap-1.5">
           <div class="flex items-center gap-2">
-            <label class="text-xs text-muted-foreground">SP</label>
+            <label for="debug-sp-amount" class="text-xs text-muted-foreground">SP</label>
             <input
+              id="debug-sp-amount"
               type="number"
               min="1"
               bind:value={spAmount}
@@ -184,8 +187,9 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <label class="text-xs text-muted-foreground">Age</label>
+            <label for="debug-age" class="text-xs text-muted-foreground">Age</label>
             <select
+              id="debug-age"
               class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs"
               value={game.ageIndex}
               onchange={(e) =>
@@ -212,8 +216,9 @@
         </h4>
         <div class="flex flex-col gap-1.5">
           <div class="flex items-center gap-2">
-            <label class="text-xs text-muted-foreground">Spoils</label>
+            <label for="debug-gold-amount" class="text-xs text-muted-foreground">Spoils</label>
             <input
+              id="debug-gold-amount"
               type="number"
               min="1"
               bind:value={goldAmount}
@@ -233,8 +238,9 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <label class="text-xs text-muted-foreground">Story Lv</label>
+            <label for="debug-story-level" class="text-xs text-muted-foreground">Story Lv</label>
             <select
+              id="debug-story-level"
               class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs"
               value={Math.min(MAX_ENEMY_LEVEL, game.state.gacha.storyLevel)}
               onchange={(e) =>
@@ -257,8 +263,9 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <label class="text-xs text-muted-foreground">Depth</label>
+            <label for="debug-depth-level" class="text-xs text-muted-foreground">Depth</label>
             <input
+              id="debug-depth-level"
               type="number"
               min="1"
               bind:value={depthLevel}
@@ -278,8 +285,9 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <label class="text-xs text-muted-foreground">Card</label>
+            <label for="debug-grant-unit" class="text-xs text-muted-foreground">Card</label>
             <select
+              id="debug-grant-unit"
               class="min-w-0 flex-1 rounded border border-border bg-muted px-1.5 py-0.5 text-xs"
               bind:value={grantUnit}
             >
