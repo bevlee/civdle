@@ -42,6 +42,7 @@ export class BattleAudio {
   }
 
   hit(type: AttackType, speed: number) {
+    // Low impact body with a brief, brighter attack; each weapon has its own timbre.
     const hz = type === "melee" ? 180 : type === "ranged" ? 480 : 660;
     this.#tone(hz, hz * .22, 0, .14, "triangle", .065, speed);
     this.#tone(hz * 3, hz, 0, .045, type === "magic" ? "sine" : "square", .018, speed);
@@ -55,6 +56,7 @@ export class BattleAudio {
   }
 
   result(won: boolean) {
+    // A rising major fanfare versus a descending minor cadence, at a fixed musical tempo.
     const notes = won ? [261.63, 329.63, 392, 523.25] : [311.13, 261.63, 196, 155.56];
     notes.forEach((hz, i) => {
       this.#tone(hz, hz, i * .14, i === 3 ? .85 : .23, "triangle", .055);

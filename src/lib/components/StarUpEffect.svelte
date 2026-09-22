@@ -60,18 +60,22 @@
   {:else if phase === "result"}
     <div class="relative flex flex-col items-center gap-4">
       <p class="animate-zoom-text text-4xl font-black tracking-widest text-yellow-300 drop-shadow-[0_0_12px_rgba(250,204,21,0.8)]">
-        {maxed ? "MAX RANK" : "RANK UP"}
+        {maxed ? "ASCENSION" : "RANK UP"}
       </p>
       <div class="starup-result relative">
-        <UnitCard {unitId} stars={toStars} size="lg" showTraits animate />
+        <UnitCard {unitId} stars={toStars} ascended={maxed} size="lg" showTraits animate />
       </div>
       <p class="flex items-center gap-2 text-2xl font-bold text-yellow-400">
         <span>{"★".repeat(fromStars)}</span>
         <span class="text-muted-foreground">→</span>
-        <span>{"★".repeat(fromStars)}<span class="star-pop text-3xl" style="animation-delay: 0.5s">★</span></span>
+        {#if maxed}
+          <span class="card-ascended-star star-pop text-4xl" style="animation-delay: 0.5s">✦</span>
+        {:else}
+          <span>{"★".repeat(fromStars)}<span class="star-pop text-3xl" style="animation-delay: 0.5s">★</span></span>
+        {/if}
       </p>
       <p class="text-sm text-muted-foreground">
-        {def.name} is now {toStars}★{maxed ? " — a shining legend" : ""}
+        {def.name} is now {#if maxed}ascended — a shining legend{:else}{toStars}★{/if}
       </p>
     </div>
   {/if}

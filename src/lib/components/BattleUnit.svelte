@@ -23,10 +23,14 @@
 </script>
 
 <div class="battle-unit" class:ghost class:defeated={fighter && fighter.hp <= 0}>
-  <div class="unit-sprite"><Sprite unitId={card.unitId} {pose} {animate} flip={enemy} class="h-full" /></div>
+  <div class="unit-sprite" class:ascended={card.ascended}><Sprite unitId={card.unitId} {pose} {animate} flip={enemy} class="h-full" /></div>
   {#if !ghost}
     <span class="unit-name">{def.name}</span>
-    <span class="unit-stars" aria-label={`${card.stars} stars`}>{"★".repeat(card.stars)}</span>
+      {#if card.ascended}
+      <span class="unit-stars ascended-star card-ascended-star" aria-label="Ascended">✦</span>
+    {:else}
+      <span class="unit-stars" aria-label={`${card.stars} stars`}>{"★".repeat(card.stars)}</span>
+    {/if}
     {#if fighter}
       <div class="unit-health" role="meter" aria-label={`${def.name} health`} aria-valuenow={fighter.hp} aria-valuemin={0} aria-valuemax={fighter.maxHp} title={`${fighter.hp} / ${fighter.maxHp} HP`}>
         <div class:enemy style:width={`${100 * fighter.hp / fighter.maxHp}%`}></div>
@@ -63,6 +67,8 @@
   .ultimate-charge > span.filled { background: #b1a3d8; border-color: #b1a3d8; }
   .ultimate-charge.ready > span.filled, .ultimate-charge.casting > span { background: #f1ca72; border-color: #f1ca72; }
   .ultimate-charge small { position: absolute; top: 10px; white-space: nowrap; font-size: 8px; line-height: 10px; color: #f1ca72; }
+  .ascended { filter: drop-shadow(0 0 8px oklch(0.85 0.2 85 / 0.6)) drop-shadow(0 5px 4px #0008); }
+  .ascended-star { color: #fcd34d; font-size: 12px; letter-spacing: 0; }
   .defeated { opacity: .35; filter: grayscale(1); }
   .ghost { opacity: .4; }
   @media (max-width: 640px) { .unit-sprite { height: 64px; } .unit-name { font-size: 10px; max-width: 80px; } }

@@ -62,59 +62,59 @@ function u(
 
 const UNIT_LIST: UnitDef[] = [
   // Barbarian
-  u("goblin", "Goblin", "barbarian", 1, 6, 2, 1, 11, "melee", ["swarm", "brawler"]),
-  u("wolf-rider", "Wolf Rider", "barbarian", 2, 25, 5, 3, 13, "melee", ["assassin", "charger"]),
-  u("orc", "Orc", "barbarian", 3, 38, 7, 5, 10, "melee", ["brawler", "striker"]),
-  u("ogre", "Ogre", "barbarian", 4, 69, 10, 7, 9, "melee", ["brawler", "tank"]),
-  u("ram-rider", "Ram Rider", "barbarian", 4, 62, 9, 6, 10, "melee", ["controller", "disruptor"]),
-  u("cyclops", "Cyclops", "barbarian", 5, 107, 15, 10, 10, "ranged", ["artillery", "bruiser"]),
-  u("thunderbird", "Thunderbird", "barbarian", 5, 121, 20, 12, 14, "ranged", ["charger", "striker"]),
-  u("behemoth", "Behemoth", "barbarian", 5, 264, 30, 18, 9, "melee", ["tank", "disruptor", "ascendant"]),
+  u("goblin", "Goblin", "barbarian", 1, 6, 2, 1, 11, "melee", ["swarm", "brawler", "striker"]),
+  u("wolf-rider", "Wolf Rider", "barbarian", 2, 25, 5, 3, 13, "melee", ["assassin", "charger", "skirmisher"]),
+  u("orc", "Orc", "barbarian", 3, 38, 7, 5, 10, "melee", ["brawler", "striker", "bruiser"]),
+  u("ogre", "Ogre", "barbarian", 4, 69, 10, 7, 9, "melee", ["brawler", "tank", "defender"]),
+  u("ram-rider", "Ram Rider", "barbarian", 4, 62, 9, 6, 10, "melee", ["controller", "disruptor", "bruiser"]),
+  u("cyclops", "Cyclops", "barbarian", 5, 107, 15, 10, 10, "ranged", ["artillery", "bruiser", "executioner"]),
+  u("thunderbird", "Thunderbird", "barbarian", 5, 121, 20, 12, 14, "ranged", ["charger", "striker", "skirmisher"]),
+  u("behemoth", "Behemoth", "barbarian", 5, 264, 30, 18, 9, "melee", ["tank", "disruptor", "brawler", "ascendant"]),
   // Knight
-  u("peasant", "Peasant", "knight", 1, 9, 1, 1, 9, "melee", ["swarm", "defender"]),
-  u("archer", "Archer", "knight", 2, 22, 5, 3, 9, "ranged", ["ranger", "artillery"]),
-  u("griffin", "Griffin", "knight", 3, 32, 8, 8, 14, "melee", ["defender", "skirmisher"]),
-  u("standard-bearer", "Standard Bearer", "knight", 3, 33, 6, 8, 9, "melee", ["support", "defender"]),
-  u("swordsman", "Swordsman", "knight", 4, 51, 10, 12, 8, "melee", ["brawler", "defender"]),
-  u("monk", "Monk", "knight", 5, 101, 12, 7, 9, "magic", ["support", "sustainer"]),
-  u("cavalier", "Cavalier", "knight", 5, 100, 15, 15, 11, "melee", ["charger", "brawler"]),
-  u("champion", "Champion", "knight", 5, 190, 20, 20, 12, "melee", ["charger", "executioner", "ascendant"]),
+  u("peasant", "Peasant", "knight", 1, 9, 1, 1, 9, "melee", ["swarm", "defender", "support"]),
+  u("archer", "Archer", "knight", 2, 22, 5, 3, 9, "ranged", ["ranger", "artillery", "striker"]),
+  u("griffin", "Griffin", "knight", 3, 32, 8, 8, 14, "melee", ["defender", "skirmisher", "charger"]),
+  u("standard-bearer", "Standard Bearer", "knight", 3, 33, 6, 8, 9, "melee", ["support", "defender", "tank"]),
+  u("swordsman", "Swordsman", "knight", 4, 51, 10, 12, 8, "melee", ["brawler", "defender", "bruiser"]),
+  u("monk", "Monk", "knight", 5, 101, 12, 7, 9, "magic", ["support", "sustainer", "controller"]),
+  u("cavalier", "Cavalier", "knight", 5, 100, 15, 15, 11, "melee", ["charger", "brawler", "executioner"]),
+  u("champion", "Champion", "knight", 5, 190, 20, 20, 12, "melee", ["charger", "executioner", "brawler", "ascendant"]),
   // Wizard
-  u("gremlin", "Gremlin", "wizard", 1, 4, 2, 2, 9, "ranged", ["support", "swarm"]),
-  u("stone-golem", "Stone Golem", "wizard", 2, 32, 5, 10, 6, "melee", ["tank", "defender"]),
-  u("mage", "Mage", "wizard", 3, 27, 10, 4, 9, "magic", ["ranger", "striker"]),
-  u("bilehorn", "Bilehorn", "wizard", 4, 64, 10, 9, 8, "melee", ["bruiser", "disruptor"]),
-  u("naga", "Naga", "wizard", 5, 104, 15, 12, 11, "melee", ["brawler", "bruiser"]),
-  u("siege-golem", "Siege Golem", "wizard", 5, 117, 12, 12, 7, "ranged", ["tank", "artillery"]),
-  u("giant", "Giant", "wizard", 5, 135, 22, 18, 8, "ranged", ["artillery", "executioner"]),
-  u("titan", "Titan", "wizard", 5, 256, 30, 24, 11, "magic", ["artillery", "striker", "ascendant"]),
+  u("gremlin", "Gremlin", "wizard", 1, 4, 2, 2, 9, "ranged", ["support", "swarm", "ranger"]),
+  u("stone-golem", "Stone Golem", "wizard", 2, 32, 5, 10, 6, "melee", ["tank", "defender", "bruiser"]),
+  u("mage", "Mage", "wizard", 3, 27, 10, 4, 9, "magic", ["ranger", "striker", "artillery"]),
+  u("bilehorn", "Bilehorn", "wizard", 4, 64, 10, 9, 8, "melee", ["bruiser", "disruptor", "tank"]),
+  u("naga", "Naga", "wizard", 5, 104, 15, 12, 11, "melee", ["brawler", "bruiser", "sustainer"]),
+  u("siege-golem", "Siege Golem", "wizard", 5, 117, 12, 12, 7, "ranged", ["tank", "artillery", "defender"]),
+  u("giant", "Giant", "wizard", 5, 135, 22, 18, 8, "ranged", ["artillery", "executioner", "brawler"]),
+  u("titan", "Titan", "wizard", 5, 256, 30, 24, 11, "magic", ["artillery", "striker", "controller", "ascendant"]),
   // Necromancer
-  u("skeleton", "Skeleton", "necromancer", 1, 2, 3, 3, 8, "melee", ["swarm", "brawler"]),
-  u("zombie", "Zombie", "necromancer", 2, 27, 5, 5, 6, "melee", ["tank", "controller"]),
-  u("ghost", "Ghost", "necromancer", 3, 27, 7, 7, 10, "magic", ["skirmisher", "disruptor"]),
-  u("blood-acolyte", "Blood Acolyte", "necromancer", 3, 33, 7, 6, 9, "magic", ["sustainer", "support"]),
-  u("vampire", "Vampire", "necromancer", 4, 55, 10, 9, 9, "melee", ["assassin", "sustainer"]),
-  u("lich", "Lich", "necromancer", 5, 92, 13, 10, 9, "magic", ["ranger", "controller"]),
-  u("black-knight", "Black Knight", "necromancer", 5, 105, 18, 15, 9, "melee", ["bruiser", "executioner"]),
-  u("bone-dragon", "Bone Dragon", "necromancer", 5, 238, 28, 20, 10, "magic", ["tank", "disruptor", "ascendant"]),
+  u("skeleton", "Skeleton", "necromancer", 1, 2, 3, 3, 8, "melee", ["swarm", "brawler", "disruptor"]),
+  u("zombie", "Zombie", "necromancer", 2, 27, 5, 5, 6, "melee", ["tank", "controller", "defender"]),
+  u("ghost", "Ghost", "necromancer", 3, 27, 7, 7, 10, "magic", ["skirmisher", "disruptor", "assassin"]),
+  u("blood-acolyte", "Blood Acolyte", "necromancer", 3, 33, 7, 6, 9, "magic", ["sustainer", "support", "controller"]),
+  u("vampire", "Vampire", "necromancer", 4, 55, 10, 9, 9, "melee", ["assassin", "sustainer", "skirmisher"]),
+  u("lich", "Lich", "necromancer", 5, 92, 13, 10, 9, "magic", ["ranger", "controller", "disruptor"]),
+  u("black-knight", "Black Knight", "necromancer", 5, 105, 18, 15, 9, "melee", ["bruiser", "executioner", "striker"]),
+  u("bone-dragon", "Bone Dragon", "necromancer", 5, 238, 28, 20, 10, "magic", ["tank", "disruptor", "controller", "ascendant"]),
   // Ranger
-  u("sprite", "Sprite", "ranger", 1, 4, 2, 2, 12, "magic", ["skirmisher", "swarm"]),
-  u("wood-elf", "Wood Elf", "ranger", 2, 20, 6, 3, 9, "ranged", ["ranger", "skirmisher"]),
-  u("outrider", "Outrider", "ranger", 2, 22, 5, 4, 12, "melee", ["charger", "skirmisher"]),
-  u("dendroid", "Dendroid", "ranger", 3, 38, 7, 13, 6, "melee", ["tank", "controller"]),
-  u("pegasus", "Pegasus", "ranger", 4, 49, 9, 9, 12, "melee", ["assassin", "skirmisher"]),
-  u("grand-elf", "Grand Elf", "ranger", 5, 91, 13, 9, 9, "ranged", ["ranger", "striker"]),
-  u("battle-dwarf", "Battle Dwarf", "ranger", 5, 101, 14, 16, 8, "melee", ["bruiser", "executioner"]),
-  u("unicorn", "Unicorn", "ranger", 5, 216, 22, 18, 11, "magic", ["striker", "controller", "ascendant"]),
+  u("sprite", "Sprite", "ranger", 1, 4, 2, 2, 12, "magic", ["skirmisher", "swarm", "support"]),
+  u("wood-elf", "Wood Elf", "ranger", 2, 20, 6, 3, 9, "ranged", ["ranger", "skirmisher", "assassin"]),
+  u("outrider", "Outrider", "ranger", 2, 22, 5, 4, 12, "melee", ["charger", "skirmisher", "striker"]),
+  u("dendroid", "Dendroid", "ranger", 3, 38, 7, 13, 6, "melee", ["tank", "controller", "sustainer"]),
+  u("pegasus", "Pegasus", "ranger", 4, 49, 9, 9, 12, "melee", ["assassin", "skirmisher", "charger"]),
+  u("grand-elf", "Grand Elf", "ranger", 5, 91, 13, 9, 9, "ranged", ["ranger", "striker", "artillery"]),
+  u("battle-dwarf", "Battle Dwarf", "ranger", 5, 101, 14, 16, 8, "melee", ["bruiser", "executioner", "defender"]),
+  u("unicorn", "Unicorn", "ranger", 5, 216, 22, 18, 11, "magic", ["striker", "controller", "support", "ascendant"]),
   // Demon
-  u("imp", "Imp", "demon", 1, 3, 3, 2, 10, "ranged", ["swarm", "disruptor"]),
-  u("gog", "Gog", "demon", 2, 22, 6, 4, 9, "ranged", ["ranger", "artillery"]),
-  u("hell-hound", "Hell Hound", "demon", 3, 29, 9, 6, 12, "melee", ["striker", "charger"]),
-  u("demon", "Demon", "demon", 4, 57, 11, 8, 9, "melee", ["brawler", "sustainer"]),
-  u("blood-fiend", "Blood Fiend", "demon", 4, 57, 10, 8, 10, "melee", ["sustainer", "bruiser"]),
-  u("pit-fiend", "Pit Fiend", "demon", 5, 91, 16, 12, 9, "magic", ["support", "bruiser"]),
-  u("efreet", "Efreet", "demon", 5, 99, 19, 13, 11, "magic", ["skirmisher", "striker"]),
-  u("devil", "Devil", "demon", 5, 215, 30, 22, 13, "magic", ["assassin", "executioner", "ascendant"]),
+  u("imp", "Imp", "demon", 1, 3, 3, 2, 10, "ranged", ["swarm", "disruptor", "controller"]),
+  u("gog", "Gog", "demon", 2, 22, 6, 4, 9, "ranged", ["ranger", "artillery", "executioner"]),
+  u("hell-hound", "Hell Hound", "demon", 3, 29, 9, 6, 12, "melee", ["striker", "charger", "assassin"]),
+  u("demon", "Demon", "demon", 4, 57, 11, 8, 9, "melee", ["brawler", "sustainer", "tank"]),
+  u("blood-fiend", "Blood Fiend", "demon", 4, 57, 10, 8, 10, "melee", ["sustainer", "bruiser", "striker"]),
+  u("pit-fiend", "Pit Fiend", "demon", 5, 91, 16, 12, 9, "magic", ["support", "bruiser", "disruptor"]),
+  u("efreet", "Efreet", "demon", 5, 99, 19, 13, 11, "magic", ["skirmisher", "striker", "assassin"]),
+  u("devil", "Devil", "demon", 5, 215, 30, 22, 13, "magic", ["assassin", "executioner", "striker", "ascendant"]),
 ];
 
 export const UNITS: Record<UnitId, UnitDef> = Object.fromEntries(
@@ -176,6 +176,7 @@ export interface UnitCard {
   id: string;
   unitId: UnitId;
   stars: number;
+  ascended?: boolean;
 }
 
 export const MAX_STARS = 10;
@@ -188,9 +189,10 @@ export interface CardStats {
   spd: number;
 }
 
-export function computeCardStats(unitId: UnitId, stars: number): CardStats {
+export function computeCardStats(unitId: UnitId, stars: number, ascended?: boolean): CardStats {
   const def = UNITS[unitId];
-  const mult = Math.pow(STAR_STAT_MULT, Math.max(0, stars - def.baseStars));
+  let mult = Math.pow(STAR_STAT_MULT, Math.max(0, stars - def.baseStars));
+  if (ascended) mult *= 1.2;
   return {
     hp: Math.floor(def.hp * mult),
     atk: Math.floor(def.atk * mult),
@@ -259,15 +261,64 @@ export function rollCard(
   return createCard(def.id, def.baseStars);
 }
 
-// ---------- Merging ----------
+// ---------- Promotion ----------
 
-export function canMerge(a: UnitCard, b: UnitCard): boolean {
-  return a.id !== b.id && a.unitId === b.unitId && a.stars === b.stars && a.stars < MAX_STARS;
+import type { ResourceId } from "./gameData";
+
+export interface PromotionCost {
+  copies: number;
+  resources: { resource: ResourceId; amount: number }[];
 }
 
-export function mergeCards(a: UnitCard, b: UnitCard): UnitCard {
-  if (!canMerge(a, b)) throw new Error("Cards cannot be merged");
-  return createCard(a.unitId, a.stars + 1);
+export const PROMOTION_COSTS: Record<number, PromotionCost> = {
+  2: { copies: 1, resources: [] },
+  3: { copies: 1, resources: [] },
+  4: { copies: 1, resources: [] },
+  5: { copies: 1, resources: [] },
+  6: { copies: 1, resources: [{ resource: "preparedMeal", amount: 5 }] },
+  7: { copies: 2, resources: [{ resource: "cloth", amount: 5 }] },
+  8: { copies: 3, resources: [{ resource: "steelTools", amount: 3 }] },
+  9: { copies: 4, resources: [{ resource: "enchantedGear", amount: 2 }] },
+  10: {
+    copies: 5,
+    resources: [
+      { resource: "preparedMeal", amount: 10 },
+      { resource: "cloth", amount: 10 },
+      { resource: "steelTools", amount: 5 },
+      { resource: "enchantedGear", amount: 3 },
+      { resource: "starstone", amount: 1 },
+    ],
+  },
+};
+
+export function getPromotionCost(targetStars: number): PromotionCost | null {
+  return PROMOTION_COSTS[targetStars] ?? null;
+}
+
+export function canPromote(
+  card: UnitCard,
+  allCards: UnitCard[],
+  resources: Partial<Record<ResourceId, number>>,
+): boolean {
+  if (card.stars >= MAX_STARS) return false;
+  const cost = PROMOTION_COSTS[card.stars + 1];
+  if (!cost) return false;
+  const copies = allCards.filter((c) => c.id !== card.id && c.unitId === card.unitId);
+  if (copies.length < cost.copies) return false;
+  for (const { resource, amount } of cost.resources) {
+    if ((resources[resource] ?? 0) < amount) return false;
+  }
+  return true;
+}
+
+export function promoteCard(card: UnitCard): UnitCard {
+  const newStars = card.stars + 1;
+  return {
+    id: card.id,
+    unitId: card.unitId,
+    stars: newStars,
+    ...(newStars >= MAX_STARS ? { ascended: true } : {}),
+  };
 }
 
 // ---------- Story regions ----------
@@ -530,6 +581,7 @@ export function generateDepthsEncounter(depth: number, rand: () => number = Math
   return { faction, cards, statMult };
 }
 
+export const DEPTHS_STARSTONE_INTERVAL = 25;
 export const DEPTHS_TIER_SIZE = 5;
 export const DEPTHS_SPOILS_PER_TIER = 60;
 export const DEPTHS_INCOME_INTERVAL_MS = 60_000;

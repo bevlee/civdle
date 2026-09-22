@@ -6,9 +6,11 @@
     UNITS,
     ULTIMATES,
     computeCardStats,
+    getPromotionCost,
     type UnitCard as UnitCardT,
   } from "$lib/combatData";
-  import { countTraits, tierFor, TRAIT_SYNERGIES } from "$lib/traits";
+  import { RESOURCES } from "$lib/gameData";
+  import { activeTraitsForCard, countTraits, tierFor, TRAIT_SYNERGIES } from "$lib/traits";
   import { RARITY_NAMES, rarityColor } from "$lib/rarity";
   import { Button } from "$lib/components/ui/button";
   import UnitCard from "./UnitCard.svelte";
@@ -17,33 +19,37 @@
     card,
     inParty = false,
     partyFull = false,
-    mergePartners = [],
+    canPromoteNow = false,
+    copies = [],
+    resources = {},
     locked = false,
     readOnly = false,
     statMult = 1,
     onAddToParty,
     onRemoveFromParty,
     partyCards = [],
-    onMerge,
+    onPromote,
     onClose,
   }: {
     card: UnitCardT;
     inParty?: boolean;
     partyFull?: boolean;
-    mergePartners?: UnitCardT[];
+    canPromoteNow?: boolean;
+    copies?: UnitCardT[];
+    resources?: Partial<Record<string, number>>;
     locked?: boolean;
     readOnly?: boolean;
     statMult?: number;
     onAddToParty?: () => void;
     onRemoveFromParty?: () => void;
     partyCards?: UnitCardT[];
-    onMerge?: (partnerId: string) => void;
+    onPromote?: () => void;
     onClose: () => void;
   } = $props();
 
   let traitCounts = $derived(countTraits(partyCards));
   let def = $derived(UNITS[card.unitId]);
-  let baseStats = $derived(computeCardStats(card.unitId, card.stars));
+  let baseStats = $derived(computeCardStats(card.unitId, card.stars, card.ascended));
   let stats = $derived(statMult !== 1 ? {
     hp: Math.floor(baseStats.hp * statMult),
     atk: Math.floor(baseStats.atk * statMult),
@@ -51,7 +57,8 @@
     spd: baseStats.spd,
   } : baseStats);
   let type = $derived(ATTACK_TYPES[def.attackType]);
-  let canMergeNow = $derived(mergePartners.length > 0 && card.stars < MAX_STARS && !locked);
+  let promotionCost = $derived(card.stars < MAX_STARS ? getPromotionCost(card.stars + 1) : null);
+  let activeTraits = $derived(activeTraitsForCard(card));
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onClose();
@@ -70,11 +77,16 @@
     tabindex="-1"
     aria-label={`${def.name} details`}
   >
-    <UnitCard unitId={card.unitId} stars={card.stars} size="lg" />
+    <UnitCard unitId={card.unitId} stars={card.stars} ascended={card.ascended} size="lg" />
 
     <div class="flex min-w-0 flex-1 flex-col gap-2 text-sm">
       <div>
-        <h3 class="text-lg font-bold">{def.name}</h3>
+        <h3 class="text-lg font-bold">
+          {def.name}
+          {#if card.ascended}
+            <span class="ml-1 text-yellow-300" title="Ascended">✦</span>
+          {/if}
+        </h3>
         <p class="text-xs" style:color={rarityColor(def.baseStars)}>
           {RARITY_NAMES[def.baseStars]} · {FACTIONS[def.faction].name} · {type.icon} {type.name}
         </p>
@@ -103,15 +115,24 @@
           <strong>{ULTIMATES[def.attackType].name}</strong> · Ultimate<br />
           {ULTIMATES[def.attackType].description} Triggers every third personal action, or every second with an army cadence bonus.
         </p>
-        {#each def.traits as trait (trait)}
+        {#each def.traits as trait, traitIndex (trait)}
           {@const syn = TRAIT_SYNERGIES[trait]}
-          <div class="rounded border border-border/60 px-2 py-1 text-xs">
+          {@const isActive = activeTraits.includes(trait)}
+          {@const nonAscTraits = def.traits.filter(t => t !== "ascendant") as string[]}
+          {@const posInRegular = nonAscTraits.indexOf(trait)}
+          {@const gateLabel = trait === "ascendant" ? null : posInRegular === 1 ? "6★" : posInRegular === 2 ? "8★" : null}
+          <div class="rounded border px-2 py-1 text-xs {isActive ? 'border-border/60' : 'border-border/30 opacity-50'}">
             <div class="flex items-center justify-between">
-              <span class={trait === "ascendant" ? "font-bold text-yellow-300" : "font-semibold"}>{syn.name}</span>
+              <span class={trait === "ascendant" ? "font-bold text-yellow-300" : "font-semibold"}>
+                {syn.name}
+                {#if gateLabel && !isActive}
+                  <span class="ml-1 text-[10px] text-muted-foreground">🔒 {gateLabel}</span>
+                {/if}
+              </span>
               <span class="text-[10px] text-muted-foreground">{syn.description}</span>
             </div>
             {#each syn.tiers as bonus, index}
-              {@const active = tierFor(trait, traitCounts.get(trait) ?? 0) === index + 1}
+              {@const active = isActive && tierFor(trait, traitCounts.get(trait) ?? 0) === index + 1}
               <p class={active ? "text-[10px] text-amber-300 font-semibold" : "text-[10px] text-muted-foreground"}>
                 {syn.thresholds[index]}: {bonus}{active ? " · Active" : ""}
               </p>
@@ -121,6 +142,23 @@
       </div>
 
       {#if !readOnly}
+        {#if promotionCost}
+          <div class="rounded border border-border/40 bg-muted/50 px-2 py-1.5 text-xs">
+            <div class="font-semibold text-muted-foreground mb-1">Promote to {card.stars + 1}★</div>
+            <div class="flex flex-col gap-0.5">
+              <span class={copies.length >= promotionCost.copies ? "text-green-400" : "text-red-400"}>
+                Copies: {copies.length}/{promotionCost.copies}
+              </span>
+              {#each promotionCost.resources as { resource, amount }}
+                {@const have = (resources[resource] ?? 0)}
+                <span class={have >= amount ? "text-green-400" : "text-red-400"}>
+                  {RESOURCES[resource].name}: {have}/{amount}
+                </span>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
         <div class="mt-auto flex flex-wrap gap-1.5">
           {#if inParty}
             <Button size="sm" variant="outline" disabled={locked} onclick={() => { onRemoveFromParty?.(); onClose(); }}>Remove from party</Button>
@@ -131,22 +169,22 @@
           {/if}
           <Button
             size="sm"
-            variant={canMergeNow ? "default" : "outline"}
-            class={canMergeNow ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}
-            disabled={!canMergeNow}
-            onclick={() => onMerge?.(mergePartners[0].id)}
+            variant={canPromoteNow ? "default" : "outline"}
+            class={canPromoteNow ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}
+            disabled={!canPromoteNow}
+            onclick={() => onPromote?.()}
             title={card.stars >= MAX_STARS
               ? "Already at max stars"
-              : mergePartners.length === 0
-                ? `Needs another ${card.stars}★ ${def.name}`
-                : `Merge two ${card.stars}★ ${def.name} into one ${card.stars + 1}★`}
+              : canPromoteNow
+                ? `Promote ${card.stars}★ → ${card.stars + 1}★`
+                : "Missing copies or resources"}
           >
             {#if card.stars >= MAX_STARS}
               ✦ Max stars
-            {:else if mergePartners.length > 0}
-              ⇈ Merge {card.stars}★ → {card.stars + 1}★
+            {:else if canPromoteNow}
+              ⇈ Promote {card.stars}★ → {card.stars + 1}★
             {:else}
-              ⇈ Merge (need another {card.stars}★)
+              ⇈ Promote (missing requirements)
             {/if}
           </Button>
         </div>

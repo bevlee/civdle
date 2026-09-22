@@ -35,6 +35,7 @@ import { createInitialDepthsState, createInitialGachaState, startBattle, stepBat
 import type { GachaState } from "./combatEngine";
 import {
   DEPTHS_INCOME_INTERVAL_MS,
+  DEPTHS_STARSTONE_INTERVAL,
   GACHA_COST,
   MAX_ENEMY_LEVEL,
   PACK_COST,
@@ -42,12 +43,13 @@ import {
   MAX_STARS,
   PARTY_SIZE,
   STARTING_GOLD,
-  canMerge,
+  canPromote,
   createCard,
   depthsIncomePerMinute,
   generateDepthsEncounter,
   generateStoryEncounter,
-  mergeCards,
+  getPromotionCost,
+  promoteCard,
   rollCard,
   type UnitCard,
   type UnitId,
@@ -708,39 +710,59 @@ export class CivdleGame {
     this.state = next;
   }
 
-  /** Cards that could be merged into `cardId` (same unit, same stars). */
-  mergePartnersFor(cardId: string): UnitCard[] {
+  /** Whether the given card can be promoted (has enough copies + resources). */
+  canPromoteCard(cardId: string): boolean {
     const card = this.state.gacha.cards.find((c) => c.id === cardId);
-    if (!card) return [];
-    return this.state.gacha.cards.filter((c) => canMerge(card, c));
+    if (!card) return false;
+    return canPromote(card, this.state.gacha.cards, this.state.resources);
   }
 
-  mergeCards(aId: string, bId: string): void {
+  /** Count of copies available for promoting this card (same unit, different card). */
+  copiesOf(cardId: string): UnitCard[] {
+    const card = this.state.gacha.cards.find((c) => c.id === cardId);
+    if (!card) return [];
+    return this.state.gacha.cards.filter((c) => c.id !== card.id && c.unitId === card.unitId);
+  }
+
+  promoteCard(cardId: string): void {
     if (this.inBattle) return;
     const cards = this.state.gacha.cards;
-    const a = cards.find((c) => c.id === aId);
-    const b = cards.find((c) => c.id === bId);
-    if (!a || !b || !canMerge(a, b)) return;
-    const merged = mergeCards(a, b);
-    // The merged card takes over whichever party slot either parent held.
-    let claimed = false;
-    const party = this.state.gacha.party.map((id) => {
-      if (id === aId || id === bId) {
-        if (claimed) return null;
-        claimed = true;
-        return merged.id;
-      }
-      return id;
-    });
+    const card = cards.find((c) => c.id === cardId);
+    if (!card || card.stars >= MAX_STARS) return;
+    const cost = getPromotionCost(card.stars + 1);
+    if (!cost) return;
+    if (!canPromote(card, cards, this.state.resources)) return;
+
+    // Consume resources
+    const resources = { ...this.state.resources };
+    for (const { resource, amount } of cost.resources) {
+      resources[resource] = (resources[resource] ?? 0) - amount;
+    }
+
+    // Consume copies (lowest star first)
+    const copies = cards
+      .filter((c) => c.id !== card.id && c.unitId === card.unitId)
+      .sort((a, b) => a.stars - b.stars);
+    const consumedIds = new Set(copies.slice(0, cost.copies).map((c) => c.id));
+
+    // Promote the card (keeps same id)
+    const promoted = promoteCard(card);
+
+    // Remove consumed copies from party slots
+    const party = this.state.gacha.party.map((id) =>
+      id !== null && consumedIds.has(id) ? null : id,
+    );
+
     this.#setGacha({
-      cards: [...cards.filter((c) => c.id !== aId && c.id !== bId), merged],
+      cards: [...cards.filter((c) => c.id !== card.id && !consumedIds.has(c.id)), promoted],
       party,
     });
+    this.state = { ...this.state, resources };
     this.#bumpStats({ merges: this.state.stats.merges + 1 });
     this.eventQueue.emit<StarUpEventData>("starUp", {
-      unitId: merged.unitId,
-      fromStars: a.stars,
-      toStars: merged.stars,
+      unitId: promoted.unitId,
+      fromStars: card.stars,
+      toStars: promoted.stars,
     });
   }
 
@@ -847,6 +869,14 @@ export class CivdleGame {
         battle: null,
         battleMode: null,
       });
+      // Starstone milestone: grant 1 starstone every 25 depths cleared
+      const cleared = level - 1;
+      const prevCleared = cleared - 1;
+      if (cleared > 0 && cleared % DEPTHS_STARSTONE_INTERVAL === 0 && prevCleared % DEPTHS_STARSTONE_INTERVAL !== 0) {
+        const resources = { ...this.state.resources };
+        resources.starstone = (resources.starstone ?? 0) + 1;
+        this.state = { ...this.state, resources };
+      }
       return;
     }
     const storyLevel = g.storyLevel + 1;

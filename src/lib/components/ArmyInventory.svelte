@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { UNITS, canMerge, type UnitCard as UnitCardT } from "$lib/combatData";
+  import { UNITS, type UnitCard as UnitCardT } from "$lib/combatData";
   import { Button } from "$lib/components/ui/button";
   import UnitCard from "./UnitCard.svelte";
   import { cn } from "$lib/utils";
@@ -124,11 +124,11 @@
 
   let sorted = $derived([...cards].sort(compare));
 
-  let mergeable = $derived.by(() => {
+  let promotable = $derived.by(() => {
     const set = new Set<string>();
     for (const a of cards) {
-      if (set.has(a.id)) continue;
-      if (cards.some((b) => canMerge(a, b))) set.add(a.id);
+      if (a.stars >= 10) continue;
+      if (cards.some((b) => b.id !== a.id && b.unitId === a.unitId)) set.add(a.id);
     }
     return set;
   });
@@ -155,9 +155,9 @@
         <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary">
           Drop here to remove from battlefield
         </span>
-      {:else if mergeable.size > 0}
-        <span class="rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] text-green-300" title="Cards with a merge partner">
-          ⇈ {mergeable.size} mergeable
+      {:else if promotable.size > 0}
+        <span class="rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] text-green-300" title="Cards with copies available for promotion">
+          ⇈ {promotable.size} promotable
         </span>
       {/if}
     </div>
@@ -289,12 +289,12 @@
             aria-label={`${UNITS[card.unitId].name}, ${card.stars} stars${inParty ? ", deployed" : ""}`}
             title={`${UNITS[card.unitId].name} — drag onto the battlefield, or click for details`}
           >
-            <UnitCard unitId={card.unitId} stars={card.stars} size="tile" class="h-14 w-14 rounded-md border" />
+            <UnitCard unitId={card.unitId} stars={card.stars} ascended={card.ascended} size="tile" class="h-14 w-14 rounded-md border" />
             {#if inParty}
               <span class="absolute -top-1 -left-1 rounded bg-primary px-1 text-[9px] font-bold text-primary-foreground">P</span>
             {/if}
-            {#if mergeable.has(card.id)}
-              <span class="absolute -right-1 -bottom-1 rounded-full bg-green-500 px-1 text-[9px] font-bold text-black" title="Merge available">⇈</span>
+            {#if promotable.has(card.id)}
+              <span class="absolute -right-1 -bottom-1 rounded-full bg-green-500 px-1 text-[9px] font-bold text-black" title="Copies available for promotion">⇈</span>
             {/if}
           </button>
         {/each}

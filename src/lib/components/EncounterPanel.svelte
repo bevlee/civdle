@@ -97,7 +97,7 @@
           {#if isBoss}
             <span class="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1.5 text-[9px] font-black tracking-wider text-white shadow">BOSS</span>
           {/if}
-          <UnitCard unitId={card.unitId} stars={card.stars} size="sm" />
+          <UnitCard unitId={card.unitId} stars={card.stars} ascended={card.ascended} size="sm" />
         </button>
         {#if front}
           <span class="text-[10px] text-red-400/70">front row</span>

@@ -198,9 +198,9 @@
       selectedSlot = null;
     } else selectedCardId = cardId;
   }
-  function handleMerge(partnerId: string) {
+  function handlePromote() {
     if (!selectedCardId) return;
-    game.mergeCards(selectedCardId, partnerId);
+    game.promoteCard(selectedCardId);
     selectedCardId = null;
   }
   function openResult(node: HTMLDialogElement) {
@@ -408,9 +408,10 @@
 
 {#if selectedCard}
   <CardDetailModal card={selectedCard} inParty={partyIds.has(selectedCard.id)} partyFull={partyIds.size >= PARTY_SIZE}
-    mergePartners={game.mergePartnersFor(selectedCard.id)} locked={formationLocked}
+    canPromoteNow={game.canPromoteCard(selectedCard.id)} copies={game.copiesOf(selectedCard.id)}
+    resources={game.state.resources} locked={formationLocked}
     onAddToParty={() => game.addCardToFirstEmptySlot(selectedCard!.id)} onRemoveFromParty={() => game.removeCardFromParty(selectedCard!.id)}
-    partyCards={game.partyCards} onMerge={handleMerge} onClose={() => selectedCardId = null} />
+    {partyCards} onPromote={handlePromote} onClose={() => selectedCardId = null} />
 {/if}
 
 {#if inspectedEnemy}

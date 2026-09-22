@@ -8,6 +8,7 @@
   let {
     unitId,
     stars,
+    ascended = false,
     size = "md",
     hp,
     maxHp,
@@ -20,6 +21,7 @@
   }: {
     unitId: UnitId;
     stars: number;
+    ascended?: boolean;
     size?: "tile" | "sm" | "md" | "lg";
     hp?: number;
     maxHp?: number;
@@ -66,7 +68,7 @@
   class={cn(
     "relative shrink-0 select-none overflow-hidden rounded-lg border-2 bg-card text-card-foreground",
     SIZE_CLASS[size],
-    shiny && "card-shiny-glow",
+    shiny && (ascended ? "card-ascended-glow" : "card-shiny-glow"),
     dim && "opacity-40 grayscale",
     className,
   )}
@@ -80,11 +82,15 @@
     </div>
     <div
       class={cn(
-        "pointer-events-none absolute inset-x-0 top-0 flex flex-wrap justify-center bg-gradient-to-b from-black/70 to-transparent px-0.5 pt-0.5 pb-1 text-yellow-400 drop-shadow",
-        STAR_CLASS.tile,
+        "pointer-events-none absolute inset-x-0 top-0 flex flex-wrap justify-center bg-gradient-to-b from-black/70 to-transparent px-0.5 pt-0.5 pb-1 drop-shadow",
+        ascended ? "text-yellow-300 text-sm" : cn("text-yellow-400", STAR_CLASS.tile),
       )}
     >
-      {#each Array(stars) as _, i (i)}<span>★</span>{/each}
+      {#if ascended}
+        <span class="card-ascended-star">✦</span>
+      {:else}
+        {#each Array(stars) as _, i (i)}<span>★</span>{/each}
+      {/if}
     </div>
     <span
       class="absolute right-0.5 bottom-0.5 rounded bg-black/60 px-0.5 text-[9px] leading-3"
@@ -106,8 +112,12 @@
     <div role="img" aria-label={def.name}>
       <Sprite {unitId} {pose} {animate} flip={flipSprite} class="w-full" />
     </div>
-    <div class={cn("flex flex-wrap justify-center px-1 py-0.5 text-yellow-400 drop-shadow", STAR_CLASS[size])}>
-      {#each Array(stars) as _, i (i)}<span>★</span>{/each}
+    <div class={cn("flex flex-wrap justify-center px-1 py-0.5 drop-shadow", ascended ? "text-yellow-300" : cn("text-yellow-400", STAR_CLASS[size]))}>
+      {#if ascended}
+        <span class={cn("card-ascended-star", size === "lg" ? "text-xl" : "text-base")}>✦</span>
+      {:else}
+        {#each Array(stars) as _, i (i)}<span>★</span>{/each}
+      {/if}
     </div>
     {#if hpPct !== null}
       <div class="mx-1 mb-1 h-1.5 overflow-hidden rounded-full bg-black/50">
@@ -130,6 +140,6 @@
     {/if}
   {/if}
   {#if shiny}
-    <div class="card-shiny pointer-events-none absolute inset-0"></div>
+    <div class={cn("pointer-events-none absolute inset-0", ascended ? "card-ascended-sheen" : "card-shiny")}></div>
   {/if}
 </div>

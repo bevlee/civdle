@@ -39,7 +39,9 @@ export type ResourceId =
   | "ale"
   | "mead"
   | "bricks"
-  | "shelter";
+  | "shelter"
+  | "enchantedGear"
+  | "starstone";
 
 export const RESOURCES: Record<ResourceId, { name: string }> = {
   food: { name: "Food" },
@@ -81,6 +83,8 @@ export const RESOURCES: Record<ResourceId, { name: string }> = {
   mead: { name: "Mead" },
   bricks: { name: "Bricks" },
   shelter: { name: "Shelter" },
+  enchantedGear: { name: "Enchanted Gear" },
+  starstone: { name: "Starstone" },
 };
 
 export type SkillId =
@@ -562,6 +566,28 @@ export const SKILLS: Record<SkillId, SkillDef> = {
           { resource: "logs", amount: 1 },
         ],
         outputs: [{ resource: "steelTools", amount: 1 }],
+      },
+      {
+        id: "enchantedGear",
+        name: "Enchanted Gear",
+        requiredLevel: 60,
+        inputs: [
+          { resource: "steelBar", amount: 2 },
+          { resource: "cloth", amount: 2 },
+          { resource: "ale", amount: 1 },
+        ],
+        outputs: [{ resource: "enchantedGear", amount: 1 }],
+      },
+      {
+        id: "starstone",
+        name: "Starstone",
+        requiredLevel: 80,
+        inputs: [
+          { resource: "steelBar", amount: 5 },
+          { resource: "enchantedGear", amount: 2 },
+          { resource: "mead", amount: 3 },
+        ],
+        outputs: [{ resource: "starstone", amount: 1 }],
       },
     ],
     upgrades: [

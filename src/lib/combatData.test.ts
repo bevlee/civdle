@@ -3,6 +3,7 @@ import {
   BOSS_EVERY,
   BOSS_ARMY_MULT,
   DEPTHS_SCALE,
+  DEPTHS_STARSTONE_INTERVAL,
   DEPTHS_TIER_SIZE,
   DEPTHS_SPOILS_PER_TIER,
   FACTIONS,
@@ -13,7 +14,8 @@ import {
   UNIT_IDS,
   UNIT_SPRITES,
   bossStarsForLevel,
-  canMerge,
+  PROMOTION_COSTS,
+  canPromote,
   computeCardStats,
   createCard,
   depthsEnemyCount,
@@ -25,8 +27,9 @@ import {
   generateEncounter,
   generateStoryEncounter,
   getTypeMultiplier,
+  getPromotionCost,
   isBossLevel,
-  mergeCards,
+  promoteCard,
   regionForLevel,
   rollCard,
   rollRarity,
@@ -45,11 +48,11 @@ function lcg(seed: number): () => number {
 }
 
 describe("unit table", () => {
-  it("has 48 units, each with 2 traits (3 for ascendants) and a sprite", () => {
+  it("has 48 units, each with 3 traits (4 for ascendants) and a sprite", () => {
     expect(UNIT_IDS).toHaveLength(48);
     for (const id of UNIT_IDS) {
       const def = UNITS[id];
-      const expected = def.traits.includes("ascendant") ? 3 : 2;
+      const expected = def.traits.includes("ascendant") ? 4 : 3;
       expect(def.traits, id).toHaveLength(expected);
       expect(UNIT_SPRITES[id], id).toMatch(/\.png/);
     }
@@ -94,18 +97,70 @@ describe("stars", () => {
     expect(computeCardStats("devil", 5)).toEqual({ hp: 215, atk: 30, def: 22, spd: 13 });
   });
 
-  it("merges only identical same-star cards below 10★", () => {
-    const a = createCard("devil", 5);
-    const b = createCard("devil", 5);
-    expect(canMerge(a, b)).toBe(true);
-    expect(canMerge(a, a)).toBe(false);
-    expect(canMerge(a, createCard("devil", 6))).toBe(false);
-    expect(canMerge(a, createCard("titan", 5))).toBe(false);
-    expect(canMerge(createCard("goblin", MAX_STARS), createCard("goblin", MAX_STARS))).toBe(false);
-    const merged = mergeCards(a, b);
-    expect(merged.stars).toBe(6);
-    expect(merged.unitId).toBe("devil");
-    expect(merged.id).not.toBe(a.id);
+  it("ascended bonus applies 1.2x to HP/ATK/DEF", () => {
+    const normal = computeCardStats("devil", 10);
+    const ascended = computeCardStats("devil", 10, true);
+    expect(ascended.hp).toBe(Math.floor(normal.hp * 1.2));
+    expect(ascended.atk).toBe(Math.floor(normal.atk * 1.2));
+    expect(ascended.def).toBe(Math.floor(normal.def * 1.2));
+    expect(ascended.spd).toBe(normal.spd);
+  });
+});
+
+describe("promotion", () => {
+  it("defines costs for stars 2-10", () => {
+    for (let s = 2; s <= 10; s++) {
+      expect(getPromotionCost(s)).toBeTruthy();
+    }
+    expect(getPromotionCost(1)).toBeNull();
+    expect(getPromotionCost(11)).toBeNull();
+  });
+
+  it("requires increasing copies for higher stars", () => {
+    expect(PROMOTION_COSTS[6].copies).toBe(1);
+    expect(PROMOTION_COSTS[7].copies).toBe(2);
+    expect(PROMOTION_COSTS[8].copies).toBe(3);
+    expect(PROMOTION_COSTS[9].copies).toBe(4);
+    expect(PROMOTION_COSTS[10].copies).toBe(5);
+  });
+
+  it("canPromote checks copies and resources", () => {
+    // 1★→2★ needs only 1 copy, no resources
+    const card1 = createCard("goblin", 1);
+    const copy1 = createCard("goblin", 1);
+    expect(canPromote(card1, [card1], {})).toBe(false);
+    expect(canPromote(card1, [card1, copy1], {})).toBe(true);
+    // 5★→6★ requires 1 copy + preparedMeal
+    const card5 = createCard("devil", 5);
+    const copy5 = createCard("devil", 1);
+    expect(canPromote(card5, [card5, copy5], {})).toBe(false);
+    expect(canPromote(card5, [card5, copy5], { preparedMeal: 5 })).toBe(true);
+    const promoted5 = promoteCard(card5);
+    expect(promoted5.stars).toBe(6);
+    // 10★ requires starstone + many resources
+    const card9 = { ...card5, stars: 9 };
+    const copies9 = Array.from({ length: 5 }, () => createCard("devil", 1));
+    expect(canPromote(card9, [card9, ...copies9], {})).toBe(false);
+    expect(canPromote(card9, [card9, ...copies9], {
+      preparedMeal: 10, cloth: 10, steelTools: 5, enchantedGear: 3, starstone: 1,
+    })).toBe(true);
+  });
+
+  it("promoteCard keeps id, increments stars, sets ascended at 10", () => {
+    const card = createCard("goblin", 5);
+    const p = promoteCard(card);
+    expect(p.id).toBe(card.id);
+    expect(p.stars).toBe(6);
+    expect(p.ascended).toBeUndefined();
+    const card9 = { ...card, stars: 9 };
+    const p10 = promoteCard(card9);
+    expect(p10.stars).toBe(10);
+    expect(p10.ascended).toBe(true);
+  });
+
+  it("max star cards cannot be promoted", () => {
+    const card = createCard("devil", MAX_STARS);
+    expect(canPromote(card, [card, createCard("devil")], {})).toBe(false);
   });
 });
 
@@ -275,5 +330,9 @@ describe("the depths", () => {
     expect(depthsIncomePerMinute(5)).toBe(60);
     expect(depthsIncomePerMinute(9)).toBe(60);
     expect(depthsIncomePerMinute(23)).toBe(240);
+  });
+
+  it("grants starstone every 25 depths", () => {
+    expect(DEPTHS_STARSTONE_INTERVAL).toBe(25);
   });
 });

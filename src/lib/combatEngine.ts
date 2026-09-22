@@ -118,7 +118,7 @@ export function createInitialGachaState(): GachaState {
 
 function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: ArmyMods, position: Position): Fighter {
   const def = UNITS[card.unitId];
-  const s = computeCardStats(card.unitId, card.stars);
+  const s = computeCardStats(card.unitId, card.stars, card.ascended);
   return {
     id: card.id,
     unitId: card.unitId,
@@ -128,7 +128,7 @@ function cardToFighter(card: UnitCard, isEnemy: boolean, own: ArmyMods, opp: Arm
     position,
     hp: 0,
     maxHp: Math.max(1, Math.floor(s.hp * own.hpMult)),
-    atk: Math.max(1, Math.floor(s.atk * own.atkMult)),
+    atk: Math.max(1, Math.floor(s.atk * own.atkMult * opp.enemyAtkMult)),
     def: Math.max(0, Math.floor(s.def * own.defMult * opp.enemyDefMult)),
     spd: Math.max(1, s.spd + own.spdFlat + opp.enemySpdFlat),
     ap: 0,
@@ -184,8 +184,8 @@ export function computeDamage(
   } else {
     dmg *= mods.basicMult;
   }
-  if (crit) dmg *= 2;
-  if (target.hp < target.maxHp * 0.5) dmg *= 1 + mods.executeBonus;
+  if (crit) dmg *= mods.critMult;
+  if (target.hp < target.maxHp * mods.executeThreshold) dmg *= 1 + mods.executeBonus;
   return Math.max(1, Math.round(dmg));
 }
 
@@ -261,15 +261,16 @@ export function stepBattle(state: BattleState, rand: () => number = Math.random)
         if (killed) log.push({ text: `${target.name} is defeated!`, type: "death" });
       }
     } else {
-      // Basic attack: single target, can dodge, can double-hit
+      // Basic attack: single target, can dodge, can double/triple-hit
       const target = selectTarget(opponents)!;
-      const strikes = rand() < own.doubleHitChance ? 2 : 1;
+      let strikes = rand() < own.doubleHitChance ? 2 : 1;
+      if (strikes >= 2 && own.tripleHitChance > 0 && rand() < own.tripleHitChance) strikes = 3;
       for (let i = 0; i < strikes && target.hp > 0; i++) {
         if (rand() < oppMods.dodgeChance) {
           hits.push({ targetId: target.id, damage: 0, crit: false, strong: false, weak: false, dodged: true, killed: false });
           continue;
         }
-        const crit = rand() < own.critChance;
+        const crit = (own.firstHitCrit && actor.turns === 1 && i === 0) || rand() < own.critChance;
         const damage = computeDamage(actor, target, own, false, crit);
         const typeMult = getTypeMultiplier(actor.attackType, target.attackType);
         target.hp = Math.max(0, target.hp - damage);
