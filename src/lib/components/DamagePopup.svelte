@@ -43,6 +43,6 @@
   {:else if hit}
     {#if hit.strong}<span class="text-red-500" title="Strong hit">▲</span>{/if}
     {#if hit.weak}<span class="text-sky-300/70" title="Weak hit">▼</span>{/if}
-    -{hit.damage}{hit.crit ? "!" : ""}
+    {hit.damage}{hit.crit ? "!" : ""}
   {/if}
 </span>

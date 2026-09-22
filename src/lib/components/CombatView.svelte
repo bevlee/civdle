@@ -203,11 +203,6 @@
     game.promoteCard(selectedCardId);
     selectedCardId = null;
   }
-  function openResult(node: HTMLDialogElement) {
-    node.showModal();
-    return { destroy: () => node.close() };
-  }
-
   function continueBattle() {
     const auto = mode === "depths" && gacha.depths.auto;
     game.dismissBattle();
@@ -344,21 +339,27 @@
         {#if ultBanner}
           {#key ultBanner.key}<div class="ultimate-overlay" aria-live="polite"><div class="ult-banner"><strong>{ULTIMATES[ultBanner.type].name}</strong><span>{ultBanner.name} · {ULTIMATES[ultBanner.type].short}</span></div></div>{/key}
         {/if}
-        {#if battleDone}
+        {#if battleDone && resultReady}
           <div class="battle-result-overlay" aria-live="assertive">
             <div class="battle-result-content" class:win={battle?.status === "won"} class:lose={battle?.status === "lost"}>
+              <span class="result-emblem" aria-hidden="true">{battle?.status === "won" ? "✦" : "⚔"}</span>
+              <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</p>
               <span class="result-label">{battle?.status === "won" ? "Victory!" : "Defeated"}</span>
               {#if battle?.status === "won"}
                 <span class="result-detail">{mode === "story" ? `+${Math.min(gacha.storyLevel, Math.max(0, game.tributeCap - gacha.gold))} Tribute` : `Depth ${gacha.depths.level} cleared`}</span>
               {:else}
                 <span class="result-detail">Adjust your formation and try again.</span>
               {/if}
+              <Button size="sm" onclick={continueBattle}>Continue <span aria-hidden="true">→</span></Button>
+              {#if mode === "depths" && gacha.depths.auto}
+                <button class="stop-auto" onclick={() => game.setDepthsAuto(false)}>Auto continuing · Stop auto</button>
+              {/if}
             </div>
           </div>
         {/if}
       </div>
       <footer class="battlefield-footer" aria-live="polite">
-        {#if battleDone}
+        {#if battleDone && resultReady}
           <span>{mode === "depths" && gacha.depths.auto ? "Auto continuing…" : game.battlePaused ? "Paused" : "Continuing…"}</span>
         {:else if isPlaying}<span>{game.battlePaused ? "Battle paused" : "Battle in progress"} · Turn {battle?.turn}</span><span>Formation locked</span>
         {:else if selectedSlot !== null}
@@ -388,22 +389,6 @@
   </aside>
 </div>
 
-{#if battleDone && resultReady}
-  <dialog class="result-shell" use:openResult oncancel={e => e.preventDefault()} aria-labelledby="result-title">
-    <div class="battle-result" class:victory={battle?.status === "won"}>
-      <span class="result-emblem" aria-hidden="true">{battle?.status === "won" ? "✦" : "⚔"}</span>
-      <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`} · {battle?.turn} turns</p>
-      <h2 id="result-title">{battle?.status === "won" ? "Victory" : "Defeat"}</h2>
-      <p>{battle?.status === "won"
-        ? mode === "story" ? `+${Math.min(gacha.storyLevel, Math.max(0, game.tributeCap - gacha.gold))} Tribute · Your army marches on.` : "Depth cleared. Venture further into the unknown."
-        : "Your army has fallen. Regroup and try a new formation."}</p>
-      <Button onclick={continueBattle}>Click to continue <span aria-hidden="true">→</span></Button>
-      {#if mode === "depths" && gacha.depths.auto}
-        <button class="stop-auto" onclick={() => game.setDepthsAuto(false)}>Auto continuing · Stop auto</button>
-      {/if}
-    </div>
-  </dialog>
-{/if}
 
 {#if selectedCard}
   <CardDetailModal card={selectedCard} inParty={partyIds.has(selectedCard.id)} partyFull={partyIds.size >= PARTY_SIZE}
@@ -422,16 +407,11 @@
   />
 {/if}
 <style>
-  .result-shell { margin: auto; padding: 0; border: 0; background: transparent; color: inherit; width: min(440px, calc(100% - 32px)); max-width: none; }
-  .result-shell::backdrop { background: #08070bd9; backdrop-filter: blur(5px); }
-  .battle-result { width: min(100%, 440px); display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 40px 28px; border: 1px solid #865352; border-radius: 18px; text-align: center; background: radial-gradient(ellipse at top, #442325, #151217 70%); box-shadow: 0 24px 100px #0008; }
-  .battle-result.victory { border-color: #92753d; background: radial-gradient(ellipse at top, #45391d, #151517 70%); }
-  .result-emblem { font-size: 48px; color: #ce8885; line-height: 1; }
-  .victory .result-emblem { color: #efd08a; }
-  .battle-result h2 { font-size: 46px; font-weight: 750; letter-spacing: -1px; line-height: 1; }
-  .battle-result p { color: #b9afb1; font-size: 13px; line-height: 1.7; }
-  .battle-result .result-eyebrow { text-transform: uppercase; font-size: 10px; letter-spacing: 2px; }
-  .stop-auto { font-size: 11px; color: #b9afb1; text-decoration: underline; cursor: pointer; }
+  .result-emblem { font-size: 32px; line-height: 1; }
+  .battle-result-content .result-emblem { color: #ce8885; }
+  .battle-result-content.win .result-emblem { color: #efd08a; }
+  .result-eyebrow { text-transform: uppercase; font-size: 9px; letter-spacing: 1.5px; color: #999; }
+  .stop-auto { font-size: 10px; color: #b9afb1; text-decoration: underline; cursor: pointer; }
 
   .combat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 236px; align-items: start; gap: 18px; }
   .playback-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 10px; color: var(--muted-foreground); }
@@ -484,8 +464,8 @@
   .battlefield-footer { min-height: 30px; display: flex; justify-content: space-between; gap: 8px; font-size: 10px; align-items: center; color: var(--muted-foreground); border-top: 1px solid #ffffff05; }
   .battlefield-footer button { text-decoration: underline; cursor: pointer; }
   .win { color: #9fca98; }
-  .battle-result-overlay { position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: #00000088; backdrop-filter: blur(2px); border-radius: 8px; animation: result-fade-in 0.3s ease-out; pointer-events: none; }
-  .battle-result-content { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 28px; border-radius: 10px; background: #1a1a1aee; border: 1px solid #ffffff18; }
+  .battle-result-overlay { position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: #00000088; backdrop-filter: blur(2px); border-radius: 8px; animation: result-fade-in 0.3s ease-out; }
+  .battle-result-content { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 32px; border-radius: 12px; background: #1a1a1aee; border: 1px solid #ffffff18; }
   .battle-result-content.win { border-color: #9fca9855; }
   .battle-result-content.lose { border-color: #cf6b6255; }
   .result-label { font-size: 28px; font-weight: 800; letter-spacing: 1px; }

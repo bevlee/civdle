@@ -11,7 +11,7 @@
   } from "$lib/combatData";
   import { RESOURCES } from "$lib/gameData";
   import { activeTraitsForCard, countTraits, tierFor, TRAIT_SYNERGIES } from "$lib/traits";
-  import { RARITY_NAMES, rarityColor } from "$lib/rarity";
+  import { RARITY_NAMES, rarityColor, starDisplay, PURPLE_STAR_COLOR } from "$lib/rarity";
   import { Button } from "$lib/components/ui/button";
   import UnitCard from "./UnitCard.svelte";
 
@@ -59,6 +59,7 @@
   let type = $derived(ATTACK_TYPES[def.attackType]);
   let promotionCost = $derived(card.stars < MAX_STARS ? getPromotionCost(card.stars + 1) : null);
   let activeTraits = $derived(activeTraitsForCard(card));
+  let sd = $derived(starDisplay(card.stars));
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onClose();
@@ -91,7 +92,7 @@
           {RARITY_NAMES[def.baseStars]} · {FACTIONS[def.faction].name} · {type.icon} {type.name}
         </p>
         <p class="text-xs text-muted-foreground">
-          {"★".repeat(card.stars)} {card.stars}/{MAX_STARS}
+          <span style:color={sd.purple ? PURPLE_STAR_COLOR : undefined}>{"★".repeat(sd.count)}</span> {card.stars}/{MAX_STARS}
         </p>
       </div>
 

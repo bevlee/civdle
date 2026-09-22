@@ -4,6 +4,7 @@
   import type { Fighter } from "$lib/combatEngine";
   import Sprite, { type Pose } from "./Sprite.svelte";
   import { TRAIT_SYNERGIES } from "$lib/traits";
+  import { starDisplay, PURPLE_STAR_COLOR } from "$lib/rarity";
 
   let { card, fighter, enemy = false, pose = "idle", animate = false, ghost = false, ultEvery = 3, castingUltimate = false }: {
     card: UnitCard;
@@ -20,6 +21,7 @@
   let charge = $derived(ultimateCharge(fighter?.turns ?? 0, ultEvery));
   let chargeLabel = $derived(castingUltimate ? "Ultimate active" : charge.ready ? "Ultimate next" : `Ultimate in ${charge.remaining} personal actions`);
   let def = $derived(UNITS[card.unitId]);
+  let sd = $derived(starDisplay(card.stars));
 </script>
 
 <div class="battle-unit" class:ghost class:defeated={fighter && fighter.hp <= 0}>
@@ -29,7 +31,7 @@
       {#if card.ascended}
       <span class="unit-stars ascended-star card-ascended-star" aria-label="Ascended">✦</span>
     {:else}
-      <span class="unit-stars" aria-label={`${card.stars} stars`}>{"★".repeat(card.stars)}</span>
+      <span class="unit-stars" style:color={sd.purple ? PURPLE_STAR_COLOR : undefined} aria-label={`${card.stars} stars`}>{"★".repeat(sd.count)}</span>
     {/if}
     {#if fighter}
       <div class="unit-health" role="meter" aria-label={`${def.name} health`} aria-valuenow={fighter.hp} aria-valuemin={0} aria-valuemax={fighter.maxHp} title={`${fighter.hp} / ${fighter.maxHp} HP`}>

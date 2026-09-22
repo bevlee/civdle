@@ -58,6 +58,7 @@ import { TOTAL_TUTORIAL_STEPS } from "./tutorial";
 import { movePartyCard } from "./party";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
 import { checkAchievements } from "./achievements";
+import { timeline } from "./combatAnimation";
 import { untrack } from "svelte";
 import type { SettlementUpgradeId } from "./settlementData";
 import { getEffectiveRollRates, hasCelestialAltar, maxSummonStars } from "./settlementData";
@@ -474,16 +475,19 @@ export class CivdleGame {
       if (next.status === "playing") {
         this.#scheduleBattleStep(next.lastAction?.kind === "ultimate" ? ULT_STEP_MS : ATTACK_STEP_MS);
       } else {
+        const animMs = next.lastAction?.kind === "ultimate" ? timeline.ultimateMs : timeline.attackMs;
         const g = this.state.gacha;
-        if (next.status === "won") {
-          const stats = this.state.stats;
-          this.#bumpStats({
-            battlesWon: stats.battlesWon + 1,
-            bestWinLevel: g.battleMode === "story" ? Math.max(stats.bestWinLevel, g.storyLevel) : stats.bestWinLevel,
-          });
-        } else {
-          this.#bumpStats({ battlesLost: this.state.stats.battlesLost + 1 });
-        }
+        this.battlePlayback.schedule(() => {
+          if (next.status === "won") {
+            const stats = this.state.stats;
+            this.#bumpStats({
+              battlesWon: stats.battlesWon + 1,
+              bestWinLevel: g.battleMode === "story" ? Math.max(stats.bestWinLevel, g.storyLevel) : stats.bestWinLevel,
+            });
+          } else {
+            this.#bumpStats({ battlesLost: this.state.stats.battlesLost + 1 });
+          }
+        }, animMs);
         if (g.battleMode === "depths" && g.depths.auto) this.#scheduleAutoDismiss(true, next.lastAction?.kind === "ultimate" ? ULT_STEP_MS : ATTACK_STEP_MS);
       }
     }, delayMs);

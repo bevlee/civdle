@@ -3,6 +3,7 @@
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
   import type { StarUpEventData } from "$lib/gameState.svelte";
   import { MAX_STARS, UNITS } from "$lib/combatData";
+  import { starDisplay, PURPLE_STAR_COLOR } from "$lib/rarity";
   import UnitCard from "./UnitCard.svelte";
 
   let {
@@ -18,6 +19,8 @@
   const { unitId, fromStars, toStars } = event.data;
   const def = UNITS[unitId];
   const maxed = toStars >= MAX_STARS;
+  const fromSd = starDisplay(fromStars);
+  const toSd = starDisplay(toStars);
 
   let phase = $state<"approach" | "flash" | "result">("approach");
 
@@ -31,14 +34,14 @@
   });
 
   function handleClick() {
-    if (phase === "result") onDismiss(event.id);
+    if (phase === "result") requestAnimationFrame(() => onDismiss(event.id));
   }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="pointer-events-auto animate-overlay-fadein absolute inset-0 flex items-center justify-center overflow-hidden bg-black/90 backdrop-blur-[2px]"
+  class="pointer-events-auto animate-overlay-fadein absolute inset-0 flex select-none items-center justify-center overflow-hidden bg-black/90 backdrop-blur-[2px]"
   class:animate-screen-shake={phase === "flash"}
   onclick={handleClick}
 >
@@ -65,13 +68,15 @@
       <div class="starup-result relative">
         <UnitCard {unitId} stars={toStars} ascended={maxed} size="lg" showTraits animate />
       </div>
-      <p class="flex items-center gap-2 text-2xl font-bold text-yellow-400">
-        <span>{"★".repeat(fromStars)}</span>
+      <p class="flex items-center gap-2 text-2xl font-bold">
+        <span style:color={fromSd.purple ? PURPLE_STAR_COLOR : "#facc15"}>{"★".repeat(fromSd.count)}</span>
         <span class="text-muted-foreground">→</span>
         {#if maxed}
           <span class="card-ascended-star star-pop text-4xl" style="animation-delay: 0.5s">✦</span>
+        {:else if fromSd.purple === toSd.purple}
+          <span style:color={toSd.purple ? PURPLE_STAR_COLOR : "#facc15"}>{"★".repeat(fromSd.count)}<span class="star-pop text-3xl" style="animation-delay: 0.5s">★</span></span>
         {:else}
-          <span>{"★".repeat(fromStars)}<span class="star-pop text-3xl" style="animation-delay: 0.5s">★</span></span>
+          <span style:color={PURPLE_STAR_COLOR}><span class="star-pop text-3xl" style="animation-delay: 0.5s">★</span></span>
         {/if}
       </p>
       <p class="text-sm text-muted-foreground">

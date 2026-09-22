@@ -26,6 +26,7 @@
   const HOLD_MS: Record<number, number> = { 1: 1400, 2: 1600, 3: 2000, 4: 2600, 5: 3400 };
 
   let phase = $state<"charge" | "flip" | "revealed">("charge");
+  let skippedAt = $state(0);
   let confetti = $state<{ x: number; drift: number; dur: number; delay: number; c: string }[]>([]);
 
   const PALETTE = ["oklch(0.85 0.18 85)", "oklch(0.8 0.2 340)", "oklch(0.85 0.18 200)", "oklch(0.9 0.18 100)", "oklch(0.75 0.2 280)"];
@@ -55,8 +56,10 @@
 
   function handleClick() {
     if (phase === "revealed") {
-      onDismiss(event.id);
+      if (Date.now() - skippedAt < 300) return;
+      requestAnimationFrame(() => onDismiss(event.id));
     } else {
+      skippedAt = Date.now();
       phase = "revealed";
       if (rarity >= 4) confetti = makeConfetti(rarity === 5 ? 70 : 24);
     }
@@ -66,7 +69,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="pointer-events-auto animate-overlay-fadein absolute inset-0 flex items-center justify-center overflow-hidden bg-black/90 backdrop-blur-[2px]"
+  class="pointer-events-auto animate-overlay-fadein absolute inset-0 flex select-none items-center justify-center overflow-hidden bg-black/90 backdrop-blur-[2px]"
   class:animate-screen-shake={phase === "flip" && rarity >= 4}
   onclick={handleClick}
 >

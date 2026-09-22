@@ -21,6 +21,13 @@ export function rarityColor(baseStars: number): string {
   return RARITY_COLORS[Math.max(1, Math.min(5, baseStars))];
 }
 
+export const PURPLE_STAR_COLOR = "oklch(0.7 0.2 300)";
+
+export function starDisplay(stars: number): { count: number; purple: boolean } {
+  if (stars > 5) return { count: stars - 5, purple: true };
+  return { count: stars, purple: false };
+}
+
 export function starString(stars: number): string {
   return "★".repeat(stars);
 }

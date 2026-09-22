@@ -30,6 +30,7 @@
 
   let flippedCount = $state(0);
   let done = $state(false);
+  let skippedAt = $state(0);
   let shakeKey = $state(0);
   let flashKey = $state(0);
   let confetti = $state<{ x: number; drift: number; dur: number; delay: number; c: string }[]>([]);
@@ -72,7 +73,8 @@
 
   function handleClick() {
     if (done) {
-      onDismiss(event.id);
+      if (Date.now() - skippedAt < 300) return;
+      requestAnimationFrame(() => onDismiss(event.id));
     } else {
       const alreadyFlipped = flippedCount;
       flippedCount = cards.length;
@@ -93,6 +95,7 @@
           ];
         }
       }
+      skippedAt = Date.now();
       done = true;
     }
   }
@@ -103,7 +106,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="pointer-events-auto animate-overlay-fadein absolute inset-0 flex items-center justify-center overflow-hidden bg-black/90 backdrop-blur-[2px]"
+  class="pointer-events-auto animate-overlay-fadein absolute inset-0 flex select-none items-center justify-center overflow-hidden bg-black/90 backdrop-blur-[2px]"
   onclick={handleClick}
 >
   {#key flashKey}
