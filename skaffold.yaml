@@ -3,9 +3,9 @@ kind: Config
 metadata:
   name: civdle
 build:
-  # On a release tag (e.g. v0.1.0) the image is tagged with it; otherwise the
-  # short commit SHA, with -dirty for uncommitted changes. CI passes the tag
-  # explicitly via --tag.
+  # `git describe --tags`: v0.2.0 on a tagged commit, v0.2.0-3-gabc1234 three
+  # commits later, with -dirty for uncommitted changes. CI passes the release
+  # tag explicitly via --tag.
   tagPolicy:
     gitCommit:
       variant: Tags
