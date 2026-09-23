@@ -267,10 +267,17 @@ export function advanceAge(
   for (const c of status.cost) {
     resources[c.resource] = (resources[c.resource] ?? 0) - c.amount;
   }
-  const granted = Array.from({ length: status.nextAge.reward.heroCopies }, () => createCard(AGE_REWARD_UNIT));
+  return enterNextAge({ ...state, resources });
+}
+
+// Moves to the next age and grants its reward, without checking or paying
+// requirements (advanceAge does that; debug tools call this directly).
+export function enterNextAge(state: GameState): { state: GameState; newlyUnlocked: SkillId[] } {
+  const nextAge = AGES[state.ageIndex + 1];
+  if (!nextAge) return { state, newlyUnlocked: [] };
+  const granted = Array.from({ length: nextAge.reward.heroCopies }, () => createCard(AGE_REWARD_UNIT));
   return computeUnlocks({
     ...state,
-    resources,
     ageIndex: state.ageIndex + 1,
     gacha: { ...state.gacha, cards: [...state.gacha.cards, ...granted] },
   });

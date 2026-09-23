@@ -1,6 +1,7 @@
 import { BattlePlayback, type BattleSpeed } from "./battlePlayback";
 import { BattleAudio } from "./battleAudio";
 import {
+  AGES,
   DEBUG_GLOBAL_UPGRADES,
   GLOBAL_UPGRADES,
   type AgeId,
@@ -16,6 +17,7 @@ import {
   type GameStats,
   advanceAge,
   applyAction,
+  enterNextAge,
   buySettlementUpgrade,
   canBuyGlobalUpgrade,
   canBuySettlementUpgrade,
@@ -24,7 +26,6 @@ import {
   createInitialState,
   createInitialStats,
   describeAgeBonus,
-  describeAgeReward,
   getAgeAdvanceStatus,
   getAgeBonus,
   getMaxSummonStars,
@@ -88,7 +89,6 @@ export interface AgeAdvanceEventData {
   ageName: string;
   /** This age's own bonus, e.g. "-0.2s actions". */
   bonusText: string;
-  rewards: string[];
 }
 
 export interface SummonEventData {
@@ -946,18 +946,20 @@ export class CivdleGame {
     const prevLevels = getSkillLevels(prev);
     const status = getAgeAdvanceStatus(prev, prevLevels);
     if (!status.canAdvance || !status.nextAge) return;
-    const { state: nextState, newlyUnlocked } = advanceAge(prev, prevLevels);
-    if (nextState.ageIndex === prev.ageIndex) return;
+    this.#applyAgeAdvance(advanceAge(prev, prevLevels));
+  }
+
+  #applyAgeAdvance({ state: nextState, newlyUnlocked }: { state: GameState; newlyUnlocked: SkillId[] }): void {
+    if (nextState.ageIndex === this.state.ageIndex) return;
     this.state = nextState;
     const existing = new Set(this.pendingUnlocks);
     const fresh = newlyUnlocked.filter((id) => !existing.has(id));
     if (fresh.length > 0) this.pendingUnlocks = [...this.pendingUnlocks, ...fresh];
-    const age = status.nextAge;
+    const age = AGES[nextState.ageIndex];
     this.eventQueue.emit<AgeAdvanceEventData>("ageAdvance", {
       ageId: age.id,
       ageName: age.name,
       bonusText: describeAgeBonus({ flatTimeReduction: age.bonus.flatTime, outputMult: age.bonus.outputMult }),
-      rewards: describeAgeReward(age),
     });
   }
 
@@ -988,8 +990,27 @@ export class CivdleGame {
     };
   }
 
+  /** Jumps straight to an age with no rewards; age-gated skills lock/unlock to match. */
   debugSetAge(ageIndex: number): void {
-    this.state = computeUnlocks({ ...this.state, ageIndex }).state;
+    const levels = getSkillLevels(this.state);
+    const skills = { ...this.state.skills };
+    for (const id of SKILL_ORDER) {
+      const def = SKILLS[id];
+      if (def.ageRequired) skills[id] = { ...skills[id], unlocked: isSkillUnlockable(def, levels, ageIndex) };
+    }
+    const active = this.state.activeSkill;
+    if (active && !skills[active].unlocked) this.stopTraining();
+    this.state = { ...this.state, ageIndex, skills };
+  }
+
+  /** Advances one age as if its requirements were met, granting its rewards. */
+  debugAdvanceAge(): void {
+    this.#applyAgeAdvance(enterNextAge(this.state));
+  }
+
+  debugGrantSettlementUpgrade(upgradeId: SettlementUpgradeId): void {
+    if (this.state.settlementUpgrades.includes(upgradeId)) return;
+    this.state = { ...this.state, settlementUpgrades: [...this.state.settlementUpgrades, upgradeId] };
   }
 
   debugUnlockAllSkills(): void {

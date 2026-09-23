@@ -282,3 +282,22 @@ describe("age advance", () => {
     expect(game.pendingUnlocks).toContain("conquest");
   });
 });
+
+describe("debug ages", () => {
+  it("Age up grants the next age's rewards without its requirements", () => {
+    game.debugAdvanceAge();
+    expect(game.ageIndex).toBe(1);
+    expect(game.combatUnlocked).toBe(true);
+    expect(game.state.gacha.cards).toHaveLength(1);
+    expect(game.events.some((e) => e.type === "ageAdvance")).toBe(true);
+  });
+
+  it("jumping ages silently locks and unlocks age-gated skills", () => {
+    game.debugSetAge(4);
+    expect(game.state.skills.conquest.unlocked).toBe(true);
+    expect(game.state.gacha.cards).toHaveLength(0);
+    game.debugSetAge(2);
+    expect(game.state.skills.conquest.unlocked).toBe(false);
+    expect(game.maxSummonStars).toBe(4);
+  });
+});

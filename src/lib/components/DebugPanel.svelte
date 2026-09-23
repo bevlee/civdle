@@ -20,6 +20,7 @@
   let skillLevel = $state(10);
   let spAmount = $state(50);
   let goldAmount = $state(100);
+  let gloryAmount = $state(100);
   let depthLevel = $state(1);
   let grantUnit = $state<UnitId>("devil");
   let grantStars = $state(5);
@@ -201,7 +202,21 @@
                 <option value={i}>{age.name}</option>
               {/each}
             </select>
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-6 text-xs"
+              disabled={game.ageIndex >= AGES.length - 1}
+              title="Advance one age with its rewards (4★ heroes, unlocks, age-up effect), skipping requirements"
+              onclick={() => game.debugAdvanceAge()}
+            >
+              Age up +rewards
+            </Button>
           </div>
+          <p class="text-[10px] text-muted-foreground">
+            Select jumps silently; "Age up" grants rewards. Combat {game.combatUnlocked ? "unlocked" : "locked"} ·
+            summons up to {game.maxSummonStars}★
+          </p>
         </div>
       </section>
 
@@ -236,6 +251,37 @@
               ({game.state.gacha.gold})
             </span>
           </div>
+
+          <div class="flex items-center gap-2">
+            <label for="debug-glory-amount" class="text-xs text-muted-foreground">Glory</label>
+            <input
+              id="debug-glory-amount"
+              type="number"
+              min="1"
+              bind:value={gloryAmount}
+              class="w-16 rounded border border-border bg-muted px-1.5 py-0.5 text-xs tabular-nums"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-6 text-xs"
+              onclick={() => game.debugGrantResource("glory", gloryAmount)}
+            >
+              Grant
+            </Button>
+            <span class="text-xs tabular-nums text-muted-foreground">({game.glory})</span>
+          </div>
+
+          <Button
+            size="sm"
+            variant="outline"
+            class="h-6 text-xs"
+            disabled={game.hasCelestialAltar}
+            title="Unlocks the Glory-priced 5★ summons"
+            onclick={() => game.debugGrantSettlementUpgrade("celestialAltar")}
+          >
+            {game.hasCelestialAltar ? "Celestial Altar built" : "Build Celestial Altar"}
+          </Button>
 
           <div class="flex items-center gap-2">
             <label for="debug-story-level" class="text-xs text-muted-foreground">Story Lv</label>
