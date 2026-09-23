@@ -15,10 +15,12 @@
     state,
     onBuy,
     onBuyGlobal,
+    onToggleDebug,
   }: {
     state: GameState;
     onBuy: (skillId: SkillId, upgradeId: string) => void;
     onBuyGlobal: (upgradeId: string) => void;
+    onToggleDebug: (upgradeId: string) => void;
   } = $props();
 
   let unlockedSkills = $derived(
@@ -42,11 +44,13 @@
           </div>
           <Button
             size="sm"
-            variant={isOwned ? "secondary" : "default"}
-            disabled={isOwned}
-            onclick={() => onBuyGlobal(upgrade.id)}
+            variant={isOwned ? "default" : "secondary"}
+            role="switch"
+            aria-checked={isOwned}
+            aria-label={upgrade.name}
+            onclick={() => onToggleDebug(upgrade.id)}
           >
-            {isOwned ? "Owned" : "Free"}
+            {isOwned ? "On" : "Off"}
           </Button>
         </div>
       {/each}

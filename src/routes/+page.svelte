@@ -249,6 +249,7 @@
               onBuy={(skillId, upgradeId) =>
                 game.buyUpgrade(skillId, upgradeId)}
               onBuyGlobal={(upgradeId) => game.buyGlobalUpgrade(upgradeId)}
+              onToggleDebug={(upgradeId) => game.toggleDebugUpgrade(upgradeId)}
             />
           {/if}
         </div>

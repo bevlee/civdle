@@ -604,6 +604,16 @@ export class CivdleGame {
     };
   }
 
+  toggleDebugUpgrade(upgradeId: string): void {
+    if (!DEBUG_GLOBAL_UPGRADES.some((upgrade) => upgrade.id === upgradeId)) return;
+    this.state = {
+      ...this.state,
+      globalUpgrades: this.state.globalUpgrades.includes(upgradeId)
+        ? this.state.globalUpgrades.filter((id) => id !== upgradeId)
+        : [...this.state.globalUpgrades, upgradeId],
+    };
+  }
+
   dismissMessage(): void {
     this.message = null;
   }

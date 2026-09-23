@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CivdleGame, ATTACK_STEP_MS, ULT_STEP_MS, DEPTHS_AUTO_PAUSE_MS } from "./gameState.svelte";
 import { createCard, GACHA_COST, PACK_SIZE } from "./combatData";
-import { xpForLevel } from "./gameEngine";
+import { computeActionResult, xpForLevel } from "./gameEngine";
 
 let game: CivdleGame;
 let cleanup: (() => void) | undefined;
@@ -33,6 +33,31 @@ function finishBattle() {
   }
   expect(game.state.gacha.battle?.status).toBe("won");
 }
+
+describe("Hyperdrive toggle", () => {
+  it("switches the speed boost on and off without spending points or removing mastery", () => {
+    game.state.globalUpgrades = ["haste"];
+    game.state.skillPoints = 12;
+    const actionTime = () => computeActionResult("foraging", 1, [], 0, "forage", game.state.globalUpgrades)!.time;
+    const normalTime = actionTime();
+
+    game.toggleDebugUpgrade("debugSpeed");
+    expect(actionTime()).toBeCloseTo(normalTime / 100);
+    game.toggleDebugUpgrade("debugSpeed");
+    expect(actionTime()).toBe(normalTime);
+    expect(game.state.globalUpgrades).toEqual(["haste"]);
+    expect(game.state.skillPoints).toBe(12);
+  });
+
+  it("can disable an already-owned Hyperdrive and rejects non-debug upgrades", () => {
+    game.state.globalUpgrades = ["haste", "debugSpeed"];
+    game.toggleDebugUpgrade("debugSpeed");
+    game.toggleDebugUpgrade("haste");
+    game.toggleDebugUpgrade("bounty");
+    game.toggleDebugUpgrade("unknown");
+    expect(game.state.globalUpgrades).toEqual(["haste"]);
+  });
+});
 
 describe("story Tribute rewards", () => {
   it.each([
