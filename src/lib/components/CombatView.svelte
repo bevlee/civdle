@@ -185,10 +185,9 @@
   }
   function inventoryDrop(cardId: string) { game.removeCardFromParty(cardId); endDrag(); }
   function selectSlot(slot: number, card: UnitCard | null) {
-    if (formationLocked) return;
     if (card) {
       selectedCardId = card.id;
-    } else {
+    } else if (!formationLocked) {
       selectedSlot = selectedSlot === slot ? null : slot;
     }
   }
@@ -232,11 +231,11 @@
       <div class="level-heading">
         <h2>{mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</h2>
         {#if mode === "depths"}<span>+{game.depthsIncome * game.treasuryMultiplier} ⚔ / min{game.treasuryMultiplier > 1 ? " (2× Treasury)" : ""} · next tier at depth {nextTierAt}</span>
-        {#if mode === "depths"}<p class="text-[11px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
         {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}+{gacha.storyLevel} Tribute</span>{/if}
+        {#if mode === "depths"}<p class="text-[11px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
       </div>
       <div class="battle-controls">
-        <button class="help-button" aria-expanded={showHelp} onclick={() => showHelp = !showHelp}>How fights work</button>
+        <button class="help-button" aria-haspopup="dialog" onclick={() => showHelp = true}>Combat guide</button>
         {#if mode === "depths"}
           <label class="auto-toggle"><input type="checkbox" checked={gacha.depths.auto} disabled={otherBattleActive || partyCards.length === 0} onchange={e => game.setDepthsAuto(e.currentTarget.checked)} /> Auto</label>
         {/if}
@@ -256,14 +255,7 @@
     </div>
 
     {#if showHelp}
-      <div class="help-panel">
-        <p>Drag units from your army onto the battlefield. Front positions 2 and 4 take hits first. Drag a fielded unit back to your army to remove it, or onto another unit to swap them.</p>
-        <p>Prefer clicking? Select an empty position, then a card. Formations are locked during battle.</p>
-        <p>Each unit uses its ultimate automatically every third personal action, replacing its normal attack. Speed affects how quickly that unit acts. Two Ascendants make your army’s ultimates trigger every second action; Coven enemies also use a two-action cycle.</p>
-        <ul>{#each Object.values(ULTIMATES) as ultimate}<li><strong>{ultimate.name}:</strong> {ultimate.description}</li>{/each}</ul>
-        <p>Ultimates cannot be dodged or double-hit. They can crit, apply type advantage, and benefit from army bonuses.</p>
-        <TutorialOverlay step={gacha.tutorialStep} onNext={() => game.advanceTutorial()} onSkip={() => game.skipTutorial()} />
-      </div>
+      <TutorialOverlay onClose={() => { showHelp = false; game.skipTutorial(); }} />
     {/if}
     {#if otherBattleActive}<p class="notice">A battle is running in {gacha.battleMode === "story" ? "Campaign" : "The Depths"}. Your formation is locked until it finishes.</p>{/if}
 
@@ -297,10 +289,10 @@
               ondragleave={e => slotDragLeave(e, position - 1)} ondrop={e => slotDrop(e, position - 1)}>
               <button
                 class="position-button" class:occupied={card !== null} class:drop-hover={over} class:selected={selectedSlot === position - 1}
-                class:drag-source={draggingId === card?.id} class:available={!formationLocked}
-                disabled={formationLocked} draggable={card !== null && !formationLocked}
+                class:drag-source={draggingId === card?.id} class:available={card !== null || !formationLocked}
+                disabled={formationLocked && card === null} draggable={card !== null && !formationLocked}
                 aria-label={`Position ${position}, ${isFrontRow(position) ? "front" : "back"} row${card ? `: ${UNITS[card.unitId].name}, ${card.stars} stars` : ": empty"}`}
-                title={`Position ${position} · ${isFrontRow(position) ? "Front row — targeted first" : "Back row"}${card ? " · Click for details, drag to move" : " · Drop a unit or click to select"}`}
+                title={`Position ${position} · ${isFrontRow(position) ? "Front row — targeted first" : "Back row"}${card ? formationLocked ? " · Click for live stats" : " · Click for details, drag to move" : " · Drop a unit or click to select"}`}
                 ondragstart={e => card && startDrag(e, card.id)} ondragend={endDrag}
                 onclick={() => selectSlot(position - 1, card)}>
                 {#if over && draggedCard}
@@ -394,7 +386,8 @@
 {#if selectedCard}
   <CardDetailModal card={selectedCard} inParty={partyIds.has(selectedCard.id)} partyFull={partyIds.size >= PARTY_SIZE}
     canPromoteNow={game.canPromoteCard(selectedCard.id)} copies={game.copiesOf(selectedCard.id)}
-    resources={game.state.resources} locked={formationLocked}
+    resources={game.state.resources} locked={formationLocked} readOnly={formationLocked}
+    fighter={playerFighters.find(f => f.id === selectedCard.id)}
     onAddToParty={() => game.addCardToFirstEmptySlot(selectedCard!.id)} onRemoveFromParty={() => game.removeCardFromParty(selectedCard!.id)}
     {partyCards} onPromote={handlePromote} onClose={() => selectedCardId = null} />
 {/if}
@@ -429,8 +422,7 @@
   .help-button { font-size: 10px; text-decoration: underline dotted; text-underline-offset: 3px; color: var(--muted-foreground); cursor: pointer; }
   .auto-toggle { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted-foreground); cursor: pointer; }
   .auto-toggle input { accent-color: #ddd; }
-  .notice, .help-panel { font-size: 12px; color: var(--muted-foreground); border: 1px solid var(--border); border-radius: 8px; padding: 12px; line-height: 1.6; }
-  .help-panel { display: flex; flex-direction: column; gap: 8px; }
+  .notice { font-size: 12px; color: var(--muted-foreground); border: 1px solid var(--border); border-radius: 8px; padding: 12px; line-height: 1.6; }
   .battlefield { position: relative; background: #ffffff02; border: 1px solid var(--border); border-radius: 9px; padding: 16px 14px 0; overflow: hidden; }
   .army-headings { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; min-height: 64px; }
   h3 { text-transform: uppercase; letter-spacing: 1.1px; font-size: 10px; font-weight: 600; color: #999; }
