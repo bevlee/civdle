@@ -272,6 +272,7 @@
     {#key game.pendingUnlocks[0]}
       <SkillUnlockModal
         skillId={game.pendingUnlocks[0]}
+        ageIndex={game.state.ageIndex}
         onDismiss={() => game.dismissUnlock()}
       />
     {/key}

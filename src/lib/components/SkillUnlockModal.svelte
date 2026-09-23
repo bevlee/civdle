@@ -2,14 +2,16 @@
   import { onDestroy, onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
-  import { RESOURCES, SKILLS, type SkillId } from "$lib/gameData";
+  import { AGES, RESOURCES, SKILLS, type Recipe, type SkillId } from "$lib/gameData";
   import { cn } from "$lib/utils";
 
   let {
     skillId,
+    ageIndex,
     onDismiss,
   }: {
     skillId: SkillId;
+    ageIndex: number;
     onDismiss: () => void;
   } = $props();
 
@@ -28,6 +30,20 @@
   const def = $derived(SKILLS[skillId]);
   const recipes = $derived(def.recipes);
   const prereqs = $derived(def.prereqs);
+
+  // Each output once, tagged with the age it arrives in when that's still ahead.
+  function describeOutputs(recipe: Recipe): string {
+    const seen = new Set<string>();
+    const labels: string[] = [];
+    for (const o of recipe.outputs) {
+      if (seen.has(o.resource)) continue;
+      seen.add(o.resource);
+      const age = o.ageRequired ? AGES.find((a) => a.id === o.ageRequired) : undefined;
+      const later = age && AGES.indexOf(age) > ageIndex;
+      labels.push(later ? `${RESOURCES[o.resource].name} (${age.name})` : RESOURCES[o.resource].name);
+    }
+    return labels.join(", ");
+  }
 
   function handleDismiss() {
     if (dismissTimeout !== null) return;
@@ -78,9 +94,7 @@
                     .map((i) => RESOURCES[i.resource].name)
                     .join(", ")} →
                 {/if}
-                {recipe.outputs
-                  .map((o) => RESOURCES[o.resource].name)
-                  .join(", ")}
+                {describeOutputs(recipe)}
               </span>
             </div>
           {/each}

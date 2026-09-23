@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  AGES,
   AGE_ADVANCE_COSTS,
   AGE_REWARD_UNIT,
   GLOBAL_UPGRADES,
@@ -11,6 +12,9 @@ import {
 } from "./gameData";
 import {
   advanceAge,
+  computeUnlocks,
+  describeAgeReward,
+  getLockedOutputs,
   applyAction,
   getAgeBonus,
   getMaxSummonStars,
@@ -124,6 +128,51 @@ describe("outputs", () => {
     const r = computeActionResult("hunting", 1, ["sinewCordage"], 0, "hunt");
     expect(r?.outputs.map((o) => o.resource)).toEqual(["rawHides", "food"]);
     expect(r?.chancedOutputs).toEqual([{ resource: "cordage", amount: 1, chance: 0.5 }]);
+  });
+
+  it("folds Mining's level milestones into one line per ore", () => {
+    const at10 = computeActionResult("mining", 10, [], 2, "mineStone");
+    const at25 = computeActionResult("mining", 25, [], 2, "mineStone");
+    const at50 = computeActionResult("mining", 50, [], 2, "mineStone");
+    expect(at10?.outputs).toEqual([
+      { resource: "stone", amount: 1 },
+      { resource: "copperOre", amount: 1 },
+      { resource: "ironOre", amount: 1 },
+      { resource: "coal", amount: 1 },
+    ]);
+    expect(at25?.outputs.find((o) => o.resource === "copperOre")?.amount).toBe(1.25);
+    expect(at50?.outputs.find((o) => o.resource === "coal")?.amount).toBe(1.5);
+    expect(at50?.outputs).toHaveLength(4);
+  });
+
+  it("adds flat ore bonuses once, not once per milestone", () => {
+    const r = computeActionResult("mining", 50, ["betterPick"], 1, "mineStone");
+    expect(r?.outputs.find((o) => o.resource === "copperOre")?.amount).toBe(2.5);
+  });
+});
+
+describe("locked outputs", () => {
+  const mineStone = SKILLS.mining.recipes[0];
+
+  it("labels future-age ores with the age that brings them", () => {
+    expect(getLockedOutputs(mineStone, 0, 0)).toEqual([
+      { resource: "copperOre", label: "Copper Ore", requirement: "Bronze Age" },
+      { resource: "ironOre", label: "Iron Ore", requirement: "Iron Age" },
+      { resource: "coal", label: "Coal", requirement: "Iron Age" },
+    ]);
+  });
+
+  it("shows level milestones once their ore's age has arrived", () => {
+    expect(getLockedOutputs(mineStone, 10, 1)).toEqual([
+      { resource: "ironOre", label: "Iron Ore", requirement: "Iron Age" },
+      { resource: "coal", label: "Coal", requirement: "Iron Age" },
+      { resource: "copperOre", label: "Extra Copper Ore (25%)", requirement: "Lv 25" },
+      { resource: "copperOre", label: "Extra Copper Ore (25%)", requirement: "Lv 50" },
+    ]);
+  });
+
+  it("is empty once everything is unlocked", () => {
+    expect(getLockedOutputs(mineStone, 50, 4)).toEqual([]);
   });
 });
 
@@ -326,6 +375,35 @@ describe("applyAction", () => {
 });
 
 describe("ages", () => {
+  it("previews the ores and skills an age brings", () => {
+    const iron = AGES.find((a) => a.id === "ironAge")!;
+    expect(describeAgeReward(iron)).toEqual(
+      expect.arrayContaining(["Construction skill", "Mining: Iron Ore", "Mining: Coal"]),
+    );
+    expect(describeAgeReward(AGES[1])).toContain("Mining: Copper Ore");
+  });
+
+  it("keeps Construction locked until the Iron Age even with its prereqs met", () => {
+    const s = stateWith((st) => {
+      st.skills.carpentry.xp = xpForLevel(15);
+      st.skills.mining.xp = xpForLevel(15);
+      st.ageIndex = 1;
+    });
+    expect(computeUnlocks(s).state.skills.construction.unlocked).toBe(false);
+    expect(computeUnlocks({ ...s, ageIndex: 2 }).state.skills.construction.unlocked).toBe(true);
+  });
+
+  it("only asks for main-path (Mining/Smithing) materials to age up", () => {
+    const mainPath = new Set<string>();
+    for (const id of ["mining", "smithing"] as const) {
+      for (const r of SKILLS[id].recipes) for (const o of r.outputs) mainPath.add(o.resource);
+    }
+    mainPath.add("wood"); // Bronze Age: Woodcutting unlocks Mining
+    for (const cost of Object.values(AGE_ADVANCE_COSTS)) {
+      for (const c of cost) expect(mainPath).toContain(c.resource);
+    }
+  });
+
   // Meets every age's skill condition and holds plenty of every advance cost.
   function readyToAdvance(ageIndex: number): GameState {
     return stateWith((s) => {

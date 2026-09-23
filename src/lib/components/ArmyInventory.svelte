@@ -31,10 +31,13 @@
     glory = 0,
     legendaryPackCost = 100,
     legendarySingleCost = 10,
+    hasHallOfLegends = false,
+    tributeLegendaryPackCost = 1000,
     onSummon,
     onOpenPack,
     onOpenLegendaryPack,
     onLegendarySummon,
+    onOpenTributeLegendaryPack,
   }: {
     cards: UnitCardT[];
     partyIds: Set<string>;
@@ -44,10 +47,13 @@
     maxStars?: number;
     rollRates?: RollRate[];
     hasCelestialAltar?: boolean;
-    /** Glory from the Conquest skill — the only currency for 5★-only summons. */
+    /** Glory from the Conquest skill — pays for the Celestial Altar's 5★-only summons. */
     glory?: number;
     legendaryPackCost?: number;
     legendarySingleCost?: number;
+    /** The Hall of Legends sells a 5★-only pack for Tribute. */
+    hasHallOfLegends?: boolean;
+    tributeLegendaryPackCost?: number;
     locked?: boolean;
     /** Card currently being dragged anywhere on the screen. */
     draggingId?: string | null;
@@ -64,6 +70,7 @@
     onOpenPack: () => void;
     onOpenLegendaryPack?: () => void;
     onLegendarySummon?: () => void;
+    onOpenTributeLegendaryPack?: () => void;
   } = $props();
 
   function handleDragOver(e: DragEvent) {
@@ -232,6 +239,19 @@
             class="h-6 border-yellow-500/40 px-2 text-[10px] text-yellow-300 hover:bg-yellow-500/10"
           >
             10× 5★ · {legendaryPackCost} Glory
+          </Button>
+        </Hint>
+      {/if}
+      {#if hasHallOfLegends && onOpenTributeLegendaryPack}
+        <Hint text="10 guaranteed 5★ heroes, paid in Tribute">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={locked || gold < tributeLegendaryPackCost}
+            onclick={onOpenTributeLegendaryPack}
+            class="h-6 border-yellow-500/40 px-2 text-[10px] text-yellow-300 hover:bg-yellow-500/10"
+          >
+            10× 5★ · {tributeLegendaryPackCost} ⚔
           </Button>
         </Hint>
       {/if}

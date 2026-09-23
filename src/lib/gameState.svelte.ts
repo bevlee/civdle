@@ -68,7 +68,7 @@ import { checkAchievements, checkAchievementMilestones } from "./achievements";
 import { timeline } from "./combatAnimation";
 import { untrack } from "svelte";
 import type { SettlementUpgradeId } from "./settlementData";
-import { getEffectiveRollRates, hasCelestialAltar } from "./settlementData";
+import { getEffectiveRollRates, hasCelestialAltar, hasHallOfLegends } from "./settlementData";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
@@ -78,11 +78,13 @@ export const ATTACK_STEP_MS = 900;
 export const ULT_STEP_MS = 1800;
 // Pause on the result panel before an auto-ground Depths run continues.
 export const DEPTHS_AUTO_PAUSE_MS = 1500;
-// 5★-only summons: need the Celestial Altar and are paid in Glory (from the
-// Conquest skill), never Tribute.
+// 5★-only summons: the Celestial Altar's are paid in Glory (from the Conquest
+// skill); the Hall of Legends sells a 10-pack for Tribute.
 export const LEGENDARY_PACK_SIZE = 10;
 export const LEGENDARY_PACK_COST = 100;
 export const LEGENDARY_SINGLE_COST = 10;
+// The Hall of Legends sells the same guaranteed 5★ pack for Tribute.
+export const TRIBUTE_LEGENDARY_PACK_COST = 1000;
 
 export interface AgeAdvanceEventData {
   ageId: AgeId;
@@ -697,6 +699,10 @@ export class CivdleGame {
     return hasCelestialAltar(this.#settlementSet);
   }
 
+  get hasHallOfLegends(): boolean {
+    return hasHallOfLegends(this.#settlementSet);
+  }
+
   get #hasPendingSummon(): boolean {
     return this.eventQueue.events.some(e => e.type === "summon" || e.type === "summonPack");
   }
@@ -736,12 +742,30 @@ export class CivdleGame {
   rollLegendary(count: 1 | 10): void {
     const cost = count === LEGENDARY_PACK_SIZE ? LEGENDARY_PACK_COST : LEGENDARY_SINGLE_COST * count;
     if (!this.hasCelestialAltar || this.glory < cost || this.#hasPendingSummon) return;
+    this.#summonLegendary(count, {
+      ...this.state,
+      resources: { ...this.state.resources, glory: (this.state.resources.glory ?? 0) - cost },
+    });
+  }
+
+  /** Summon 10 guaranteed 5★ heroes for Tribute. Needs the Hall of Legends. */
+  rollTributeLegendaryPack(): void {
+    const cost = TRIBUTE_LEGENDARY_PACK_COST;
+    if (!this.hasHallOfLegends || this.state.gacha.gold < cost || this.#hasPendingSummon) return;
+    this.#summonLegendary(LEGENDARY_PACK_SIZE, {
+      ...this.state,
+      gacha: { ...this.state.gacha, gold: this.state.gacha.gold - cost },
+    });
+  }
+
+  // Adds `count` guaranteed 5★ cards to `paid` (the state with the cost
+  // already taken) and plays the reveal.
+  #summonLegendary(count: number, paid: GameState): void {
     const guaranteedRates = [{ stars: 5, rate: 1.0 }];
     const cards = Array.from({ length: count }, () => rollCard(Math.random, 5, guaranteedRates));
     this.state = {
-      ...this.state,
-      resources: { ...this.state.resources, glory: (this.state.resources.glory ?? 0) - cost },
-      gacha: { ...this.state.gacha, cards: [...this.state.gacha.cards, ...cards] },
+      ...paid,
+      gacha: { ...paid.gacha, cards: [...paid.gacha.cards, ...cards] },
     };
     this.#bumpStats({
       cardsSummoned: this.state.stats.cardsSummoned + cards.length,
