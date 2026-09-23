@@ -26,10 +26,13 @@
     maxStars = 5,
     rollRates = BASE_RATES,
     hasCelestialAltar = false,
+    glory = 0,
     legendaryPackCost = 100,
+    legendarySingleCost = 10,
     onSummon,
     onOpenPack,
     onOpenLegendaryPack,
+    onLegendarySummon,
   }: {
     cards: UnitCardT[];
     partyIds: Set<string>;
@@ -39,7 +42,10 @@
     maxStars?: number;
     rollRates?: RollRate[];
     hasCelestialAltar?: boolean;
+    /** Glory from the Conquest skill — the only currency for 5★-only summons. */
+    glory?: number;
     legendaryPackCost?: number;
+    legendarySingleCost?: number;
     locked?: boolean;
     /** Card currently being dragged anywhere on the screen. */
     draggingId?: string | null;
@@ -55,6 +61,7 @@
     onSummon: () => void;
     onOpenPack: () => void;
     onOpenLegendaryPack?: () => void;
+    onLegendarySummon?: () => void;
   } = $props();
 
   function handleDragOver(e: DragEvent) {
@@ -192,22 +199,34 @@
       >
         Open 10 · {packCost} ⚔
       </Button>
+      {#if hasCelestialAltar && onLegendarySummon}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={locked || glory < legendarySingleCost}
+          onclick={onLegendarySummon}
+          title="1 guaranteed 5★ hero, paid in Glory ({glory} held)"
+          class="h-6 border-yellow-500/40 px-2 text-[10px] text-yellow-300 hover:bg-yellow-500/10"
+        >
+          5★ · {legendarySingleCost} Glory
+        </Button>
+      {/if}
       {#if hasCelestialAltar && onOpenLegendaryPack}
         <Button
           size="sm"
           variant="outline"
-          disabled={locked || gold < legendaryPackCost}
+          disabled={locked || glory < legendaryPackCost}
           onclick={onOpenLegendaryPack}
-          title="10 guaranteed 5★ heroes"
+          title="10 guaranteed 5★ heroes, paid in Glory ({glory} held)"
           class="h-6 border-yellow-500/40 px-2 text-[10px] text-yellow-300 hover:bg-yellow-500/10"
         >
-          10× 5★ · {legendaryPackCost} ⚔
+          10× 5★ · {legendaryPackCost} Glory
         </Button>
       {/if}
       {#if maxStars < 5}
         <span
           class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300"
-          title="Build the War Forge (Smithing) to unlock higher stars"
+          title="Advance to the Iron Age for 4★ and Medieval for 5★ summons"
         >
           Max {maxStars}★
         </span>
@@ -259,7 +278,7 @@
       </div>
       {#if maxStars < 5}
         <p class="mt-2 text-[10px] text-muted-foreground">
-          {maxStars < 4 ? "Build the War Forge to unlock 4★ units, then the Master Forge for 5★." : "Build the Master Forge to unlock 5★ units."}
+          {maxStars < 4 ? "Advance to the Iron Age to unlock 4★ units, then Medieval for 5★." : "Advance to Medieval to unlock 5★ units."}
           Rates above max star are redistributed to lower tiers.
         </p>
       {/if}

@@ -1,18 +1,11 @@
 <script lang="ts">
   import type { AgeId } from "$lib/gameData";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
-  import type { StarUpEventData, SummonEventData, SummonPackEventData } from "$lib/gameState.svelte";
+  import type { AgeAdvanceEventData, StarUpEventData, SummonEventData, SummonPackEventData } from "$lib/gameState.svelte";
   import AgeAdvanceEffect from "./AgeAdvanceEffect.svelte";
   import SummonReveal from "./SummonReveal.svelte";
   import PackReveal from "./PackReveal.svelte";
   import StarUpEffect from "./StarUpEffect.svelte";
-
-  interface AgeAdvanceEventData {
-    ageId: AgeId;
-    ageName: string;
-    speedPct: number;
-    outputPct: number;
-  }
 
   const AGE_FLASH_COLOR: Record<AgeId, string> = {
     stoneAge: "oklch(0.7 0.01 90)",

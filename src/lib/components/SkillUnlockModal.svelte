@@ -53,7 +53,7 @@
       </p>
       <h3 class="mt-1 text-xl font-bold tracking-tight">{def.name}</h3>
       <Badge variant="secondary" class="mt-1.5 text-xs">
-        {def.category === "gathering" ? "Gathering" : "Crafting"}
+        {def.category === "gathering" ? "Gathering" : def.category === "combat" ? "Combat" : "Crafting"}
       </Badge>
     </div>
     <div class="flex flex-col gap-4 px-5 py-4">

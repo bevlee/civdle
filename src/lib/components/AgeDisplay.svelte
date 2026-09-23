@@ -3,7 +3,8 @@
   import { Button } from "$lib/components/ui/button";
   import FloatingText from "./FloatingText.svelte";
   import { AGES, RESOURCES, type ResourceId, SKILLS, type SkillId } from "$lib/gameData";
-  import type { AgeAdvanceStatus, AgeBonus } from "$lib/gameEngine";
+  import { describeAgeBonus, describeAgeReward, type AgeAdvanceStatus, type AgeBonus } from "$lib/gameEngine";
+  import type { AgeAdvanceEventData } from "$lib/gameState.svelte";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
   import { cn } from "$lib/utils";
 
@@ -34,8 +35,12 @@
   } = $props();
 
   let age = $derived(AGES[ageIndex]);
-  let timeReductionPct = $derived(Math.round((1 - ageBonus.timeMult) * 100));
-  let outputBonusPct = $derived(Math.round((ageBonus.outputMult - 1) * 100));
+  let bonusText = $derived(describeAgeBonus(ageBonus));
+  let nextReward = $derived(ageAdvanceStatus.nextAge ? describeAgeReward(ageAdvanceStatus.nextAge) : []);
+  let nextBonusText = $derived.by(() => {
+    const next = ageAdvanceStatus.nextAge;
+    return next ? describeAgeBonus({ flatTimeReduction: next.bonus.flatTime, outputMult: next.bonus.outputMult }) : "";
+  });
 
   let skillPointEvents = $derived(
     events.filter(
@@ -51,7 +56,7 @@
 
   let ageAdvanceEvents = $derived(
     events.filter(
-      (e): e is QueuedEvent<{ ageName: string; speedPct: number; outputPct: number }> =>
+      (e): e is QueuedEvent<AgeAdvanceEventData> =>
         e.type === "ageAdvance",
     ),
   );
@@ -90,15 +95,13 @@
     <div class="flex items-center gap-3">
       <h1 class="text-lg font-bold tracking-tight">Civdle</h1>
       <Badge variant="secondary" class="text-sm">{age.name}</Badge>
-      {#if ageIndex > 0}
-        <span class="text-xs text-muted-foreground">
-          -{timeReductionPct}% time, +{outputBonusPct}% output
-        </span>
+      {#if bonusText}
+        <span class="text-xs text-muted-foreground">{bonusText}</span>
       {/if}
       {#each ageAdvanceEvents as event (event.id)}
         <FloatingText
           id={event.id}
-          text={`+${event.data.speedPct}% Speed`}
+          text={event.data.bonusText}
           class="text-sm text-amber-400"
           duration={1400}
           onDone={onDismissEvent}
@@ -158,6 +161,14 @@
             {item.met ? "✓ " : ""}{item.label}{!item.met
               ? ` (${item.current}/${item.required})`
               : ""}
+          </span>
+        {/each}
+      </div>
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <span class="font-semibold text-amber-300">Reward</span>
+        {#each [nextBonusText, ...nextReward].filter(Boolean) as reward (reward)}
+          <span class="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-amber-300">
+            {reward}
           </span>
         {/each}
       </div>

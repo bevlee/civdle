@@ -3,7 +3,7 @@
   import { tick, untrack } from "svelte";
   import { attackMotion, blinkDistance, projectilePath, timeline } from "$lib/combatAnimation";
   import { DEPTHS_SPOILS_PER_TIER, DEPTHS_TIER_SIZE, FACTIONS, GACHA_COST, MAX_ENEMY_LEVEL, PACK_COST, PARTY_SIZE, ULTIMATES, UNITS, isBossLevel, regionForLevel, type AttackType, type UnitCard } from "$lib/combatData";
-  import { LEGENDARY_PACK_COST } from "$lib/gameState.svelte";
+  import { LEGENDARY_PACK_COST, LEGENDARY_SINGLE_COST } from "$lib/gameState.svelte";
   import type { BattleMode, BattleState, Fighter, Hit } from "$lib/combatEngine";
   import { isFrontRow, POSITIONS } from "$lib/position";
   import type { CivdleGame } from "$lib/gameState.svelte";
@@ -370,9 +370,9 @@
     </section>
 
     <ArmyInventory cards={gacha.cards} {partyIds} gold={gacha.gold} rollCost={GACHA_COST} packCost={PACK_COST}
-      maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.hasCelestialAltar} legendaryPackCost={LEGENDARY_PACK_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
+      maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.hasCelestialAltar} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
       onDragStart={startDrag} onDragEnd={endDrag} onDragOverChange={over => dragOverInventory = over} onDrop={inventoryDrop}
-      onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} />
+      onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} />
   </div>
 
   <aside class="battle-sidebar" aria-label="Battle report">

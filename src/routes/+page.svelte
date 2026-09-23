@@ -140,8 +140,9 @@
               ? 'border-b-2 border-primary text-foreground'
               : 'text-muted-foreground hover:text-foreground'}"
             onclick={() => (centerTab = "story")}
+            title={game.combatUnlocked ? undefined : "Unlocks in the Bronze Age"}
           >
-            Campaign
+            {game.combatUnlocked ? "" : "🔒 "}Campaign
           </button>
           <button
             class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
@@ -149,8 +150,9 @@
               ? 'border-b-2 border-primary text-foreground'
               : 'text-muted-foreground hover:text-foreground'}"
             onclick={() => (centerTab = "depths")}
+            title={game.combatUnlocked ? undefined : "Unlocks in the Bronze Age"}
           >
-            The Abyss
+            {game.combatUnlocked ? "" : "🔒 "}The Abyss
           </button>
           <button
             class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
@@ -192,6 +194,15 @@
             <div class="flex flex-1 items-center justify-center p-6">
               <p class="text-muted-foreground">
                 Select a skill to begin training.
+              </p>
+            </div>
+          {:else if (centerTab === "story" || centerTab === "depths") && !game.combatUnlocked}
+            <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+              <p class="text-2xl">🔒</p>
+              <p class="font-semibold">Unlocks in the Bronze Age</p>
+              <p class="max-w-sm text-sm text-muted-foreground">
+                Advance your civilization to raise an army. Reaching the Bronze Age opens the Campaign
+                and The Abyss, and a 4★ hero joins your cause.
               </p>
             </div>
           {:else if centerTab === "story"}
