@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Civdle
 
-## Getting Started
+SvelteKit app, fully client-side (game state lives in localStorage), built with
+`adapter-static` and served by nginx at https://civdle.bevsoft.com.
 
-First, run the development server:
+## Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deployment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Skaffold builds the image (`docker.io/bevdev1/civdle`), pushes it, and applies
+the Kustomize manifests in `k8s/` (namespace, deployment, service, cert-manager
+certificate and Traefik ingress) to the `civdle` namespace.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Release from CI
 
-## Learn More
+Push a version tag and `.github/workflows/deploy.yml` tests, builds, pushes and
+rolls out that tag:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The workflow needs these repository secrets:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Secret | Value |
+| --- | --- |
+| `DOCKERHUB_USERNAME` | `bevdev1` |
+| `DOCKERHUB_TOKEN` | Docker Hub access token with write access |
+| `OKE_CLUSTER_OCID` | OKE cluster OCID |
+| `OCI_CLI_USER` | OCI user OCID |
+| `OCI_CLI_TENANCY` | OCI tenancy OCID |
+| `OCI_CLI_FINGERPRINT` | Fingerprint of the API signing key |
+| `OCI_CLI_KEY_CONTENT` | PEM private key of the API signing key |
 
-## Deploy on Vercel
+### Deploy from a laptop
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+skaffold run
+kubectl -n civdle rollout status deployment/civdle --timeout=5m
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Off a release tag the image is tagged with the short commit SHA (plus `-dirty`
+for uncommitted changes).

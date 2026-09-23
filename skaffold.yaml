@@ -1,0 +1,22 @@
+apiVersion: skaffold/v4beta14
+kind: Config
+metadata:
+  name: civdle
+build:
+  # On a release tag (e.g. v0.1.0) the image is tagged with it; otherwise the
+  # short commit SHA, with -dirty for uncommitted changes. CI passes the tag
+  # explicitly via --tag.
+  tagPolicy:
+    gitCommit:
+      variant: Tags
+  artifacts:
+    - image: docker.io/bevdev1/civdle
+      docker:
+        dockerfile: Dockerfile
+deploy:
+  kubectl:
+    defaultNamespace: civdle
+manifests:
+  kustomize:
+    paths:
+      - k8s

@@ -1,0 +1,15 @@
+# Single-host cert: letsencrypt-prod only has an http01 solver, and Let's
+# Encrypt needs dns-01 for wildcards (same as warlords).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: civdle
+  namespace: civdle
+spec:
+  commonName: civdle.bevsoft.com
+  dnsNames:
+    - civdle.bevsoft.com
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-prod
+  secretName: civdle-tls
