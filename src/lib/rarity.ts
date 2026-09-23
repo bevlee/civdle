@@ -21,15 +21,33 @@ export function rarityColor(baseStars: number): string {
   return RARITY_COLORS[Math.max(1, Math.min(5, baseStars))];
 }
 
+export const GOLD_STAR_COLOR = "#facc15";
 export const PURPLE_STAR_COLOR = "oklch(0.7 0.2 300)";
 
-export function starDisplay(stars: number): { count: number; purple: boolean; symbol: string } {
-  if (stars >= 10) return { count: 1, purple: false, symbol: "✦" };
-  if (stars > 5) return { count: stars - 5, purple: true, symbol: "★" };
-  return { count: stars, purple: false, symbol: "★" };
+export type StarTier = "gold" | "purple";
+
+/**
+ * Stars as a row of up to five slots. 1–5★ fill gold slots; each star past 5
+ * recolours one slot purple from the left (7★ = 2 purple + 3 gold), so the row
+ * never shrinks as a unit improves. 10★ is ascended and shown as a single ✦.
+ */
+export function starSlots(stars: number): { slots: StarTier[]; maxed: boolean } {
+  if (stars >= 10) return { slots: [], maxed: true };
+  if (stars > 5) {
+    const purple = stars - 5;
+    return {
+      slots: Array.from({ length: 5 }, (_, i) => (i < purple ? "purple" : "gold")),
+      maxed: false,
+    };
+  }
+  return { slots: Array(Math.max(0, stars)).fill("gold"), maxed: false };
+}
+
+export function starColor(tier: StarTier): string {
+  return tier === "purple" ? PURPLE_STAR_COLOR : GOLD_STAR_COLOR;
 }
 
 export function starString(stars: number): string {
-  const display = starDisplay(stars);
-  return display.symbol.repeat(display.count);
+  const { slots, maxed } = starSlots(stars);
+  return maxed ? "✦" : "★".repeat(slots.length);
 }
