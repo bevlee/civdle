@@ -2,7 +2,8 @@
   import { ATTACK_TYPES, FACTIONS, MAX_STARS, UNITS, type UnitId } from "$lib/combatData";
   import Sprite, { type Pose } from "./Sprite.svelte";
   import { TRAIT_SYNERGIES } from "$lib/traits";
-  import { rarityColor, starDisplay, PURPLE_STAR_COLOR } from "$lib/rarity";
+  import { rarityColor, starString } from "$lib/rarity";
+  import StarRow from "./StarRow.svelte";
   import { cn } from "$lib/utils";
 
   let {
@@ -35,7 +36,6 @@
 
   let def = $derived(UNITS[unitId]);
   let shiny = $derived(stars >= MAX_STARS);
-  let sd = $derived(starDisplay(stars));
   let color = $derived(rarityColor(def.baseStars));
   let type = $derived(ATTACK_TYPES[def.attackType]);
   let hpPct = $derived(
@@ -75,7 +75,7 @@
   )}
   style:border-color={color}
   style:background-color={`color-mix(in oklch, ${FACTIONS[def.faction].color} 18%, var(--card))`}
-  title={`${def.name} ${sd.symbol.repeat(sd.count)} (${stars} stars)${sd.purple ? " (purple)" : ""} · ${type.name}`}
+  title={`${def.name} ${starString(stars)} (${stars}/${MAX_STARS} stars) · ${type.name}`}
 >
   {#if size === "tile"}
     <div class="flex h-full w-full items-end justify-center" role="img" aria-label={def.name}>
@@ -84,13 +84,13 @@
     <div
       class={cn(
         "pointer-events-none absolute inset-x-0 top-0 flex flex-wrap justify-center bg-gradient-to-b from-black/70 to-transparent px-0.5 pt-0.5 pb-1 drop-shadow",
-        ascended ? "text-yellow-300 text-sm" : cn(sd.purple ? "" : "text-yellow-400", STAR_CLASS.tile),
+        ascended ? "text-yellow-300 text-sm" : STAR_CLASS.tile,
       )}
     >
       {#if shiny}
         <span class="card-ascended-star">✦</span>
       {:else}
-        {#each Array(sd.count) as _, i (i)}<span style:color={sd.purple ? PURPLE_STAR_COLOR : undefined}>★</span>{/each}
+        <StarRow {stars} />
       {/if}
     </div>
     <span
@@ -113,11 +113,11 @@
     <div role="img" aria-label={def.name}>
       <Sprite {unitId} {pose} {animate} flip={flipSprite} class="w-full" />
     </div>
-    <div class={cn("flex flex-wrap justify-center px-1 py-0.5 drop-shadow", ascended ? "text-yellow-300" : cn(sd.purple ? "" : "text-yellow-400", STAR_CLASS[size]))}>
+    <div class={cn("flex flex-wrap justify-center px-1 py-0.5 drop-shadow", ascended ? "text-yellow-300" : STAR_CLASS[size])}>
       {#if shiny}
         <span class={cn("card-ascended-star", size === "lg" ? "text-xl" : "text-base")}>✦</span>
       {:else}
-        {#each Array(sd.count) as _, i (i)}<span style:color={sd.purple ? PURPLE_STAR_COLOR : undefined}>★</span>{/each}
+        <StarRow {stars} />
       {/if}
     </div>
     {#if hpPct !== null}

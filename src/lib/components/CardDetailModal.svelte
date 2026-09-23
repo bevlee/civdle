@@ -10,10 +10,11 @@
   } from "$lib/combatData";
   import { RESOURCES } from "$lib/gameData";
   import { activeTraitsForCard, countTraits, tierFor, TRAIT_SYNERGIES } from "$lib/traits";
-  import { RARITY_NAMES, rarityColor, starDisplay, PURPLE_STAR_COLOR } from "$lib/rarity";
+  import { RARITY_NAMES, rarityColor } from "$lib/rarity";
   import { Button } from "$lib/components/ui/button";
   import Hint from "./Hint.svelte";
   import UnitCard from "./UnitCard.svelte";
+  import StarRow from "./StarRow.svelte";
   import HeroStats from "./HeroStats.svelte";
   import type { Fighter } from "$lib/combatEngine";
 
@@ -63,7 +64,6 @@
   let type = $derived(ATTACK_TYPES[def.attackType]);
   let promotionCost = $derived(card.stars < MAX_STARS ? getPromotionCost(card.stars + 1) : null);
   let activeTraits = $derived(activeTraitsForCard(card));
-  let sd = $derived(starDisplay(card.stars));
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onClose();
@@ -96,7 +96,7 @@
           {RARITY_NAMES[def.baseStars]} · {type.icon} {type.name}
         </p>
         <p class="text-xs text-muted-foreground">
-          <span style:color={sd.purple ? PURPLE_STAR_COLOR : "#fcd34d"}>{sd.symbol.repeat(sd.count)}</span> {card.stars}/{MAX_STARS}
+          <StarRow stars={card.stars} ascended={card.ascended} /> {card.stars}/{MAX_STARS}
         </p>
       </div>
 
@@ -177,9 +177,9 @@
             {#if card.stars >= MAX_STARS}
               ✦ Max stars
             {:else if canPromoteNow}
-              ⇈ Promote {card.stars}★ → {card.stars + 1}★
+              + Promote {card.stars}★ → {card.stars + 1}★
             {:else}
-              ⇈ Promote (missing requirements)
+              + Promote (missing requirements)
             {/if}
           </Button>
         </div>

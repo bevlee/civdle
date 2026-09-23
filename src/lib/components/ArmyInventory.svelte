@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { UNITS, type UnitCard as UnitCardT } from "$lib/combatData";
+  import { ATTACK_TYPES, UNITS, type AttackType, type Trait, type UnitCard as UnitCardT } from "$lib/combatData";
+  import { TRAIT_SYNERGIES } from "$lib/traits";
   import { Button } from "$lib/components/ui/button";
   import Hint from "./Hint.svelte";
   import UnitCard from "./UnitCard.svelte";
@@ -7,7 +8,7 @@
   import { BASE_RATES, FEAST_HALL_RATES, GRAND_FEAST_RATES, ROYAL_FEAST_RATES, EMPERORS_BANQUET_RATES, HEROIC_TRIBUTE_RATES, DIVINE_SUMMONS_RATES, type RollRate } from "$lib/settlementData";
   import { rarityColor, RARITY_NAMES } from "$lib/rarity";
 
-  type SortKey = "rarity" | "stars" | "trait" | "name";
+  type SortKey = "stars" | "trait" | "name";
 
   let {
     cards,
@@ -102,7 +103,6 @@
   let activeTierLabel = $derived(RATE_TIERS.find(t => t.rates === rollRates)?.label ?? "Base");
 
   const SORT_LABELS: Record<SortKey, string> = {
-    rarity: "Rarity",
     stars: "Stars",
     trait: "Trait",
     name: "Name",
@@ -113,9 +113,6 @@
     const db = UNITS[b.unitId];
     let c = 0;
     switch (sortKey) {
-      case "rarity":
-        c = da.baseStars - db.baseStars || a.stars - b.stars;
-        break;
       case "stars":
         c = a.stars - b.stars || da.baseStars - db.baseStars;
         break;
@@ -130,7 +127,37 @@
     return sortDesc ? -c : c;
   }
 
-  let sorted = $derived([...cards].sort(compare));
+  let typeFilter = $state<AttackType | "all">("all");
+  let traitFilter = $state<Trait | "all">("all");
+
+  // Only offer traits the player actually owns, with how many cards carry each.
+  let traitOptions = $derived.by(() => {
+    const counts = new Map<Trait, number>();
+    for (const card of cards) {
+      for (const t of UNITS[card.unitId].traits) counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    return [...counts]
+      .map(([id, count]) => ({ id, count, name: TRAIT_SYNERGIES[id].name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+  // Drop a trait filter whose last card was promoted away.
+  $effect(() => {
+    if (traitFilter !== "all" && !traitOptions.some((t) => t.id === traitFilter)) traitFilter = "all";
+  });
+
+  let filtered = $derived(
+    cards.filter((card) => {
+      const def = UNITS[card.unitId];
+      if (typeFilter !== "all" && def.attackType !== typeFilter) return false;
+      if (traitFilter !== "all" && !def.traits.includes(traitFilter)) return false;
+      return true;
+    }),
+  );
+  let isFiltered = $derived(typeFilter !== "all" || traitFilter !== "all");
+  let sorted = $derived([...filtered].sort(compare));
+
+  const TYPE_FILTERS: (AttackType | "all")[] = ["all", "melee", "ranged", "magic"];
 
   let promotable = $derived.by(() => {
     const set = new Set<string>();
@@ -157,7 +184,7 @@
   <div class="flex flex-wrap items-center justify-between gap-2 px-3 pt-2">
     <div class="flex items-center gap-2">
       <h3 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-        Army ({cards.length})
+        Army ({isFiltered ? `${filtered.length}/${cards.length}` : cards.length})
       </h3>
       {#if dropActive}
         <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary">
@@ -166,30 +193,13 @@
       {:else if promotable.size > 0}
         <Hint text="Cards with enough copies to promote. Open one to promote it.">
           <span class="cursor-help rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] text-green-300">
-            ⇈ {promotable.size} promotable
+            <span class="font-black">+</span> {promotable.size} promotable
           </span>
         </Hint>
       {/if}
     </div>
     <div class="flex flex-wrap items-center gap-1.5">
-      <label class="text-[10px] text-muted-foreground" for="army-sort">Sort</label>
-      <select
-        id="army-sort"
-        class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs"
-        bind:value={sortKey}
-      >
-        {#each Object.entries(SORT_LABELS) as [key, label] (key)}
-          <option value={key}>{label}</option>
-        {/each}
-      </select>
-      <button
-        class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs hover:bg-accent"
-        title={sortDesc ? "Descending" : "Ascending"}
-        onclick={() => (sortDesc = !sortDesc)}
-      >
-        {sortDesc ? "▼" : "▲"}
-      </button>
-      <Button size="sm" disabled={locked || gold < rollCost} onclick={onSummon} class="ml-1 h-6 px-2 text-[10px]">
+      <Button size="sm" disabled={locked || gold < rollCost} onclick={onSummon} class="h-6 px-2 text-[10px]">
         Summon {rollCost} ⚔
       </Button>
       <Hint text="Open 10 cards at once">
@@ -246,6 +256,66 @@
     </div>
   </div>
 
+  {#if cards.length > 0}
+    <div class="flex flex-wrap items-center gap-1.5 px-3">
+      <div class="flex overflow-hidden rounded border border-border" role="group" aria-label="Filter by attack type">
+        {#each TYPE_FILTERS as t (t)}
+          <button
+            class={cn(
+              "px-1.5 py-0.5 text-xs transition-colors",
+              typeFilter === t ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent",
+            )}
+            aria-pressed={typeFilter === t}
+            title={t === "all" ? "All attack types" : ATTACK_TYPES[t].name}
+            onclick={() => (typeFilter = t)}
+          >
+            {t === "all" ? "All" : `${ATTACK_TYPES[t].icon} ${ATTACK_TYPES[t].name}`}
+          </button>
+        {/each}
+      </div>
+      <select
+        class={cn(
+          "rounded border bg-muted px-1.5 py-0.5 text-xs",
+          traitFilter === "all" ? "border-border" : "border-primary",
+        )}
+        aria-label="Filter by trait"
+        bind:value={traitFilter}
+      >
+        <option value="all">All traits</option>
+        {#each traitOptions as t (t.id)}
+          <option value={t.id}>{t.name} ({t.count})</option>
+        {/each}
+      </select>
+      {#if isFiltered}
+        <button
+          class="text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          onclick={() => { typeFilter = "all"; traitFilter = "all"; }}
+        >
+          Clear
+        </button>
+      {/if}
+      <div class="ml-auto flex items-center gap-1.5">
+        <label class="text-[10px] text-muted-foreground" for="army-sort">Sort</label>
+        <select
+          id="army-sort"
+          class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs"
+          bind:value={sortKey}
+        >
+          {#each Object.entries(SORT_LABELS) as [key, label] (key)}
+            <option value={key}>{label}</option>
+          {/each}
+        </select>
+        <button
+          class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs hover:bg-accent"
+          title={sortDesc ? "Descending" : "Ascending"}
+          onclick={() => (sortDesc = !sortDesc)}
+        >
+          {sortDesc ? "▼" : "▲"}
+        </button>
+      </div>
+    </div>
+  {/if}
+
   {#if showRates}
     <div class="mx-3 rounded-lg border border-border bg-muted/40 p-3">
       <div class="mb-2 flex items-center justify-between">
@@ -291,7 +361,12 @@
   {/if}
 
   <div class="max-h-60 overflow-y-auto px-3 pb-1">
-    {#if sorted.length === 0}
+    {#if cards.length > 0 && sorted.length === 0}
+      <p class="py-6 text-center text-sm text-muted-foreground">
+        No units match these filters.
+        <button class="underline underline-offset-2 hover:text-foreground" onclick={() => { typeFilter = "all"; traitFilter = "all"; }}>Clear filters</button>
+      </p>
+    {:else if sorted.length === 0}
       <p class="py-6 text-center text-sm text-muted-foreground">
         No units yet — summon one with Tribute.{gold < rollCost ? " Win battles to earn more." : ""}
       </p>
@@ -318,7 +393,7 @@
               <span class="absolute -top-1 -left-1 rounded bg-primary px-1 text-[9px] font-bold text-primary-foreground">P</span>
             {/if}
             {#if promotable.has(card.id)}
-              <span class="absolute -right-1 -bottom-1 rounded-full bg-green-500 px-1 text-[9px] font-bold text-black" title="Copies available for promotion">⇈</span>
+              <span class="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-xs leading-none font-black text-white shadow ring-2 ring-background" title="Copies available for promotion">+</span>
             {/if}
           </button>
         {/each}
