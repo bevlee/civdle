@@ -156,26 +156,26 @@
 >
   <div class="flex flex-wrap items-center justify-between gap-2 px-3 pt-2">
     <div class="flex items-center gap-2">
-      <h3 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+      <h3 class="text-[17px] font-semibold tracking-wider text-muted-foreground uppercase">
         Army ({cards.length})
       </h3>
       {#if dropActive}
-        <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary">
+        <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[15px] text-primary">
           Drop here to remove from battlefield
         </span>
       {:else if promotable.size > 0}
         <Hint text="Cards with enough copies to promote. Open one to promote it.">
-          <span class="cursor-help rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] text-green-300">
+          <span class="cursor-help rounded bg-green-500/20 px-1.5 py-0.5 text-[15px] text-green-300">
             ⇈ {promotable.size} promotable
           </span>
         </Hint>
       {/if}
     </div>
     <div class="flex flex-wrap items-center gap-1.5">
-      <label class="text-[10px] text-muted-foreground" for="army-sort">Sort</label>
+      <label class="text-[15px] text-muted-foreground" for="army-sort">Sort</label>
       <select
         id="army-sort"
-        class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs"
+        class="rounded border border-border bg-muted px-1.5 py-0.5 text-[17px]"
         bind:value={sortKey}
       >
         {#each Object.entries(SORT_LABELS) as [key, label] (key)}
@@ -183,13 +183,13 @@
         {/each}
       </select>
       <button
-        class="rounded border border-border bg-muted px-1.5 py-0.5 text-xs hover:bg-accent"
+        class="rounded border border-border bg-muted px-1.5 py-0.5 text-[17px] hover:bg-accent"
         title={sortDesc ? "Descending" : "Ascending"}
         onclick={() => (sortDesc = !sortDesc)}
       >
         {sortDesc ? "▼" : "▲"}
       </button>
-      <Button size="sm" disabled={locked || gold < rollCost} onclick={onSummon} class="ml-1 h-6 px-2 text-[10px]">
+      <Button size="sm" disabled={locked || gold < rollCost} onclick={onSummon} class="ml-1 h-8 px-2.5 text-[15px]">
         Summon {rollCost} ⚔
       </Button>
       <Hint text="Open 10 cards at once">
@@ -198,7 +198,7 @@
           variant="outline"
           disabled={locked || gold < packCost}
           onclick={onOpenPack}
-          class="h-6 px-2 text-[10px]"
+          class="h-8 px-2.5 text-[15px]"
         >
           Open 10 · {packCost} ⚔
         </Button>
@@ -210,7 +210,7 @@
             variant="outline"
             disabled={locked || glory < legendarySingleCost}
             onclick={onLegendarySummon}
-            class="h-6 border-yellow-500/40 px-2 text-[10px] text-yellow-300 hover:bg-yellow-500/10"
+            class="h-8 border-yellow-500/40 px-2 text-[15px] text-yellow-300 hover:bg-yellow-500/10"
           >
             5★ · {legendarySingleCost} Glory
           </Button>
@@ -223,7 +223,7 @@
             variant="outline"
             disabled={locked || glory < legendaryPackCost}
             onclick={onOpenLegendaryPack}
-            class="h-6 border-yellow-500/40 px-2 text-[10px] text-yellow-300 hover:bg-yellow-500/10"
+            class="h-8 border-yellow-500/40 px-2 text-[15px] text-yellow-300 hover:bg-yellow-500/10"
           >
             10× 5★ · {legendaryPackCost} Glory
           </Button>
@@ -231,13 +231,13 @@
       {/if}
       {#if maxStars < 5}
         <Hint title="Star cap" text="Advance to the Iron Age for 4★ and Medieval for 5★ summons.">
-          <span class="cursor-help rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+          <span class="cursor-help rounded bg-amber-500/20 px-1.5 py-0.5 text-[15px] font-semibold text-amber-300">
             Max {maxStars}★
           </span>
         </Hint>
       {/if}
       <button
-        class="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground"
+        class="rounded border border-border bg-muted px-1.5 py-0.5 text-[15px] text-muted-foreground hover:bg-accent hover:text-foreground"
         onclick={() => showRates = !showRates}
         aria-expanded={showRates}
       >
@@ -249,11 +249,11 @@
   {#if showRates}
     <div class="mx-3 rounded-lg border border-border bg-muted/40 p-3">
       <div class="mb-2 flex items-center justify-between">
-        <span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Summon Rates</span>
-        <button class="text-[10px] text-muted-foreground hover:text-foreground" onclick={() => showRates = false}>Close</button>
+        <span class="text-[17px] font-semibold tracking-wider text-muted-foreground uppercase">Summon Rates</span>
+        <button class="text-[15px] text-muted-foreground hover:text-foreground" onclick={() => showRates = false}>Close</button>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-[11px]">
+        <table class="w-full text-[16px]">
           <thead>
             <tr class="text-left text-muted-foreground">
               <th class="pb-1 pr-3 font-medium">Rarity</th>
@@ -282,7 +282,7 @@
         </table>
       </div>
       {#if maxStars < 5}
-        <p class="mt-2 text-[10px] text-muted-foreground">
+        <p class="mt-2 text-[15px] text-muted-foreground">
           {maxStars < 4 ? "Advance to the Iron Age to unlock 4★ units, then Medieval for 5★." : "Advance to Medieval to unlock 5★ units."}
           Rates above max star are redistributed to lower tiers.
         </p>
@@ -290,13 +290,13 @@
     </div>
   {/if}
 
-  <div class="max-h-60 overflow-y-auto px-3 pb-1">
+  <div class="max-h-[26rem] overflow-y-auto px-3 pb-1">
     {#if sorted.length === 0}
-      <p class="py-6 text-center text-sm text-muted-foreground">
+      <p class="py-6 text-center text-[19px] text-muted-foreground">
         No units yet — summon one with Tribute.{gold < rollCost ? " Win battles to earn more." : ""}
       </p>
     {:else}
-      <div class="flex flex-wrap gap-1.5 pt-1">
+      <div class="flex flex-wrap gap-2 pt-1.5">
         {#each sorted as card (card.id)}
           {@const inParty = partyIds.has(card.id)}
           <button
@@ -313,17 +313,17 @@
             aria-label={`${UNITS[card.unitId].name}, ${card.stars} stars${inParty ? ", deployed" : ""}`}
             title={`${UNITS[card.unitId].name} — drag onto the battlefield, or click for details`}
           >
-            <UnitCard unitId={card.unitId} stars={card.stars} ascended={card.ascended} size="tile" class="h-14 w-14 rounded-md border" />
+            <UnitCard unitId={card.unitId} stars={card.stars} ascended={card.ascended} size="tile" class="h-24 w-24 rounded-md border" />
             {#if inParty}
-              <span class="absolute -top-1 -left-1 rounded bg-primary px-1 text-[9px] font-bold text-primary-foreground">P</span>
+              <span class="absolute -top-1 -left-1 rounded bg-primary px-1 text-[14px] font-bold text-primary-foreground">P</span>
             {/if}
             {#if promotable.has(card.id)}
-              <span class="absolute -right-1 -bottom-1 rounded-full bg-green-500 px-1 text-[9px] font-bold text-black" title="Copies available for promotion">⇈</span>
+              <span class="absolute -right-1 -bottom-1 rounded-full bg-green-500 px-1 text-[14px] font-bold text-black" title="Copies available for promotion">⇈</span>
             {/if}
           </button>
         {/each}
       </div>
     {/if}
   </div>
-  <p class="px-3 pb-2 text-[10px] text-muted-foreground">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or select an empty position and then a card."}</p>
+  <p class="px-3 pb-2 text-[15px] text-muted-foreground">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or select an empty position and then a card."}</p>
 </div>

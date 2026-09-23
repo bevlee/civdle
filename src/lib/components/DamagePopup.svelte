@@ -28,11 +28,11 @@
 
 <span
   class={cn(
-    "animate-popup pointer-events-none absolute top-1 left-1/2 z-20 whitespace-nowrap drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]",
-    heal !== undefined && "text-sm font-semibold text-green-400",
-    hit?.dodged && "text-xs font-medium text-muted-foreground italic",
-    hit && !hit.dodged && !hit.crit && "text-sm font-medium text-red-300",
-    hit && !hit.dodged && hit.crit && "text-lg font-black text-red-400",
+    "animate-popup pointer-events-none absolute bottom-full left-1/2 z-20 whitespace-nowrap drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]",
+    heal !== undefined && "text-[22px] font-semibold text-green-400",
+    hit?.dodged && "text-[20px] font-medium text-muted-foreground italic",
+    hit && !hit.dodged && !hit.crit && "text-[22px] font-medium text-red-300",
+    hit && !hit.dodged && hit.crit && "text-[26px] font-black text-red-400",
     hit && isUltimate && !hit.dodged && "text-orange-300",
   )}
 >
@@ -42,7 +42,7 @@
     MISS
   {:else if hit}
     {hit.damage}{hit.crit ? " crit!" : ""}
-    {#if hit.strong}<span class="text-[10px] font-bold text-red-500">Strong</span>{/if}
-    {#if hit.weak}<span class="text-[10px] font-bold text-sky-300/70">Weak</span>{/if}
+    {#if hit.strong}<span class="text-[18px] font-bold text-red-500">Strong</span>{/if}
+    {#if hit.weak}<span class="text-[18px] font-bold text-sky-300/70">Weak</span>{/if}
   {/if}
 </span>

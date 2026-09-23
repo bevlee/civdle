@@ -28,7 +28,7 @@
     {@render children()}
   </Tooltip.Trigger>
   <Tooltip.Content side="bottom">
-    <div class="flex min-w-40 flex-col gap-1 text-xs">
+    <div class="flex min-w-40 flex-col gap-1 text-[17px]">
       <div class="flex justify-between gap-4">
         <span class="text-muted-foreground">Base {label}</span>
         <span class="tabular-nums">{format(base)}</span>

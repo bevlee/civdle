@@ -49,8 +49,8 @@
 <style>
   .battle-unit { display: flex; flex-direction: column; align-items: center; width: 100%; user-select: none; }
   .unit-sprite { height: 64px; display: flex; justify-content: center; filter: drop-shadow(0 5px 4px #0008); pointer-events: none; }
-  .unit-name { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 600; line-height: 15px; }
-  .unit-stars { color: #f6d453; font-size: 9px; line-height: 11px; letter-spacing: -1px; }
+  .unit-name { max-width: 124px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 19px; font-weight: 600; line-height: 23px; }
+  .unit-stars { color: #f6d453; font-size: 17px; line-height: 19px; letter-spacing: -1px; }
   .unit-health { width: 50px; height: 3px; background: #ffffff12; margin-top: 4px; border-radius: 4px; overflow: hidden; }
   .unit-health > div { height: 100%; background: #92bd90; transition: width 250ms; }
   .unit-health > div.enemy { background: #c47d79; }
@@ -58,10 +58,10 @@
   .ultimate-charge > span { width: 5px; height: 5px; border-radius: 50%; background: #ffffff12; border: 1px solid #ffffff25; }
   .ultimate-charge > span.filled { background: #b1a3d8; border-color: #b1a3d8; }
   .ultimate-charge.ready > span.filled, .ultimate-charge.casting > span { background: #f1ca72; border-color: #f1ca72; }
-  .ultimate-charge small { position: absolute; top: 10px; white-space: nowrap; font-size: 8px; line-height: 10px; color: #f1ca72; }
+  .ultimate-charge small { position: absolute; top: 14px; white-space: nowrap; font-size: 16px; line-height: 18px; color: #f1ca72; }
   .ascended { filter: drop-shadow(0 0 8px oklch(0.85 0.2 85 / 0.6)) drop-shadow(0 5px 4px #0008); }
-  .ascended-star { color: #fcd34d; font-size: 12px; letter-spacing: 0; }
+  .ascended-star { color: #fcd34d; font-size: 20px; letter-spacing: 0; }
   .defeated { opacity: .35; filter: grayscale(1); }
   .ghost { opacity: .4; }
-  @media (max-width: 640px) { .unit-sprite { height: 64px; } .unit-name { font-size: 10px; max-width: 80px; } }
+  @media (max-width: 640px) { .unit-sprite { height: 64px; } .unit-name { font-size: 15px; max-width: 80px; } }
 </style>

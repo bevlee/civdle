@@ -46,13 +46,13 @@
   );
 
   const SIZE_CLASS = {
-    tile: "w-16 h-16",
+    tile: "w-24 h-24",
     sm: "w-24",
     md: "w-32",
     lg: "w-48",
   } as const;
   const STAR_CLASS = {
-    tile: "text-[8px] leading-[9px]",
+    tile: "text-[13px] leading-[14px]",
     sm: "text-[10px] leading-3",
     md: "text-xs leading-3.5",
     lg: "text-base leading-5",
@@ -84,7 +84,7 @@
     <div
       class={cn(
         "pointer-events-none absolute inset-x-0 top-0 flex flex-wrap justify-center bg-gradient-to-b from-black/70 to-transparent px-0.5 pt-0.5 pb-1 drop-shadow",
-        ascended ? "text-yellow-300 text-sm" : cn(sd.purple ? "" : "text-yellow-400", STAR_CLASS.tile),
+        ascended ? "text-yellow-300 text-[19px]" : cn(sd.purple ? "" : "text-yellow-400", STAR_CLASS.tile),
       )}
     >
       {#if shiny}
@@ -94,7 +94,7 @@
       {/if}
     </div>
     <span
-      class="absolute right-0.5 bottom-0.5 rounded bg-black/60 px-0.5 text-[9px] leading-3"
+      class="absolute bottom-0.5 left-0.5 rounded bg-black/60 px-0.5 text-[14px] leading-[18px]"
       title={type.name}
     >
       {type.icon}
