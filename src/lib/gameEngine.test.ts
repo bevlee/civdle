@@ -35,23 +35,23 @@ function stateWith(patch: (s: GameState) => void): GameState {
 
 describe("XP per action", () => {
   it("scales XP with level using exponential growth", () => {
-    expect(XP_PER_ACTION).toBe(3);
-    expect(XP_SCALING_RATE).toBe(1.12);
+    expect(XP_PER_ACTION).toBe(10);
+    expect(XP_SCALING_RATE).toBe(1.1);
     const r = computeActionResult("foraging", 1, [], 0, "forage");
-    expect(r?.baseXp).toBe(Math.round(3 * Math.pow(1.12, 1)));
+    expect(r?.baseXp).toBe(Math.round(10 * Math.pow(1.1, 1)));
     expect(r?.xp).toBe(r?.baseXp);
     expect(r?.xpModifiers).toEqual([]);
   });
 
   it("starts at base XP at level 0", () => {
     const r = computeActionResult("foraging", 0, [], 0, "forage");
-    expect(r?.baseXp).toBe(3);
-    expect(r?.xp).toBe(3);
+    expect(r?.baseXp).toBe(10);
+    expect(r?.xp).toBe(10);
   });
 
   it("applies a skill xpMult upgrade on top of level scaling", () => {
     const r = computeActionResult("cooking", 1, ["seasoning"], 0, "cookedFish");
-    const scaledBase = Math.round(3 * Math.pow(1.12, 1));
+    const scaledBase = Math.round(10 * Math.pow(1.1, 1));
     expect(r?.baseXp).toBe(scaledBase);
     expect(r?.xp).toBe(Math.round(scaledBase * 1.5));
     expect(r?.xpModifiers).toEqual([{ source: "Seasoning", effect: "×1.5" }]);
@@ -59,7 +59,7 @@ describe("XP per action", () => {
 
   it("doubles XP with the Wisdom global upgrade", () => {
     const r = computeActionResult("foraging", 1, [], 0, "forage", ["wisdom"]);
-    const scaledBase = Math.round(3 * Math.pow(1.12, 1));
+    const scaledBase = Math.round(10 * Math.pow(1.1, 1));
     expect(r?.xp).toBe(Math.round(scaledBase * 2));
     expect(r?.xpModifiers).toEqual([{ source: "Wisdom", effect: "×2" }]);
   });
@@ -67,7 +67,7 @@ describe("XP per action", () => {
   it("adds the rolled XP to the skill on applyAction", () => {
     const s = createInitialState();
     const out = applyAction(s, "foraging", () => 0.99);
-    expect(out.state.skills.foraging.xp).toBe(Math.round(3 * Math.pow(1.12, 0)));
+    expect(out.state.skills.foraging.xp).toBe(Math.round(10 * Math.pow(1.1, 0)));
   });
 });
 
@@ -332,6 +332,7 @@ describe("ages", () => {
       s.ageIndex = ageIndex;
       s.skills.mining.xp = xpForLevel(60);
       s.skills.smithing.xp = xpForLevel(60);
+      s.skills.smithing.unlocked = true;
       for (const cost of Object.values(AGE_ADVANCE_COSTS)) {
         for (const c of cost) s.resources[c.resource] = 1000;
       }
