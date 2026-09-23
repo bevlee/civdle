@@ -34,7 +34,7 @@
   let storyRecruit = $derived(gacha.encounter ? strongestEnemy(gacha.encounter) : null);
   let storyRewardText = $derived(
     `+${storyTribute(gacha.storyLevel)} Tribute` +
-      (storyRecruit ? ` · ${UNITS[storyRecruit.unitId].name} ${storyRecruit.stars}★ joins you` : ""),
+      (storyRecruit ? ` · ${UNITS[storyRecruit.unitId].name} ${UNITS[storyRecruit.unitId].baseStars}★ joins you` : ""),
   );
   let nextTierAt = $derived((Math.floor(game.depthsCleared / DEPTHS_TIER_SIZE) + 1) * DEPTHS_TIER_SIZE);
   let canFight = $derived(!formationLocked && partyCards.length > 0 && !(mode === "story" && game.storyComplete));

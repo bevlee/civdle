@@ -8,7 +8,7 @@ import {
   LEGENDARY_SINGLE_COST,
   TRIBUTE_LEGENDARY_PACK_COST,
 } from "./gameState.svelte";
-import { createCard, GACHA_COST, PACK_COST, PACK_SIZE, strongestEnemy } from "./combatData";
+import { createCard, GACHA_COST, PACK_COST, PACK_SIZE, UNITS, strongestEnemy } from "./combatData";
 import { AGE_ADVANCE_COSTS } from "./gameData";
 import { computeActionResult, xpForLevel } from "./gameEngine";
 
@@ -101,7 +101,7 @@ describe("story Tribute rewards", () => {
     const cards = game.state.gacha.cards;
     expect(cards).toHaveLength(before + 1);
     const recruit = cards[cards.length - 1];
-    expect(recruit).toMatchObject({ unitId: expected.unitId, stars: expected.stars });
+    expect(recruit).toMatchObject({ unitId: expected.unitId, stars: UNITS[expected.unitId].baseStars });
     expect(recruit.id).not.toBe(expected.id);
   });
 });

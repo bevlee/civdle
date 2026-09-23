@@ -220,7 +220,7 @@ export const GACHA_COST = 10;
 export const PACK_SIZE = 10;
 // A 10-pack is one summon cheaper than ten singles.
 export const PACK_COST = 90;
-export const STARTING_GOLD = 10;
+export const STARTING_GOLD = 100;
 
 // Ordered rarest-first so cumulative rolling is straightforward.
 export const ROLL_RATES: { stars: number; rate: number }[] = [
@@ -526,6 +526,11 @@ export function generateStoryEncounter(level: number, rand: () => number = Math.
 
 export const STORY_TRIBUTE_PER_LEVEL = 10;
 
+/** The card a campaign win adds to the army: the strongest enemy at its base stars. */
+export function recruitCard(encounter: Encounter): UnitCard {
+  return createCard(strongestEnemy(encounter).unitId);
+}
+
 /** Tribute paid for winning a campaign level. */
 export function storyTribute(level: number): number {
   return level * STORY_TRIBUTE_PER_LEVEL;
@@ -533,7 +538,8 @@ export function storyTribute(level: number): number {
 
 /**
  * The enemy a campaign win recruits: the boss if there is one, otherwise the
- * highest-star enemy, ties broken by the unit's base stats.
+ * highest-star enemy, ties broken by the unit's base stats. It joins at its
+ * natural rarity (see recruitCard), not the enemy's boosted stars.
  */
 export function strongestEnemy(encounter: Encounter): UnitCard {
   const boss = encounter.cards.find((c) => c.id === encounter.bossId);

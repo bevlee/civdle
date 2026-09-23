@@ -56,8 +56,8 @@ import {
   generateDepthsEncounter,
   generateStoryEncounter,
   getPromotionCost,
+  recruitCard,
   storyTribute,
-  strongestEnemy,
   promoteCard,
   rollCard,
   type UnitCard,
@@ -962,10 +962,10 @@ export class CivdleGame {
       return;
     }
     const storyLevel = g.storyLevel + 1;
-    const recruit = g.encounter ? strongestEnemy(g.encounter) : null;
+    const recruit = g.encounter ? recruitCard(g.encounter) : null;
     this.#setGacha({
       gold: g.gold + storyTribute(g.storyLevel),
-      cards: recruit ? [...g.cards, createCard(recruit.unitId, recruit.stars)] : g.cards,
+      cards: recruit ? [...g.cards, recruit] : g.cards,
       storyLevel,
       encounter: storyLevel <= MAX_ENEMY_LEVEL ? generateStoryEncounter(storyLevel) : null,
       battle: null,

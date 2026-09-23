@@ -33,6 +33,7 @@ import {
   regionForLevel,
   rollCard,
   rollRarity,
+  recruitCard,
   storyTribute,
   strongestEnemy,
   unitStrength,
@@ -250,9 +251,12 @@ describe("campaign rewards", () => {
     expect([1, 5, 30].map(storyTribute)).toEqual([10, 50, 300]);
   });
 
-  it("recruits the boss from a boss encounter", () => {
-    const enc = generateStoryEncounter(10, lcg(3));
+  it("recruits the boss from a boss encounter, at 5★ rather than its boss stars", () => {
+    const enc = generateStoryEncounter(30, lcg(3));
     expect(strongestEnemy(enc).id).toBe(enc.bossId);
+    const boss = enc.cards.find((c) => c.id === enc.bossId)!;
+    expect(boss.stars).toBe(10);
+    expect(recruitCard(enc)).toMatchObject({ unitId: boss.unitId, stars: 5 });
   });
 
   it("otherwise recruits the highest-star enemy, then the strongest unit", () => {
