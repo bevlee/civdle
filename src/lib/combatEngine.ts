@@ -255,7 +255,7 @@ export function stepBattle(state: BattleState, rand: () => number = Math.random)
           actor.stats.healingDone += ls;
         }
         log.push({
-          text: `${actor.name} unleashes an ULTIMATE on ${target.name} for ${damage}${crit ? " (crit!)" : ""}${typeMult > 1 ? " ▲" : ""}`,
+          text: `${actor.name} unleashes an ULTIMATE on ${target.name} for ${damage}${crit ? " crit!" : ""}${typeMult > 1 ? " (strong)" : typeMult < 1 ? " (weak)" : ""}`,
           type: "ultimate",
         });
         if (killed) log.push({ text: `${target.name} is defeated!`, type: "death" });
@@ -286,7 +286,7 @@ export function stepBattle(state: BattleState, rand: () => number = Math.random)
           actor.stats.healingDone += ls;
         }
         log.push({
-          text: `${actor.name} attacks ${target.name} for ${damage}${crit ? " (crit!)" : ""}${typeMult > 1 ? " ▲" : ""}`,
+          text: `${actor.name} attacks ${target.name} for ${damage}${crit ? " crit!" : ""}${typeMult > 1 ? " (strong)" : typeMult < 1 ? " (weak)" : ""}`,
           type: "attack",
         });
         if (killed) log.push({ text: `${target.name} is defeated!`, type: "death" });
