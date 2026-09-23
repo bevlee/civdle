@@ -26,7 +26,7 @@ import {
   getAgeBonus,
   getSkillEligibleAgeIndex,
   getSkillLevels,
-  getTributeCap,
+  getTreasuryMultiplier,
   hasMaxedSkill,
   migrateUpgradeIds,
   processOfflineProgress,
@@ -282,11 +282,10 @@ export class CivdleGame {
     if (!gacha.depths.encounter) {
       gacha = { ...gacha, depths: { ...gacha.depths, encounter: generateDepthsEncounter(gacha.depths.level) } };
     }
-    // Passive Depths income keeps flowing while away, clamped to tribute cap.
+    // Passive Depths income keeps flowing while away, boosted by treasury.
     const offlineTicks = Math.floor(Math.max(0, elapsedSeconds * 1000) / DEPTHS_INCOME_INTERVAL_MS);
-    const rawOfflineSpoils = offlineTicks * depthsIncomePerMinute(gacha.depths.level - 1);
-    const offlineCap = getTributeCap(finalState);
-    const offlineSpoils = Math.min(rawOfflineSpoils, Math.max(0, offlineCap - gacha.gold));
+    const treasuryMult = getTreasuryMultiplier(finalState);
+    const offlineSpoils = offlineTicks * depthsIncomePerMinute(gacha.depths.level - 1) * treasuryMult;
     if (offlineSpoils > 0) gacha = { ...gacha, gold: gacha.gold + offlineSpoils };
     finalState = { ...finalState, gacha };
     this.state = finalState;
@@ -520,11 +519,8 @@ export class CivdleGame {
   #tickDepthsIncome(): void {
     const amount = this.depthsIncome;
     if (amount <= 0) return;
-    const cap = this.tributeCap;
-    const current = this.state.gacha.gold;
-    if (current >= cap) return;
-    const gained = Math.min(amount, cap - current);
-    this.#setGacha({ gold: current + gained });
+    const gained = amount * getTreasuryMultiplier(this.state);
+    this.#setGacha({ gold: this.state.gacha.gold + gained });
     this.eventQueue.emit<SpoilsGainEventData>("spoilsGain", { amount: gained });
   }
 
@@ -641,8 +637,8 @@ export class CivdleGame {
     return getEffectiveRollRates(this.#settlementSet);
   }
 
-  get tributeCap(): number {
-    return getTributeCap(this.state);
+  get treasuryMultiplier(): number {
+    return getTreasuryMultiplier(this.state);
   }
 
   get maxSummonStars(): number {
@@ -885,7 +881,7 @@ export class CivdleGame {
     }
     const storyLevel = g.storyLevel + 1;
     this.#setGacha({
-      gold: g.gold + Math.min(g.storyLevel, Math.max(0, this.tributeCap - g.gold)),
+      gold: g.gold + g.storyLevel,
       storyLevel,
       encounter: storyLevel <= MAX_ENEMY_LEVEL ? generateStoryEncounter(storyLevel) : null,
       battle: null,

@@ -230,8 +230,9 @@
   <div class="combat-main">
     <header class="combat-header">
       <div class="level-heading">
-        <h2>{mode === "story" ? game.storyComplete ? "Campaign complete" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</h2>
-        {#if mode === "depths"}<span>+{game.depthsIncome} ⚔ / min · next tier at depth {nextTierAt}</span>
+        <h2>{mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</h2>
+        {#if mode === "depths"}<span>+{game.depthsIncome * game.treasuryMultiplier} ⚔ / min{game.treasuryMultiplier > 1 ? " (2× Treasury)" : ""} · next tier at depth {nextTierAt}</span>
+        {#if mode === "depths"}<p class="text-[11px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
         {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}+{gacha.storyLevel} Tribute</span>{/if}
       </div>
       <div class="battle-controls">
@@ -331,7 +332,7 @@
               </div>
             {/if}
           {/each}
-          {#if !encounter}<p class="story-complete">All {MAX_ENEMY_LEVEL} campaign levels conquered.<br />The Depths await.</p>{/if}
+          {#if !encounter}<p class="story-complete">Victory! You have conquered the strongest enemies of the land.<br />Your legend is written.</p>{/if}
         </div>
         {#each projectiles as projectile (projectile.id)}
           <CombatProjectile playback={game.battlePlayback} {...projectile} onDone={id => projectiles = projectiles.filter(p => p.id !== id)} />
@@ -346,7 +347,7 @@
               <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</p>
               <span class="result-label">{battle?.status === "won" ? "Victory!" : "Defeated"}</span>
               {#if battle?.status === "won"}
-                <span class="result-detail">{mode === "story" ? `+${Math.min(gacha.storyLevel, Math.max(0, game.tributeCap - gacha.gold))} Tribute` : `Depth ${gacha.depths.level} cleared`}</span>
+                <span class="result-detail">{mode === "story" ? `+${gacha.storyLevel} Tribute` : `Depth ${gacha.depths.level} cleared`}</span>
               {:else}
                 <span class="result-detail">Adjust your formation and try again.</span>
               {/if}

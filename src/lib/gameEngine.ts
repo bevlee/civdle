@@ -23,7 +23,7 @@ import {
 import type { GachaState } from "./combatEngine";
 import { createInitialGachaState } from "./combatEngine";
 import type { SettlementUpgradeId } from "./settlementData";
-import { SETTLEMENT_UPGRADES, tributeCap } from "./settlementData";
+import { SETTLEMENT_UPGRADES, treasuryMultiplier } from "./settlementData";
 
 // ---------- XP / level math ----------
 
@@ -683,9 +683,8 @@ export function buySettlementUpgrade(
   };
 }
 
-export function getTributeCap(state: GameState): number {
-  const levels = getSkillLevels(state);
-  return tributeCap(levels.construction, state.settlementUpgrades.includes("treasury"));
+export function getTreasuryMultiplier(state: GameState): number {
+  return treasuryMultiplier(state.settlementUpgrades.includes("treasury"));
 }
 
 export { AGES };

@@ -322,14 +322,14 @@ describe("the depths", () => {
     expect(generateDepthsEncounter(50, rand).cards).toHaveLength(5);
   });
 
-  it("pays 60 spoils per minute for every 5 depths cleared", () => {
+  it("pays 30 base spoils per minute for every 5 depths cleared", () => {
     expect(DEPTHS_TIER_SIZE).toBe(5);
-    expect(DEPTHS_SPOILS_PER_TIER).toBe(60);
+    expect(DEPTHS_SPOILS_PER_TIER).toBe(30);
     expect(depthsIncomePerMinute(0)).toBe(0);
     expect(depthsIncomePerMinute(4)).toBe(0);
-    expect(depthsIncomePerMinute(5)).toBe(60);
-    expect(depthsIncomePerMinute(9)).toBe(60);
-    expect(depthsIncomePerMinute(23)).toBe(240);
+    expect(depthsIncomePerMinute(5)).toBe(30);
+    expect(depthsIncomePerMinute(9)).toBe(30);
+    expect(depthsIncomePerMinute(23)).toBe(120);
   });
 
   it("grants starstone every 25 depths", () => {

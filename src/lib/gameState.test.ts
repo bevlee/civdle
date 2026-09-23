@@ -36,16 +36,11 @@ function finishBattle() {
 
 describe("story Tribute rewards", () => {
   it.each([
-    { gold: 1000, expected: 1000 },
-    { gold: 200, expected: 200 },
-    { gold: 199, expected: 200 },
+    { gold: 1000, expected: 1003 },
+    { gold: 200, expected: 203 },
     { gold: 50, expected: 53 },
-  ])("preserves $gold Tribute and applies only available reward capacity", ({ gold, expected }) => {
-    game.state.skills.construction.xp = xpForLevel(10);
-    game.state.resources = { stone: 100, planks: 50, bricks: 30 };
+  ])("awards storyLevel Tribute with no cap ($gold → $expected)", ({ gold, expected }) => {
     game.state.gacha.gold = gold;
-    game.buySettlementUpgradeAction("treasury");
-    expect(game.tributeCap).toBe(200);
     game.state.gacha.storyLevel = 3;
     equipWinner();
     game.startStoryFight();

@@ -583,7 +583,7 @@ export function generateDepthsEncounter(depth: number, rand: () => number = Math
 
 export const DEPTHS_STARSTONE_INTERVAL = 25;
 export const DEPTHS_TIER_SIZE = 5;
-export const DEPTHS_SPOILS_PER_TIER = 60;
+export const DEPTHS_SPOILS_PER_TIER = 30;
 export const DEPTHS_INCOME_INTERVAL_MS = 60_000;
 
 /** Passive War Spoils per minute for the number of depths cleared. */

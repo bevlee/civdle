@@ -86,7 +86,6 @@
       ageBonus={game.ageBonus}
       skillPoints={game.state.skillPoints}
       warSpoils={game.state.gacha.gold}
-      tributeCap={game.tributeCap}
       levels={game.levels}
       resources={game.state.resources}
       ageAdvanceStatus={game.ageAdvanceStatus}
