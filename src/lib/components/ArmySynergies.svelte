@@ -7,7 +7,6 @@
   const colors: Record<string, string> = { charger: "#dc932e", disruptor: "#c970b7", skirmisher: "#68b5d0", swarm: "#68b493" };
 </script>
 
-<Tooltip.Provider delayDuration={0}>
 <div class="synergies" class:enemy>
   {#each synergies as synergy (synergy.trait)}
     {@const definition = TRAIT_SYNERGIES[synergy.trait]}
@@ -17,7 +16,7 @@
         <span aria-hidden="true">{synergy.tier > 0 ? "✦" : "◇"}</span>
         {definition.name} {synergy.count}/{definition.thresholds[definition.thresholds.length - 1]}
       </Tooltip.Trigger>
-      <Tooltip.Content side="bottom" class="flex-col items-start border border-border bg-popover text-popover-foreground p-3">
+      <Tooltip.Content side="bottom" class="p-3">
         <strong>{definition.name} · {synergy.count} deployed</strong>
         {#each definition.tiers as bonus, index}
           <span class={synergy.tier === index + 1 ? "text-amber-300 font-semibold" : "text-muted-foreground"}>
@@ -29,7 +28,6 @@
   {/each}
   {#if cards.length === 0}<span class="empty">Place units to build synergies</span>{/if}
 </div>
-</Tooltip.Provider>
 
 <style>
   .synergies { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }

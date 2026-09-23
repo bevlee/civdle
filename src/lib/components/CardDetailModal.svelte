@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     ATTACK_TYPES,
-    FACTIONS,
     MAX_STARS,
     UNITS,
     ULTIMATES,
@@ -13,6 +12,7 @@
   import { activeTraitsForCard, countTraits, tierFor, TRAIT_SYNERGIES } from "$lib/traits";
   import { RARITY_NAMES, rarityColor, starDisplay, PURPLE_STAR_COLOR } from "$lib/rarity";
   import { Button } from "$lib/components/ui/button";
+  import Hint from "./Hint.svelte";
   import UnitCard from "./UnitCard.svelte";
   import HeroStats from "./HeroStats.svelte";
   import type { Fighter } from "$lib/combatEngine";
@@ -89,11 +89,11 @@
         <h3 class="text-lg font-bold">
           {def.name}
           {#if card.ascended}
-            <span class="ml-1 text-yellow-300" title="Ascended">✦</span>
+            <Hint text="Ascended" class="ml-1 cursor-help"><span class="text-yellow-300">✦</span></Hint>
           {/if}
         </h3>
         <p class="text-xs" style:color={rarityColor(def.baseStars)}>
-          {RARITY_NAMES[def.baseStars]} · {FACTIONS[def.faction].name} · {type.icon} {type.name}
+          {RARITY_NAMES[def.baseStars]} · {type.icon} {type.name}
         </p>
         <p class="text-xs text-muted-foreground">
           <span style:color={sd.purple ? PURPLE_STAR_COLOR : "#fcd34d"}>{sd.symbol.repeat(sd.count)}</span> {card.stars}/{MAX_STARS}
@@ -173,11 +173,6 @@
             class={canPromoteNow ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}
             disabled={!canPromoteNow}
             onclick={() => onPromote?.()}
-            title={card.stars >= MAX_STARS
-              ? "Already at max stars"
-              : canPromoteNow
-                ? `Promote ${card.stars}★ → ${card.stars + 1}★`
-                : "Missing copies or resources"}
           >
             {#if card.stars >= MAX_STARS}
               ✦ Max stars

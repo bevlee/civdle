@@ -74,7 +74,7 @@ export const COMBAT_TOPICS: CombatSlide[] = [
     id: "modes", label: "Progression", title: "Choose your next fight",
     intro: "Campaign and the Depths share your army, but serve different goals.",
     points: [
-      { title: "Campaign", body: "Fight through regions and faction bosses. Wins advance the story and award Tribute." },
+      { title: "Campaign", body: "Fight through regions and their bosses. Wins advance the story and award Tribute." },
       { title: "The Depths", body: "Push an endless challenge with optional Auto. Every five cleared depths increases passive Tribute income." },
       { title: "Recruit with Tribute", body: "Spend Tribute on single summons or 10-card packs. Reach the Iron Age to unlock 4-star summons and Medieval for 5-star summons. Guaranteed 5-star summons need the Celestial Altar and Glory from the Conquest skill." },
       { title: "Scout and adapt", body: "Inspect enemy heroes, army traits and stat bonuses. If you lose, try different counters, positions, promotions or synergies." },

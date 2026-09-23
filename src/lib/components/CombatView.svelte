@@ -2,7 +2,7 @@
   import { syncBattleAnimations, type BattleSpeed } from "$lib/battlePlayback";
   import { tick, untrack } from "svelte";
   import { attackMotion, blinkDistance, projectilePath, timeline } from "$lib/combatAnimation";
-  import { DEPTHS_SPOILS_PER_TIER, DEPTHS_TIER_SIZE, FACTIONS, GACHA_COST, MAX_ENEMY_LEVEL, PACK_COST, PARTY_SIZE, ULTIMATES, UNITS, isBossLevel, regionForLevel, type AttackType, type UnitCard } from "$lib/combatData";
+  import { DEPTHS_SPOILS_PER_TIER, DEPTHS_TIER_SIZE, GACHA_COST, MAX_ENEMY_LEVEL, PACK_COST, PARTY_SIZE, ULTIMATES, UNITS, isBossLevel, regionForLevel, type AttackType, type UnitCard } from "$lib/combatData";
   import { LEGENDARY_PACK_COST, LEGENDARY_SINGLE_COST } from "$lib/gameState.svelte";
   import type { BattleMode, BattleState, Fighter, Hit } from "$lib/combatEngine";
   import { isFrontRow, POSITIONS } from "$lib/position";
@@ -268,8 +268,6 @@
         <div class="enemy-heading">
           <div class="enemy-title"><h3>Enemy army</h3>
             {#if encounter}
-              {@const factionDef = FACTIONS[encounter.faction]}
-              <span class="archetype" style:color={factionDef.color}>{factionDef.name}</span>
               {#if (encounter.statMult ?? 1) > 1.005}<span class="enemy-boost">+{Math.round((encounter.statMult! - 1) * 100)}% stats</span>{/if}
             {/if}
           </div>
@@ -427,8 +425,7 @@
   .army-headings { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; min-height: 64px; }
   h3 { text-transform: uppercase; letter-spacing: 1.1px; font-size: 10px; font-weight: 600; color: #999; }
   .enemy-title { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; justify-content: flex-end; }
-  .archetype, .enemy-boost { border-radius: 3px; padding: 3px 5px; font-size: 9px; white-space: nowrap; }
-  .archetype { color: #bcc6f1; background: #34447166; }
+  .enemy-boost { border-radius: 3px; padding: 3px 5px; font-size: 9px; white-space: nowrap; }
   .enemy-boost { color: #e7978f; background: #702b2b55; }
   .battle-stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 60px minmax(0, 1fr); height: 400px; margin-top: 8px; }
   .formation { position: relative; min-width: 0; }

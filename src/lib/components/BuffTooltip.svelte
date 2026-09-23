@@ -27,23 +27,23 @@
   >
     {@render children()}
   </Tooltip.Trigger>
-  <Tooltip.Content side="bottom" class="items-start px-3 py-2">
+  <Tooltip.Content side="bottom">
     <div class="flex min-w-40 flex-col gap-1 text-xs">
       <div class="flex justify-between gap-4">
-        <span class="opacity-70">Base {label}</span>
+        <span class="text-muted-foreground">Base {label}</span>
         <span class="tabular-nums">{format(base)}</span>
       </div>
       {#if modifiers.length === 0}
-        <p class="opacity-70">No active buffs</p>
+        <p class="text-muted-foreground">No active buffs</p>
       {:else}
         {#each modifiers as m, i (i)}
           <div class="flex justify-between gap-4">
             <span>{m.source}</span>
-            <span class="tabular-nums">{m.effect}</span>
+            <span class="tabular-nums text-emerald-400">{m.effect}</span>
           </div>
         {/each}
       {/if}
-      <div class="mt-1 flex justify-between gap-4 border-t border-background/20 pt-1 font-semibold">
+      <div class="mt-1 flex justify-between gap-4 border-t border-border pt-1 font-semibold">
         <span>Current</span>
         <span class="tabular-nums">{format(final)}</span>
       </div>

@@ -2,6 +2,7 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import FloatingText from "./FloatingText.svelte";
+  import Hint from "./Hint.svelte";
   import { AGES, RESOURCES, type ResourceId, SKILLS, type SkillId } from "$lib/gameData";
   import { describeAgeBonus, describeAgeReward, type AgeAdvanceStatus, type AgeBonus } from "$lib/gameEngine";
   import type { AgeAdvanceEventData } from "$lib/gameState.svelte";
@@ -78,14 +79,10 @@
     ];
   });
 
-  let disabledReason = $derived.by(() => {
-    const { skillsMet, resourcesMet } = ageAdvanceStatus;
-    if (skillsMet && resourcesMet) return undefined;
-    const missing = checklist
-      .filter((c) => !c.met)
-      .map((c) => `${c.label} (${c.current}/${c.required})`);
-    return `Still needed: ${missing.join(", ")}`;
-  });
+  const statClass =
+    "cursor-help items-center gap-2 px-1.5 py-1 -mx-1.5 -my-1 transition-colors hover:bg-muted/60";
+
+  let missing = $derived(checklist.filter((c) => !c.met));
 </script>
 
 <header class="flex flex-col gap-3 border-b border-border px-6 py-4">
@@ -107,11 +104,13 @@
       {/each}
     </div>
     <div class="flex items-center gap-4">
-      <div class="relative flex items-center gap-2" title="Tribute — earned in combat, spent on summons">
-        <span class="text-sm text-muted-foreground">⚔ Tribute</span>
-        <Badge variant="secondary" class="text-sm tabular-nums">
-          {warSpoils}
-        </Badge>
+      <div class="relative flex items-center">
+        <Hint side="bottom" class={statClass} title="⚔ Tribute" text="Earned by winning battles and from the Depths. Spend it on summons and card packs for your army.">
+          <span class="text-sm text-muted-foreground">⚔ Tribute</span>
+          <Badge variant="secondary" class="text-sm tabular-nums">
+            {warSpoils}
+          </Badge>
+        </Hint>
         {#each spoilsEvents as event (event.id)}
           <FloatingText
             id={event.id}
@@ -121,9 +120,11 @@
           />
         {/each}
       </div>
-      <div class="relative flex items-center gap-2">
-        <span class="text-sm text-muted-foreground">Skill Points</span>
-        <Badge class="text-sm">{skillPoints}</Badge>
+      <div class="relative flex items-center">
+        <Hint side="bottom" class={statClass} title="Skill Points" text="Earned each time a skill levels up. Spend them in the Shop on permanent upgrades.">
+          <span class="text-sm text-muted-foreground">Skill Points</span>
+          <Badge class="text-sm tabular-nums">{skillPoints}</Badge>
+        </Hint>
         {#each skillPointEvents as event (event.id)}
           <FloatingText
             id={event.id}
@@ -137,15 +138,24 @@
   </div>
   {#if ageAdvanceStatus.nextAge}
     <div class="flex flex-wrap items-center gap-3">
-      <Button
-        onclick={onAdvance}
-        disabled={!ageAdvanceStatus.canAdvance}
-        title={disabledReason}
-        variant={ageAdvanceStatus.canAdvance ? "default" : "secondary"}
-        class={cn(ageAdvanceStatus.canAdvance && "animate-pulse-glow")}
-      >
-        Advance to {ageAdvanceStatus.nextAge.name}
-      </Button>
+      <Hint side="bottom" title="Still needed" disabled={missing.length === 0}>
+        {#snippet content()}
+          {#each missing as item (item.label)}
+            <div class="flex justify-between gap-4">
+              <span class="text-muted-foreground">{item.label}</span>
+              <span class="tabular-nums">{item.current} / {item.required}</span>
+            </div>
+          {/each}
+        {/snippet}
+        <Button
+          onclick={onAdvance}
+          disabled={!ageAdvanceStatus.canAdvance}
+          variant={ageAdvanceStatus.canAdvance ? "default" : "secondary"}
+          class={cn(ageAdvanceStatus.canAdvance && "animate-pulse-glow")}
+        >
+          Advance to {ageAdvanceStatus.nextAge.name}
+        </Button>
+      </Hint>
       <div class="flex flex-wrap gap-2">
         {#each checklist as item (item.label)}
           <span

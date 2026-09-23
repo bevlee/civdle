@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Progress } from "$lib/components/ui/progress";
+  import Hint from "./Hint.svelte";
   import {
     ACHIEVEMENTS,
     CATEGORY_LABELS,
@@ -90,17 +91,18 @@
             <div class="flex shrink-0 gap-1">
               {#each SKILL_MILESTONE_LEVELS as milestone (milestone)}
                 {@const done = isUnlocked(skillMilestoneId(skillId, milestone))}
-                <span
-                  class={cn(
-                    "rounded px-1.5 py-0.5 text-xs font-semibold tabular-nums transition-colors",
-                    done
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground/60",
-                  )}
-                  title={`Reach level ${milestone} in ${SKILLS[skillId].name}`}
-                >
-                  {milestone}
-                </span>
+                <Hint text={`${done ? "✓ " : ""}Reach level ${milestone} in ${SKILLS[skillId].name}`}>
+                  <span
+                    class={cn(
+                      "cursor-help rounded px-1.5 py-0.5 text-xs font-semibold tabular-nums transition-colors",
+                      done
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground/60",
+                    )}
+                  >
+                    {milestone}
+                  </span>
+                </Hint>
               {/each}
             </div>
           </div>
