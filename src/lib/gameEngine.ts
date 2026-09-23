@@ -578,7 +578,6 @@ export function hasMaxedSkill(state: GameState): boolean {
 
 export function canBuyGlobalUpgrade(state: GameState, upgradeId: string): boolean {
   if (state.globalUpgrades.includes(upgradeId)) return false;
-  if (DEBUG_GLOBAL_UPGRADES.some((u) => u.id === upgradeId)) return true;
   const upgrade = GLOBAL_UPGRADES.find((u) => u.id === upgradeId);
   if (!upgrade) return false;
   return hasMaxedSkill(state) && state.skillPoints >= upgrade.cost;

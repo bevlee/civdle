@@ -1069,9 +1069,12 @@ export const GLOBAL_UPGRADES: SkillUpgrade[] = [
 ];
 
 // Free, always-available cheats surfaced in the shop's debug section.
+export const HYPERDRIVE_ID = "debugSpeed";
+
+// Debug-only global upgrades, toggled from the debug panel (never sold).
 export const DEBUG_GLOBAL_UPGRADES: SkillUpgrade[] = [
   {
-    id: "debugSpeed",
+    id: HYPERDRIVE_ID,
     name: "Hyperdrive",
     cost: 0,
     description: "Actions are 100x faster (debug)",

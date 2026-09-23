@@ -105,6 +105,15 @@
             Unlock All
           </Button>
         </div>
+        <Button
+          size="sm"
+          variant={game.hyperdrive ? "default" : "outline"}
+          class="mt-1.5 h-6 w-full text-xs"
+          title="Actions are 100x faster"
+          onclick={() => game.debugToggleHyperdrive()}
+        >
+          Hyperdrive: {game.hyperdrive ? "ON" : "OFF"}
+        </Button>
       </section>
 
       <Separator />

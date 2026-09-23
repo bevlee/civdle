@@ -2,8 +2,8 @@ import { BattlePlayback, type BattleSpeed } from "./battlePlayback";
 import { BattleAudio } from "./battleAudio";
 import {
   AGES,
-  DEBUG_GLOBAL_UPGRADES,
   GLOBAL_UPGRADES,
+  HYPERDRIVE_ID,
   type AgeId,
   type ResourceId,
   SKILLS,
@@ -605,8 +605,7 @@ export class CivdleGame {
 
   buyGlobalUpgrade(upgradeId: string): void {
     if (!canBuyGlobalUpgrade(this.state, upgradeId)) return;
-    const upgrade =
-      GLOBAL_UPGRADES.find((u) => u.id === upgradeId) ?? DEBUG_GLOBAL_UPGRADES.find((u) => u.id === upgradeId);
+    const upgrade = GLOBAL_UPGRADES.find((u) => u.id === upgradeId);
     if (!upgrade) return;
     this.state = {
       ...this.state,
@@ -1006,6 +1005,19 @@ export class CivdleGame {
   /** Advances one age as if its requirements were met, granting its rewards. */
   debugAdvanceAge(): void {
     this.#applyAgeAdvance(enterNextAge(this.state));
+  }
+
+  get hyperdrive(): boolean {
+    return this.state.globalUpgrades.includes(HYPERDRIVE_ID);
+  }
+
+  /** Toggles the 100x action speed cheat (a debug-only global upgrade). */
+  debugToggleHyperdrive(): void {
+    const others = this.state.globalUpgrades.filter((id) => id !== HYPERDRIVE_ID);
+    this.state = {
+      ...this.state,
+      globalUpgrades: this.hyperdrive ? others : [...others, HYPERDRIVE_ID],
+    };
   }
 
   debugGrantSettlementUpgrade(upgradeId: SettlementUpgradeId): void {

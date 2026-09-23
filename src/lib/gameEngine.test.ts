@@ -195,8 +195,11 @@ describe("mastery (global) upgrades", () => {
     expect(canBuyGlobalUpgrade(s, "haste")).toBe(false);
   });
 
-  it("treats the debug Hyperdrive as always purchasable", () => {
-    expect(canBuyGlobalUpgrade(createInitialState(), "debugSpeed")).toBe(true);
+  it("never sells the debug Hyperdrive (it's toggled from the debug panel)", () => {
+    const s = createInitialState();
+    s.skills.foraging.xp = xpForLevel(MAX_LEVEL);
+    s.skillPoints = 1000;
+    expect(canBuyGlobalUpgrade(s, "debugSpeed")).toBe(false);
   });
 });
 

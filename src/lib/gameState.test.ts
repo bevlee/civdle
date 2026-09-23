@@ -301,3 +301,13 @@ describe("debug ages", () => {
     expect(game.maxSummonStars).toBe(4);
   });
 });
+
+describe("debug Hyperdrive", () => {
+  it("toggles on and off", () => {
+    game.debugToggleHyperdrive();
+    expect(game.hyperdrive).toBe(true);
+    game.debugToggleHyperdrive();
+    expect(game.hyperdrive).toBe(false);
+    expect(game.state.globalUpgrades).toEqual([]);
+  });
+});
