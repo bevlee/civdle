@@ -15,7 +15,7 @@
       <Tooltip.Trigger class={`synergy ${synergy.tier > 0 ? "active" : ""}`}
         style={`--trait-color: ${colors[synergy.trait] ?? "#b7a674"}`}>
         <span aria-hidden="true">{synergy.tier > 0 ? "✦" : "◇"}</span>
-        {definition.name} {synergy.count}/{synergy.nextThreshold ?? definition.thresholds[1]}
+        {definition.name} {synergy.count}/{definition.thresholds[definition.thresholds.length - 1]}
       </Tooltip.Trigger>
       <Tooltip.Content side="bottom" class="flex-col items-start border border-border bg-popover text-popover-foreground p-3">
         <strong>{definition.name} · {synergy.count} deployed</strong>
