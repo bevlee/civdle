@@ -33,6 +33,10 @@ import {
   regionForLevel,
   rollCard,
   rollRarity,
+  recruitCard,
+  storyTribute,
+  strongestEnemy,
+  unitStrength,
 } from "./combatData";
 
 // mulberry32: small, well-distributed seeded PRNG for tests.
@@ -239,6 +243,33 @@ describe("generateEncounter", () => {
   it("only uses 1★ units at level 1", () => {
     const enc = generateEncounter(1, lcg(9));
     for (const c of enc.cards) expect(UNITS[c.unitId].baseStars).toBe(1);
+  });
+});
+
+describe("campaign rewards", () => {
+  it("pays 10 Tribute per campaign level", () => {
+    expect([1, 5, 30].map(storyTribute)).toEqual([10, 50, 300]);
+  });
+
+  it("recruits the boss from a boss encounter, at 5★ rather than its boss stars", () => {
+    const enc = generateStoryEncounter(30, lcg(3));
+    expect(strongestEnemy(enc).id).toBe(enc.bossId);
+    const boss = enc.cards.find((c) => c.id === enc.bossId)!;
+    expect(boss.stars).toBe(10);
+    expect(recruitCard(enc)).toMatchObject({ unitId: boss.unitId, stars: 5 });
+  });
+
+  it("otherwise recruits the highest-star enemy, then the strongest unit", () => {
+    const enc = {
+      faction: UNITS.mage.faction,
+      cards: [
+        { id: "a", unitId: "mage" as const, stars: 2 },
+        { id: "b", unitId: "dendroid" as const, stars: 3 },
+        { id: "c", unitId: "mage" as const, stars: 3 },
+      ],
+    };
+    const strongerAt3 = unitStrength(UNITS.dendroid) >= unitStrength(UNITS.mage) ? "b" : "c";
+    expect(strongestEnemy(enc).id).toBe(strongerAt3);
   });
 });
 

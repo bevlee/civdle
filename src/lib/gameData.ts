@@ -259,6 +259,13 @@ export const SKILLS: Record<SkillId, SkillDef> = {
           // during Iron Age — needed to earn the resources that pay for the
           // Iron Age -> Medieval advance below.
           { resource: "coal", amount: 1, ageRequired: "ironAge" },
+          // Level milestones: veteran miners find extra ore.
+          { resource: "copperOre", amount: 0.25, levelRequired: 25, ageRequired: "bronzeAge" },
+          { resource: "ironOre", amount: 0.25, levelRequired: 25, ageRequired: "ironAge" },
+          { resource: "coal", amount: 0.25, levelRequired: 25, ageRequired: "ironAge" },
+          { resource: "copperOre", amount: 0.25, levelRequired: 50, ageRequired: "bronzeAge" },
+          { resource: "ironOre", amount: 0.25, levelRequired: 50, ageRequired: "ironAge" },
+          { resource: "coal", amount: 0.25, levelRequired: 50, ageRequired: "ironAge" },
         ],
       },
     ],
@@ -350,10 +357,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     name: "Crafting",
     description: "Shape stone and fit wooden handles to make useful items. Tools, cordage, and baskets transform how your people work and live.",
     category: "crafting",
-    prereqs: [
-      { skill: "woodcutting", level: 10 },
-      { skill: "mining", level: 10 },
-    ],
+    prereqs: [{ skill: "woodcutting", level: 10 }],
     recipes: [
       {
         id: "tools",
@@ -510,10 +514,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     name: "Smithing",
     description: "The secrets of the forge are revealed. Smelting ore into metal bars unlocks the march toward a new age of civilization.",
     category: "crafting",
-    prereqs: [
-      { skill: "mining", level: 10 },
-      { skill: "crafting", level: 10 },
-    ],
+    prereqs: [{ skill: "mining", level: 10 }],
     recipes: [
       {
         id: "copperBar",
@@ -869,6 +870,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       { skill: "carpentry", level: 15 },
       { skill: "mining", level: 15 },
     ],
+    // Bricks need Coal, which Mining only yields from the Iron Age.
+    ageRequired: "ironAge",
     recipes: [
       {
         id: "bricks",
@@ -1015,31 +1018,33 @@ export const AGES: AgeDef[] = [
 // Resources consumed to advance INTO the given age (stoneAge has none — it's
 // the starting age). Costs use materials actually obtainable in the age being
 // left (e.g. Iron Ore/Coal aren't mineable until Iron Age itself, so the Iron
-// Age -> Medieval cost uses Iron Bar instead of raw Iron Ore); "Bronze Bar"
-// and "Gold Ore" don't exist as distinct resources, so Copper Bar and Fine
-// Clothing stand in as the equivalent tier-appropriate materials.
+// Age -> Medieval cost uses Iron Bar instead of raw Iron Ore). Every cost comes
+// from the Mining -> Smithing main path, so the side skills stay optional; each
+// age also asks for that tier's Smithing tools.
 export const AGE_ADVANCE_COSTS: Partial<Record<AgeId, ResourceAmount[]>> = {
   bronzeAge: [
     { resource: "stone", amount: 150 },
     { resource: "wood", amount: 100 },
   ],
   ironAge: [
-    { resource: "copperOre", amount: 150 },
-    { resource: "copperBar", amount: 75 },
+    { resource: "copperOre", amount: 100 },
+    { resource: "copperBar", amount: 50 },
+    { resource: "copperTools", amount: 25 },
   ],
   medieval: [
-    { resource: "ironBar", amount: 200 },
+    { resource: "ironBar", amount: 150 },
     { resource: "coal", amount: 100 },
+    { resource: "ironTools", amount: 25 },
   ],
   renaissance: [
-    { resource: "steelBar", amount: 300 },
-    { resource: "fineClothing", amount: 150 },
+    { resource: "steelBar", amount: 200 },
+    { resource: "steelTools", amount: 50 },
   ],
 };
 
 export const BASE_ACTION_TIME = 2; // seconds
-export const XP_PER_ACTION = 3;
-export const XP_SCALING_RATE = 1.12;
+export const XP_PER_ACTION = 10;
+export const XP_SCALING_RATE = 1.1;
 export const MAX_LEVEL = 99;
 
 // Civilization-wide "mastery" upgrades. They apply to every skill and only go on

@@ -2,8 +2,8 @@
   import { syncBattleAnimations, type BattleSpeed } from "$lib/battlePlayback";
   import { tick, untrack } from "svelte";
   import { attackMotion, blinkDistance, projectilePath, timeline } from "$lib/combatAnimation";
-  import { DEPTHS_SPOILS_PER_TIER, DEPTHS_TIER_SIZE, GACHA_COST, MAX_ENEMY_LEVEL, PACK_COST, PARTY_SIZE, ULTIMATES, UNITS, isBossLevel, regionForLevel, type AttackType, type UnitCard } from "$lib/combatData";
-  import { LEGENDARY_PACK_COST, LEGENDARY_SINGLE_COST } from "$lib/gameState.svelte";
+  import { DEPTHS_SPOILS_PER_TIER, DEPTHS_TIER_SIZE, GACHA_COST, MAX_ENEMY_LEVEL, PACK_COST, PARTY_SIZE, ULTIMATES, UNITS, isBossLevel, regionForLevel, storyTribute, strongestEnemy, type AttackType, type UnitCard } from "$lib/combatData";
+  import { LEGENDARY_PACK_COST, LEGENDARY_SINGLE_COST, TRIBUTE_LEGENDARY_PACK_COST } from "$lib/gameState.svelte";
   import type { BattleMode, BattleState, Fighter, Hit } from "$lib/combatEngine";
   import { isFrontRow, POSITIONS } from "$lib/position";
   import type { CivdleGame } from "$lib/gameState.svelte";
@@ -30,6 +30,12 @@
   let partyIds = $derived(new Set(gacha.party.filter((id): id is string => id !== null)));
   let encounter = $derived(mode === "story" ? gacha.encounter : gacha.depths.encounter);
   let storyBoss = $derived(mode === "story" && isBossLevel(gacha.storyLevel));
+  // The enemy that joins your army when this campaign level is won.
+  let storyRecruit = $derived(gacha.encounter ? strongestEnemy(gacha.encounter) : null);
+  let storyRewardText = $derived(
+    `+${storyTribute(gacha.storyLevel)} Tribute` +
+      (storyRecruit ? ` · ${UNITS[storyRecruit.unitId].name} ${UNITS[storyRecruit.unitId].baseStars}★ joins you` : ""),
+  );
   let nextTierAt = $derived((Math.floor(game.depthsCleared / DEPTHS_TIER_SIZE) + 1) * DEPTHS_TIER_SIZE);
   let canFight = $derived(!formationLocked && partyCards.length > 0 && !(mode === "story" && game.storyComplete));
   let pendingImpact = $state(false);
@@ -231,7 +237,7 @@
       <div class="level-heading">
         <h2>{mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</h2>
         {#if mode === "depths"}<span>+{game.depthsIncome * game.treasuryMultiplier} ⚔ / min{game.treasuryMultiplier > 1 ? " (2× Treasury)" : ""} · next tier at depth {nextTierAt}</span>
-        {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}+{gacha.storyLevel} Tribute</span>{/if}
+        {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}{storyRewardText}</span>{/if}
         {#if mode === "depths"}<p class="text-[11px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
       </div>
       <div class="battle-controls">
@@ -337,7 +343,7 @@
               <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</p>
               <span class="result-label">{battle?.status === "won" ? "Victory!" : "Defeated"}</span>
               {#if battle?.status === "won"}
-                <span class="result-detail">{mode === "story" ? `+${gacha.storyLevel} Tribute` : `Depth ${gacha.depths.level} cleared`}</span>
+                <span class="result-detail">{mode === "story" ? storyRewardText : `Depth ${gacha.depths.level} cleared`}</span>
               {:else}
                 <span class="result-detail">Adjust your formation and try again.</span>
               {/if}
@@ -361,9 +367,9 @@
     </section>
 
     <ArmyInventory cards={gacha.cards} {partyIds} gold={gacha.gold} rollCost={GACHA_COST} packCost={PACK_COST}
-      maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.hasCelestialAltar} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
+      maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.hasCelestialAltar} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} hasHallOfLegends={game.hasHallOfLegends} tributeLegendaryPackCost={TRIBUTE_LEGENDARY_PACK_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
       onDragStart={startDrag} onDragEnd={endDrag} onDragOverChange={over => dragOverInventory = over} onDrop={inventoryDrop}
-      onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} />
+      onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} onOpenTributeLegendaryPack={() => game.rollTributeLegendaryPack()} />
   </div>
 
   <aside class="battle-sidebar" aria-label="Battle report">

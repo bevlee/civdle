@@ -6,8 +6,10 @@ import {
   DEPTHS_AUTO_PAUSE_MS,
   LEGENDARY_PACK_COST,
   LEGENDARY_SINGLE_COST,
+  TRIBUTE_LEGENDARY_PACK_COST,
 } from "./gameState.svelte";
-import { createCard, GACHA_COST, PACK_SIZE } from "./combatData";
+import { createCard, GACHA_COST, PACK_COST, PACK_SIZE, UNITS, strongestEnemy } from "./combatData";
+import { AGE_ADVANCE_COSTS } from "./gameData";
 import { computeActionResult, xpForLevel } from "./gameEngine";
 
 let game: CivdleGame;
@@ -68,10 +70,10 @@ describe("Hyperdrive toggle", () => {
 
 describe("story Tribute rewards", () => {
   it.each([
-    { gold: 1000, expected: 1003 },
-    { gold: 200, expected: 203 },
-    { gold: 50, expected: 53 },
-  ])("awards storyLevel Tribute with no cap ($gold → $expected)", ({ gold, expected }) => {
+    { gold: 1000, expected: 1030 },
+    { gold: 200, expected: 230 },
+    { gold: 50, expected: 80 },
+  ])("awards 10× storyLevel Tribute with no cap ($gold → $expected)", ({ gold, expected }) => {
     game.state.gacha.gold = gold;
     game.state.gacha.storyLevel = 3;
     equipWinner();
@@ -84,6 +86,23 @@ describe("story Tribute rewards", () => {
     game.dismissBattle();
     expect(game.state.gacha.gold).toBe(expected);
     expect(game.state.gacha.storyLevel).toBe(4);
+  });
+
+  it("recruits the strongest enemy into the army on a win", () => {
+    game.state.gacha.storyLevel = 3;
+    equipWinner();
+    const before = game.state.gacha.cards.length;
+    game.startStoryFight();
+    const expected = strongestEnemy(game.state.gacha.encounter!);
+    finishBattle();
+    vi.advanceTimersByTime(10000);
+    game.dismissBattle();
+    game.dismissBattle();
+    const cards = game.state.gacha.cards;
+    expect(cards).toHaveLength(before + 1);
+    const recruit = cards[cards.length - 1];
+    expect(recruit).toMatchObject({ unitId: expected.unitId, stars: UNITS[expected.unitId].baseStars });
+    expect(recruit.id).not.toBe(expected.id);
   });
 });
 
@@ -154,8 +173,17 @@ it("emits one managed gain toast per training action without orphaned resource e
   expect(game.state.stats.actions).toBe(100);
 });
 
-it("buys a full pack for the price of the same number of single summons", () => {
-  game.state.gacha.gold = GACHA_COST * PACK_SIZE;
+it("prices summons at 10 Tribute and a 10-pack at 90", () => {
+  expect(GACHA_COST).toBe(10);
+  expect(PACK_COST).toBe(90);
+  game.state.gacha.gold = GACHA_COST;
+  game.rollCard();
+  expect(game.state.gacha.cards).toHaveLength(1);
+  expect(game.state.gacha.gold).toBe(0);
+});
+
+it("buys a full pack for PACK_COST", () => {
+  game.state.gacha.gold = PACK_COST;
   game.rollPack();
   expect(game.state.gacha.cards).toHaveLength(PACK_SIZE);
   expect(game.state.gacha.gold).toBe(0);
@@ -290,12 +318,45 @@ describe("legendary summons", () => {
   });
 });
 
+describe("Hall of Legends", () => {
+  function buyHall() {
+    game.state.resources = { enchantedGear: 10, fineClothing: 40, furniture: 40, bricks: 30 };
+    game.buySettlementUpgradeAction("hallOfLegends");
+    expect(game.hasHallOfLegends).toBe(true);
+  }
+
+  it("is needed for the Tribute 5★ pack", () => {
+    game.state.gacha.gold = TRIBUTE_LEGENDARY_PACK_COST;
+    game.rollTributeLegendaryPack();
+    expect(game.state.gacha.cards).toHaveLength(0);
+    expect(game.state.gacha.gold).toBe(TRIBUTE_LEGENDARY_PACK_COST);
+  });
+
+  it("spends 1000 Tribute for 10 guaranteed 5★ heroes", () => {
+    buyHall();
+    expect(TRIBUTE_LEGENDARY_PACK_COST).toBe(1000);
+    game.state.gacha.gold = TRIBUTE_LEGENDARY_PACK_COST + 5;
+    game.rollTributeLegendaryPack();
+    expect(game.state.gacha.cards).toHaveLength(10);
+    expect(game.state.gacha.cards.every((c) => c.stars === 5)).toBe(true);
+    expect(game.state.gacha.gold).toBe(5);
+    expect(game.state.stats.packsOpened).toBe(1);
+  });
+
+  it("does nothing without enough Tribute", () => {
+    buyHall();
+    game.state.gacha.gold = TRIBUTE_LEGENDARY_PACK_COST - 1;
+    game.rollTributeLegendaryPack();
+    expect(game.state.gacha.cards).toHaveLength(0);
+  });
+});
+
 describe("age advance", () => {
   it("grants the reward heroes and queues the Conquest unlock", () => {
     game.state.ageIndex = 3;
     game.state.skills.mining.xp = xpForLevel(60);
     game.state.skills.smithing.xp = xpForLevel(60);
-    game.state.resources = { steelBar: 300, fineClothing: 150 };
+    game.state.resources = Object.fromEntries(AGE_ADVANCE_COSTS.renaissance!.map((c) => [c.resource, c.amount]));
     game.advanceAgeAction();
     expect(game.ageIndex).toBe(4);
     expect(game.state.gacha.cards).toHaveLength(4);

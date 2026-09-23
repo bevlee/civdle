@@ -31,10 +31,13 @@
     glory = 0,
     legendaryPackCost = 100,
     legendarySingleCost = 10,
+    hasHallOfLegends = false,
+    tributeLegendaryPackCost = 1000,
     onSummon,
     onOpenPack,
     onOpenLegendaryPack,
     onLegendarySummon,
+    onOpenTributeLegendaryPack,
   }: {
     cards: UnitCardT[];
     partyIds: Set<string>;
@@ -44,10 +47,13 @@
     maxStars?: number;
     rollRates?: RollRate[];
     hasCelestialAltar?: boolean;
-    /** Glory from the Conquest skill — the only currency for 5★-only summons. */
+    /** Glory from the Conquest skill — pays for the Celestial Altar's 5★-only summons. */
     glory?: number;
     legendaryPackCost?: number;
     legendarySingleCost?: number;
+    /** The Hall of Legends sells a 5★-only pack for Tribute. */
+    hasHallOfLegends?: boolean;
+    tributeLegendaryPackCost?: number;
     locked?: boolean;
     /** Card currently being dragged anywhere on the screen. */
     draggingId?: string | null;
@@ -64,6 +70,7 @@
     onOpenPack: () => void;
     onOpenLegendaryPack?: () => void;
     onLegendarySummon?: () => void;
+    onOpenTributeLegendaryPack?: () => void;
   } = $props();
 
   function handleDragOver(e: DragEvent) {
@@ -130,16 +137,12 @@
   let typeFilter = $state<AttackType | "all">("all");
   let traitFilter = $state<Trait | "all">("all");
 
-  // Only offer traits the player actually owns, with how many cards carry each.
-  let traitOptions = $derived.by(() => {
-    const counts = new Map<Trait, number>();
-    for (const card of cards) {
-      for (const t of UNITS[card.unitId].traits) counts.set(t, (counts.get(t) ?? 0) + 1);
-    }
-    return [...counts]
-      .map(([id, count]) => ({ id, count, name: TRAIT_SYNERGIES[id].name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  });
+  // Only offer traits the player actually owns.
+  let traitOptions = $derived(
+    [...new Set(cards.flatMap((card) => UNITS[card.unitId].traits))]
+      .map((id) => ({ id, name: TRAIT_SYNERGIES[id].name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  );
 
   // Drop a trait filter whose last card was promoted away.
   $effect(() => {
@@ -239,6 +242,19 @@
           </Button>
         </Hint>
       {/if}
+      {#if hasHallOfLegends && onOpenTributeLegendaryPack}
+        <Hint text="10 guaranteed 5★ heroes, paid in Tribute">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={locked || gold < tributeLegendaryPackCost}
+            onclick={onOpenTributeLegendaryPack}
+            class="h-6 border-yellow-500/40 px-2 text-[10px] text-yellow-300 hover:bg-yellow-500/10"
+          >
+            10× 5★ · {tributeLegendaryPackCost} ⚔
+          </Button>
+        </Hint>
+      {/if}
       {#if maxStars < 5}
         <Hint title="Star cap" text="Advance to the Iron Age for 4★ and Medieval for 5★ summons.">
           <span class="cursor-help rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
@@ -283,7 +299,7 @@
       >
         <option value="all">All traits</option>
         {#each traitOptions as t (t.id)}
-          <option value={t.id}>{t.name} ({t.count})</option>
+          <option value={t.id}>{t.name}</option>
         {/each}
       </select>
       {#if isFiltered}

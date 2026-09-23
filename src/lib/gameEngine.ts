@@ -17,6 +17,7 @@ import {
   GLOBAL_UPGRADES,
   LEGACY_UPGRADE_SLOTS,
   MAX_LEVEL,
+  RESOURCES,
   SKILLS,
   SKILL_ORDER,
   XP_PER_ACTION,
@@ -210,6 +211,18 @@ export function describeAgeReward(age: AgeDef): string[] {
   if (age.reward.unlocksCombat) parts.push("Campaign & The Abyss");
   if (age.reward.maxSummonStars) parts.push(`${age.reward.maxSummonStars}★ summons`);
   if (age.reward.unlocksSkill) parts.push(`${SKILLS[age.reward.unlocksSkill].name} skill`);
+  for (const id of SKILL_ORDER) {
+    const def = SKILLS[id];
+    if (def.ageRequired === age.id && age.reward.unlocksSkill !== id) parts.push(`${def.name} skill`);
+    for (const recipe of def.recipes) {
+      for (const o of recipe.outputs) {
+        // Level-milestone repeats are announced by the skill, not the age.
+        if (o.ageRequired !== age.id || o.levelRequired !== undefined) continue;
+        const label = `${def.name}: ${RESOURCES[o.resource].name}`;
+        if (!parts.includes(label)) parts.push(label);
+      }
+    }
+  }
   return parts;
 }
 
@@ -420,22 +433,69 @@ export function getAvailableRecipes(skillId: SkillId, level: number): Recipe[] {
   return SKILLS[skillId].recipes.filter((r) => r.requiredLevel <= level);
 }
 
+function ageIndexOf(id: AgeId): number {
+  return AGES.findIndex((a) => a.id === id);
+}
+
+function isOutputActive(
+  o: ConditionalOutput,
+  level: number,
+  ageIndex: number,
+  levelOverrides: Partial<Record<ResourceId, number>>,
+): boolean {
+  const override = levelOverrides[o.resource];
+  const effectiveLevelRequired =
+    override !== undefined && o.levelRequired !== undefined ? Math.min(override, o.levelRequired) : o.levelRequired;
+  if (effectiveLevelRequired !== undefined && level < effectiveLevelRequired) return false;
+  if (o.ageRequired !== undefined && ageIndex < ageIndexOf(o.ageRequired)) return false;
+  return true;
+}
+
+// Active outputs, with repeat entries for one resource (level milestones)
+// folded into its first entry.
 function resolveOutputs(
   outputs: ConditionalOutput[],
   level: number,
   ageIndex: number,
   levelOverrides: Partial<Record<ResourceId, number>>
 ): ResourceAmount[] {
-  return outputs
-    .filter((o) => {
-      const override = levelOverrides[o.resource];
-      const effectiveLevelRequired =
-        override !== undefined && o.levelRequired !== undefined ? Math.min(override, o.levelRequired) : o.levelRequired;
-      if (effectiveLevelRequired !== undefined && level < effectiveLevelRequired) return false;
-      if (o.ageRequired !== undefined && ageIndex < AGES.findIndex((a) => a.id === o.ageRequired)) return false;
-      return true;
-    })
-    .map((o) => ({ resource: o.resource, amount: o.amount }));
+  const merged: ResourceAmount[] = [];
+  for (const o of outputs) {
+    if (!isOutputActive(o, level, ageIndex, levelOverrides)) continue;
+    const existing = merged.find((m) => m.resource === o.resource);
+    if (existing) existing.amount += o.amount;
+    else merged.push({ resource: o.resource, amount: o.amount });
+  }
+  return merged;
+}
+
+export interface LockedOutput {
+  resource: ResourceId;
+  // e.g. "Copper Ore", "Clay (30%)" or "Extra Copper Ore (25%)".
+  label: string;
+  // What still has to happen, e.g. "Bronze Age" or "Lv 25".
+  requirement: string;
+}
+
+// Outputs of a recipe the player doesn't get yet, labelled with what unlocks
+// them, so future ages and level milestones are visible ahead of time. A level
+// milestone for an ore whose age hasn't arrived yet is left out until it has.
+export function getLockedOutputs(recipe: Recipe, level: number, ageIndex: number): LockedOutput[] {
+  const locked: LockedOutput[] = [];
+  recipe.outputs.forEach((o, i) => {
+    if (isOutputActive(o, level, ageIndex, {})) return;
+    const ageLocked = o.ageRequired !== undefined && ageIndex < ageIndexOf(o.ageRequired);
+    const isRepeat = recipe.outputs.slice(0, i).some((prev) => prev.resource === o.resource);
+    if (isRepeat && ageLocked) return;
+    const name = RESOURCES[o.resource].name;
+    const pct = o.amount < 1 ? ` (${Math.round(o.amount * 100)}%)` : "";
+    const label = isRepeat ? `Extra ${name}${pct}` : o.amount > 1 ? `${o.amount} ${name}` : `${name}${pct}`;
+    const parts: string[] = [];
+    if (ageLocked && o.ageRequired) parts.push(AGES[ageIndexOf(o.ageRequired)].name);
+    if (o.levelRequired !== undefined && level < o.levelRequired) parts.push(`Lv ${o.levelRequired}`);
+    locked.push({ resource: o.resource, label, requirement: parts.join(" · ") });
+  });
+  return locked;
 }
 
 interface ResourceAmount {
