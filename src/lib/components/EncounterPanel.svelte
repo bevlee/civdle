@@ -53,13 +53,6 @@
         {region.name}
       </span>
     {/if}
-    <span
-      class="rounded-md px-2 py-0.5 text-xs font-semibold"
-      style:background-color="color-mix(in oklch, {factionDef.color} 20%, transparent)"
-      style:color={factionDef.color}
-    >
-      {factionDef.name}
-    </span>
     {#if statBonusPct > 0}
       <Hint text={mode === "depths"
         ? "The Abyss scales every enemy's HP, ATK and DEF a little more each level"

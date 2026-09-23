@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     ATTACK_TYPES,
-    FACTIONS,
     MAX_STARS,
     UNITS,
     ULTIMATES,
@@ -94,7 +93,7 @@
           {/if}
         </h3>
         <p class="text-xs" style:color={rarityColor(def.baseStars)}>
-          {RARITY_NAMES[def.baseStars]} · {FACTIONS[def.faction].name} · {type.icon} {type.name}
+          {RARITY_NAMES[def.baseStars]} · {type.icon} {type.name}
         </p>
         <p class="text-xs text-muted-foreground">
           <span style:color={sd.purple ? PURPLE_STAR_COLOR : "#fcd34d"}>{sd.symbol.repeat(sd.count)}</span> {card.stars}/{MAX_STARS}
