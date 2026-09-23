@@ -23,11 +23,13 @@ export function rarityColor(baseStars: number): string {
 
 export const PURPLE_STAR_COLOR = "oklch(0.7 0.2 300)";
 
-export function starDisplay(stars: number): { count: number; purple: boolean } {
-  if (stars > 5) return { count: stars - 5, purple: true };
-  return { count: stars, purple: false };
+export function starDisplay(stars: number): { count: number; purple: boolean; symbol: string } {
+  if (stars >= 10) return { count: 1, purple: false, symbol: "✦" };
+  if (stars > 5) return { count: stars - 5, purple: true, symbol: "★" };
+  return { count: stars, purple: false, symbol: "★" };
 }
 
 export function starString(stars: number): string {
-  return "★".repeat(stars);
+  const display = starDisplay(stars);
+  return display.symbol.repeat(display.count);
 }

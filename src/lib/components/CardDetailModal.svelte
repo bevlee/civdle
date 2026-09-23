@@ -92,7 +92,7 @@
           {RARITY_NAMES[def.baseStars]} · {FACTIONS[def.faction].name} · {type.icon} {type.name}
         </p>
         <p class="text-xs text-muted-foreground">
-          <span style:color={sd.purple ? PURPLE_STAR_COLOR : undefined}>{"★".repeat(sd.count)}</span> {card.stars}/{MAX_STARS}
+          <span style:color={sd.purple ? PURPLE_STAR_COLOR : "#fcd34d"}>{sd.symbol.repeat(sd.count)}</span> {card.stars}/{MAX_STARS}
         </p>
       </div>
 
