@@ -130,16 +130,12 @@
   let typeFilter = $state<AttackType | "all">("all");
   let traitFilter = $state<Trait | "all">("all");
 
-  // Only offer traits the player actually owns, with how many cards carry each.
-  let traitOptions = $derived.by(() => {
-    const counts = new Map<Trait, number>();
-    for (const card of cards) {
-      for (const t of UNITS[card.unitId].traits) counts.set(t, (counts.get(t) ?? 0) + 1);
-    }
-    return [...counts]
-      .map(([id, count]) => ({ id, count, name: TRAIT_SYNERGIES[id].name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  });
+  // Only offer traits the player actually owns.
+  let traitOptions = $derived(
+    [...new Set(cards.flatMap((card) => UNITS[card.unitId].traits))]
+      .map((id) => ({ id, name: TRAIT_SYNERGIES[id].name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  );
 
   // Drop a trait filter whose last card was promoted away.
   $effect(() => {
@@ -283,7 +279,7 @@
       >
         <option value="all">All traits</option>
         {#each traitOptions as t (t.id)}
-          <option value={t.id}>{t.name} ({t.count})</option>
+          <option value={t.id}>{t.name}</option>
         {/each}
       </select>
       {#if isFiltered}
