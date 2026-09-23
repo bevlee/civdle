@@ -1,6 +1,7 @@
 <script lang="ts">
   import { UNITS, type UnitCard as UnitCardT } from "$lib/combatData";
   import { Button } from "$lib/components/ui/button";
+  import Hint from "./Hint.svelte";
   import UnitCard from "./UnitCard.svelte";
   import { cn } from "$lib/utils";
   import { BASE_RATES, FEAST_HALL_RATES, GRAND_FEAST_RATES, ROYAL_FEAST_RATES, EMPERORS_BANQUET_RATES, HEROIC_TRIBUTE_RATES, DIVINE_SUMMONS_RATES, type RollRate } from "$lib/settlementData";
@@ -156,9 +157,11 @@
           Drop here to remove from battlefield
         </span>
       {:else if promotable.size > 0}
-        <span class="rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] text-green-300" title="Cards with copies available for promotion">
-          ⇈ {promotable.size} promotable
-        </span>
+        <Hint text="Cards with enough copies to promote. Open one to promote it.">
+          <span class="cursor-help rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] text-green-300">
+            ⇈ {promotable.size} promotable
+          </span>
+        </Hint>
       {/if}
     </div>
     <div class="flex flex-wrap items-center gap-1.5">
@@ -182,35 +185,36 @@
       <Button size="sm" disabled={locked || gold < rollCost} onclick={onSummon} class="ml-1 h-6 px-2 text-[10px]">
         Summon {rollCost} ⚔
       </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={locked || gold < packCost}
-        onclick={onOpenPack}
-        title="Open 10 cards at once"
-        class="h-6 px-2 text-[10px]"
-      >
-        Open 10 · {packCost} ⚔
-      </Button>
-      {#if hasCelestialAltar && onOpenLegendaryPack}
+      <Hint text="Open 10 cards at once">
         <Button
           size="sm"
           variant="outline"
-          disabled={locked || gold < legendaryPackCost}
-          onclick={onOpenLegendaryPack}
-          title="10 guaranteed 5★ heroes"
-          class="h-6 border-yellow-500/40 px-2 text-[10px] text-yellow-300 hover:bg-yellow-500/10"
+          disabled={locked || gold < packCost}
+          onclick={onOpenPack}
+          class="h-6 px-2 text-[10px]"
         >
-          10× 5★ · {legendaryPackCost} ⚔
+          Open 10 · {packCost} ⚔
         </Button>
+      </Hint>
+      {#if hasCelestialAltar && onOpenLegendaryPack}
+        <Hint text="10 guaranteed 5★ heroes">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={locked || gold < legendaryPackCost}
+            onclick={onOpenLegendaryPack}
+            class="h-6 border-yellow-500/40 px-2 text-[10px] text-yellow-300 hover:bg-yellow-500/10"
+          >
+            10× 5★ · {legendaryPackCost} ⚔
+          </Button>
+        </Hint>
       {/if}
       {#if maxStars < 5}
-        <span
-          class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300"
-          title="Build the War Forge (Smithing) to unlock higher stars"
-        >
-          Max {maxStars}★
-        </span>
+        <Hint title="Star cap" text="Build the War Forge (Smithing) to unlock higher stars.">
+          <span class="cursor-help rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+            Max {maxStars}★
+          </span>
+        </Hint>
       {/if}
       <button
         class="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground"

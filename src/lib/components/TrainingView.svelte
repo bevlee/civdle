@@ -2,7 +2,6 @@
   import { Button } from "$lib/components/ui/button";
   import { Progress } from "$lib/components/ui/progress";
   import { Separator } from "$lib/components/ui/separator";
-  import * as Tooltip from "$lib/components/ui/tooltip";
   import BuffTooltip from "./BuffTooltip.svelte";
   import {
     RESOURCES,
@@ -163,34 +162,32 @@
             {formatPct(result.refundChance)} chance to keep materials
           </p>
         {/if}
-        <Tooltip.Provider>
-          <p class="flex items-center gap-3 text-muted-foreground">
-            <span>
-              Time:
-              <BuffTooltip
-                label="time"
-                base={result.baseTime}
-                final={result.time}
-                modifiers={result.timeModifiers}
-                format={formatTime}
-              >
-                <span class="text-foreground">{formatTime(result.time)}</span>
-              </BuffTooltip>
-            </span>
-            <span>
-              XP:
-              <BuffTooltip
-                label="XP"
-                base={result.baseXp}
-                final={result.xp}
-                modifiers={result.xpModifiers}
-                format={formatXp}
-              >
-                <span class="text-foreground">{formatXp(result.xp)}</span>
-              </BuffTooltip>
-            </span>
-          </p>
-        </Tooltip.Provider>
+        <p class="flex items-center gap-3 text-muted-foreground">
+          <span>
+            Time:
+            <BuffTooltip
+              label="time"
+              base={result.baseTime}
+              final={result.time}
+              modifiers={result.timeModifiers}
+              format={formatTime}
+            >
+              <span class="text-foreground">{formatTime(result.time)}</span>
+            </BuffTooltip>
+          </span>
+          <span>
+            XP:
+            <BuffTooltip
+              label="XP"
+              base={result.baseXp}
+              final={result.xp}
+              modifiers={result.xpModifiers}
+              format={formatXp}
+            >
+              <span class="text-foreground">{formatXp(result.xp)}</span>
+            </BuffTooltip>
+          </span>
+        </p>
       </div>
     {:else}
       <p class="text-sm text-muted-foreground">

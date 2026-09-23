@@ -10,6 +10,7 @@
   import type { BattleMode } from "$lib/combatEngine";
   import { isFrontRow, indexToPosition } from "$lib/position";
   import UnitCard from "./UnitCard.svelte";
+  import Hint from "./Hint.svelte";
   import { cn } from "$lib/utils";
 
   let {
@@ -60,14 +61,13 @@
       {factionDef.name}
     </span>
     {#if statBonusPct > 0}
-      <span
-        class="rounded-md bg-destructive/20 px-2 py-0.5 text-xs font-semibold text-red-300"
-        title={mode === "depths"
-          ? "The Abyss scales every enemy's HP, ATK and DEF a little more each level"
-          : "Boss armies fight with a stat bonus"}
-      >
-        +{statBonusPct}% stats
-      </span>
+      <Hint text={mode === "depths"
+        ? "The Abyss scales every enemy's HP, ATK and DEF a little more each level"
+        : "Boss armies fight with a stat bonus"}>
+        <span class="cursor-help rounded-md bg-destructive/20 px-2 py-0.5 text-xs font-semibold text-red-300">
+          +{statBonusPct}% stats
+        </span>
+      </Hint>
     {/if}
   </div>
   <p class="text-xs italic text-muted-foreground">{flavor}</p>

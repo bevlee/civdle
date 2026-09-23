@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button";
+  import Hint from "./Hint.svelte";
   import { Separator } from "$lib/components/ui/separator";
   import {
     DEBUG_GLOBAL_UPGRADES,
@@ -80,15 +81,16 @@
             <p class="font-medium">{upgrade.name}</p>
             <p class="text-xs text-muted-foreground">{upgrade.description}</p>
           </div>
-          <Button
-            size="sm"
-            variant={isOwned ? "secondary" : "default"}
-            disabled={!canBuy}
-            title={masteryUnlocked ? undefined : `Unlocks at Lv ${MAX_LEVEL} in any skill`}
-            onclick={() => onBuyGlobal(upgrade.id)}
-          >
-            {isOwned ? "Owned" : `${upgrade.cost} SP`}
-          </Button>
+          <Hint text={masteryUnlocked ? undefined : `Unlocks at Lv ${MAX_LEVEL} in any skill`}>
+            <Button
+              size="sm"
+              variant={isOwned ? "secondary" : "default"}
+              disabled={!canBuy}
+              onclick={() => onBuyGlobal(upgrade.id)}
+            >
+              {isOwned ? "Owned" : `${upgrade.cost} SP`}
+            </Button>
+          </Hint>
         </div>
       {/each}
     </div>
