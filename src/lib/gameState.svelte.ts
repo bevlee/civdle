@@ -3,6 +3,7 @@ import { BattleAudio } from "./battleAudio";
 import {
   DEBUG_GLOBAL_UPGRADES,
   GLOBAL_UPGRADES,
+  type AgeId,
   type ResourceId,
   SKILLS,
   SKILL_ORDER,
@@ -22,8 +23,13 @@ import {
   computeUnlocks,
   createInitialState,
   createInitialStats,
+  describeAgeBonus,
+  describeAgeReward,
   getAgeAdvanceStatus,
   getAgeBonus,
+  getMaxSummonStars,
+  isCombatUnlocked,
+  isSkillUnlockable,
   getSkillEligibleAgeIndex,
   getSkillLevels,
   getTributeCap,
@@ -61,7 +67,7 @@ import { checkAchievements } from "./achievements";
 import { timeline } from "./combatAnimation";
 import { untrack } from "svelte";
 import type { SettlementUpgradeId } from "./settlementData";
-import { getEffectiveRollRates, hasCelestialAltar, maxSummonStars } from "./settlementData";
+import { getEffectiveRollRates, hasCelestialAltar } from "./settlementData";
 
 const SAVE_KEY = "civdle-save";
 const SAVE_INTERVAL_MS = 5000;
@@ -71,8 +77,19 @@ export const ATTACK_STEP_MS = 900;
 export const ULT_STEP_MS = 1800;
 // Pause on the result panel before an auto-ground Depths run continues.
 export const DEPTHS_AUTO_PAUSE_MS = 1500;
+// 5★-only summons: need the Celestial Altar and are paid in Glory (from the
+// Conquest skill), never Tribute.
 export const LEGENDARY_PACK_SIZE = 10;
 export const LEGENDARY_PACK_COST = 100;
+export const LEGENDARY_SINGLE_COST = 10;
+
+export interface AgeAdvanceEventData {
+  ageId: AgeId;
+  ageName: string;
+  /** This age's own bonus, e.g. "-0.2s actions". */
+  bonusText: string;
+  rewards: string[];
+}
 
 export interface SummonEventData {
   card: UnitCard;
@@ -156,7 +173,7 @@ function loadFromStorage(): GameState {
         const def = SKILLS[id];
         parsed.skills[id] = {
           xp: 0,
-          unlocked: def.prereqs.length === 0,
+          unlocked: isSkillUnlockable(def, getSkillLevels(parsed), parsed.ageIndex ?? 0),
           upgrades: [],
           selectedRecipeId: def.recipes[0].id,
         };
@@ -634,7 +651,7 @@ export class CivdleGame {
   }
 
   get #maxSummonStars(): number {
-    return maxSummonStars(this.#settlementSet);
+    return getMaxSummonStars(this.state.ageIndex);
   }
 
   get #rollRates(): { stars: number; rate: number }[] {
@@ -651,6 +668,14 @@ export class CivdleGame {
 
   get rollRates(): { stars: number; rate: number }[] {
     return this.#rollRates;
+  }
+
+  get combatUnlocked(): boolean {
+    return isCombatUnlocked(this.state.ageIndex);
+  }
+
+  get glory(): number {
+    return Math.floor(this.state.resources.glory ?? 0);
   }
 
   get hasCelestialAltar(): boolean {
@@ -692,20 +717,32 @@ export class CivdleGame {
     this.eventQueue.emit<SummonPackEventData>("summonPack", { cards });
   }
 
-  rollLegendaryPack(): void {
-    if (!this.hasCelestialAltar || this.state.gacha.gold < LEGENDARY_PACK_COST || this.#hasPendingSummon) return;
+  /** Summon `count` guaranteed 5★ heroes for Glory. Needs the Celestial Altar. */
+  rollLegendary(count: 1 | 10): void {
+    const cost = count === LEGENDARY_PACK_SIZE ? LEGENDARY_PACK_COST : LEGENDARY_SINGLE_COST * count;
+    if (!this.hasCelestialAltar || this.glory < cost || this.#hasPendingSummon) return;
     const guaranteedRates = [{ stars: 5, rate: 1.0 }];
-    const cards = Array.from({ length: LEGENDARY_PACK_SIZE }, () => rollCard(Math.random, 5, guaranteedRates));
-    this.#setGacha({
-      gold: this.state.gacha.gold - LEGENDARY_PACK_COST,
-      cards: [...this.state.gacha.cards, ...cards],
-    });
+    const cards = Array.from({ length: count }, () => rollCard(Math.random, 5, guaranteedRates));
+    this.state = {
+      ...this.state,
+      resources: { ...this.state.resources, glory: (this.state.resources.glory ?? 0) - cost },
+      gacha: { ...this.state.gacha, cards: [...this.state.gacha.cards, ...cards] },
+    };
     this.#bumpStats({
       cardsSummoned: this.state.stats.cardsSummoned + cards.length,
-      packsOpened: this.state.stats.packsOpened + 1,
+      packsOpened: this.state.stats.packsOpened + (count > 1 ? 1 : 0),
       bestSummonStars: 5,
     });
-    this.eventQueue.emit<SummonPackEventData>("summonPack", { cards });
+    if (count === 1) this.eventQueue.emit<SummonEventData>("summon", { card: cards[0] });
+    else this.eventQueue.emit<SummonPackEventData>("summonPack", { cards });
+  }
+
+  rollLegendaryPack(): void {
+    this.rollLegendary(LEGENDARY_PACK_SIZE);
+  }
+
+  rollLegendarySingle(): void {
+    this.rollLegendary(1);
   }
 
   buySettlementUpgradeAction(upgradeId: SettlementUpgradeId): void {
@@ -909,16 +946,18 @@ export class CivdleGame {
     const prevLevels = getSkillLevels(prev);
     const status = getAgeAdvanceStatus(prev, prevLevels);
     if (!status.canAdvance || !status.nextAge) return;
-    const nextState = advanceAge(prev, prevLevels);
+    const { state: nextState, newlyUnlocked } = advanceAge(prev, prevLevels);
     if (nextState.ageIndex === prev.ageIndex) return;
-    const speedPct = Math.round((1 - status.nextAge.bonus.timeMult) * 100);
-    const outputPct = Math.round((status.nextAge.bonus.outputMult - 1) * 100);
     this.state = nextState;
-    this.eventQueue.emit("ageAdvance", {
-      ageId: status.nextAge.id,
-      ageName: status.nextAge.name,
-      speedPct,
-      outputPct,
+    const existing = new Set(this.pendingUnlocks);
+    const fresh = newlyUnlocked.filter((id) => !existing.has(id));
+    if (fresh.length > 0) this.pendingUnlocks = [...this.pendingUnlocks, ...fresh];
+    const age = status.nextAge;
+    this.eventQueue.emit<AgeAdvanceEventData>("ageAdvance", {
+      ageId: age.id,
+      ageName: age.name,
+      bonusText: describeAgeBonus({ flatTimeReduction: age.bonus.flatTime, outputMult: age.bonus.outputMult }),
+      rewards: describeAgeReward(age),
     });
   }
 
@@ -950,7 +989,7 @@ export class CivdleGame {
   }
 
   debugSetAge(ageIndex: number): void {
-    this.state = { ...this.state, ageIndex };
+    this.state = computeUnlocks({ ...this.state, ageIndex }).state;
   }
 
   debugUnlockAllSkills(): void {

@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CivdleGame, ATTACK_STEP_MS, ULT_STEP_MS, DEPTHS_AUTO_PAUSE_MS } from "./gameState.svelte";
+import {
+  CivdleGame,
+  ATTACK_STEP_MS,
+  ULT_STEP_MS,
+  DEPTHS_AUTO_PAUSE_MS,
+  LEGENDARY_PACK_COST,
+  LEGENDARY_SINGLE_COST,
+} from "./gameState.svelte";
 import { createCard, GACHA_COST, PACK_SIZE } from "./combatData";
 import { xpForLevel } from "./gameEngine";
 
@@ -214,5 +221,64 @@ describe("battle playback controls", () => {
     vi.advanceTimersByTime((DEPTHS_AUTO_PAUSE_MS + (game.state.gacha.battle?.lastAction?.kind === "ultimate" ? ULT_STEP_MS : ATTACK_STEP_MS)) * 2);
     expect(game.state.gacha.depths.level).toBe(level + 1);
     expect(game.state.gacha.battle?.turn).toBe(0);
+  });
+});
+
+describe("legendary summons", () => {
+  function buyAltar() {
+    game.state.resources = { steelBar: 30, bricks: 25, mead: 20, fineClothing: 15 };
+    game.buySettlementUpgradeAction("celestialAltar");
+    expect(game.hasCelestialAltar).toBe(true);
+  }
+
+  it("needs the Celestial Altar", () => {
+    game.state.resources = { glory: 500 };
+    game.rollLegendaryPack();
+    game.rollLegendarySingle();
+    expect(game.state.gacha.cards).toHaveLength(0);
+    expect(game.state.resources.glory).toBe(500);
+  });
+
+  it("can't be paid for with Tribute", () => {
+    buyAltar();
+    game.state.gacha.gold = 10_000;
+    game.state.resources = { glory: LEGENDARY_SINGLE_COST - 1 };
+    game.rollLegendaryPack();
+    game.rollLegendarySingle();
+    expect(game.state.gacha.cards).toHaveLength(0);
+    expect(game.state.gacha.gold).toBe(10_000);
+  });
+
+  it("spends Glory for 10 guaranteed 5★ heroes", () => {
+    buyAltar();
+    game.state.gacha.gold = 50;
+    game.state.resources = { glory: LEGENDARY_PACK_COST + 5 };
+    game.rollLegendaryPack();
+    expect(game.state.gacha.cards).toHaveLength(10);
+    expect(game.state.gacha.cards.every((c) => c.stars === 5)).toBe(true);
+    expect(game.state.resources.glory).toBe(5);
+    expect(game.state.gacha.gold).toBe(50);
+  });
+
+  it("spends Glory for a single guaranteed 5★ hero", () => {
+    buyAltar();
+    game.state.resources = { glory: LEGENDARY_SINGLE_COST };
+    game.rollLegendarySingle();
+    expect(game.state.gacha.cards).toHaveLength(1);
+    expect(game.state.gacha.cards[0].stars).toBe(5);
+    expect(game.state.resources.glory).toBe(0);
+  });
+});
+
+describe("age advance", () => {
+  it("grants the reward heroes and queues the Conquest unlock", () => {
+    game.state.ageIndex = 3;
+    game.state.skills.mining.xp = xpForLevel(60);
+    game.state.skills.smithing.xp = xpForLevel(60);
+    game.state.resources = { steelBar: 300, fineClothing: 150 };
+    game.advanceAgeAction();
+    expect(game.ageIndex).toBe(4);
+    expect(game.state.gacha.cards).toHaveLength(4);
+    expect(game.pendingUnlocks).toContain("conquest");
   });
 });

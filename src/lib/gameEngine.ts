@@ -4,12 +4,14 @@ import type {
   ConditionalOutput,
   Recipe,
   ResourceId,
+  SkillDef,
   SkillId,
   SkillUpgrade,
 } from "./gameData";
 import {
   AGES,
   AGE_ADVANCE_COSTS,
+  AGE_REWARD_UNIT,
   BASE_ACTION_TIME,
   DEBUG_GLOBAL_UPGRADES,
   GLOBAL_UPGRADES,
@@ -22,6 +24,7 @@ import {
 } from "./gameData";
 import type { GachaState } from "./combatEngine";
 import { createInitialGachaState } from "./combatEngine";
+import { createCard } from "./combatData";
 import type { SettlementUpgradeId } from "./settlementData";
 import { SETTLEMENT_UPGRADES, tributeCap } from "./settlementData";
 
@@ -112,12 +115,13 @@ export interface GameState {
 }
 
 export function createInitialState(): GameState {
+  const zeroLevels = Object.fromEntries(SKILL_ORDER.map((id) => [id, 0])) as Record<SkillId, number>;
   const skills = {} as Record<SkillId, SkillState>;
   for (const id of SKILL_ORDER) {
     const def = SKILLS[id];
     skills[id] = {
       xp: 0,
-      unlocked: def.prereqs.length === 0,
+      unlocked: isSkillUnlockable(def, zeroLevels, 0),
       upgrades: [],
       selectedRecipeId: def.recipes[0].id,
     };
@@ -162,23 +166,57 @@ export function getSkillEligibleAgeIndex(skillLevels: Record<SkillId, number>): 
 }
 
 export interface AgeBonus {
-  timeMult: number;
+  flatTimeReduction: number;
   outputMult: number;
 }
 
-// Bonuses stack additively across every tier reached (see AGES for each tier's
-// marginal contribution): Iron Age = Bronze's -10%/+10% plus Iron's own -10%/+10%.
+// Every age reached contributes: speed-ups sum, output multipliers multiply.
 export function getAgeBonus(ageIndex: number): AgeBonus {
-  let timeReduction = 0;
-  let outputBonus = 0;
+  let flatTimeReduction = 0;
+  let outputMult = 1;
   for (let i = 1; i <= ageIndex; i++) {
-    timeReduction += 1 - AGES[i].bonus.timeMult;
-    outputBonus += AGES[i].bonus.outputMult - 1;
+    flatTimeReduction += AGES[i].bonus.flatTime;
+    outputMult *= AGES[i].bonus.outputMult;
   }
-  return { timeMult: 1 - timeReduction, outputMult: 1 + outputBonus };
+  return { flatTimeReduction, outputMult };
+}
+
+// Highest star rarity regular summons can roll: 3★ until an age raises it.
+export function getMaxSummonStars(ageIndex: number): number {
+  let stars = 3;
+  for (let i = 0; i <= ageIndex && i < AGES.length; i++) {
+    stars = Math.max(stars, AGES[i].reward.maxSummonStars ?? 0);
+  }
+  return stars;
+}
+
+export function isCombatUnlocked(ageIndex: number): boolean {
+  return AGES.slice(0, ageIndex + 1).some((a) => a.reward.unlocksCombat);
+}
+
+// Short player-facing summaries, e.g. "-0.6s actions · ×2 resources".
+export function describeAgeBonus(bonus: AgeBonus): string {
+  const parts: string[] = [];
+  if (bonus.flatTimeReduction > 0) parts.push(`${formatSeconds(bonus.flatTimeReduction)} actions`);
+  if (bonus.outputMult !== 1) parts.push(`${formatMult(bonus.outputMult)} resources`);
+  return parts.join(" · ");
+}
+
+export function describeAgeReward(age: AgeDef): string[] {
+  const parts: string[] = [];
+  if (age.reward.heroCopies > 0) parts.push(`4★ hero ×${age.reward.heroCopies}`);
+  if (age.reward.unlocksCombat) parts.push("Campaign & The Abyss");
+  if (age.reward.maxSummonStars) parts.push(`${age.reward.maxSummonStars}★ summons`);
+  if (age.reward.unlocksSkill) parts.push(`${SKILLS[age.reward.unlocksSkill].name} skill`);
+  return parts;
 }
 
 // ---------- Unlocks ----------
+
+export function isSkillUnlockable(def: SkillDef, levels: Record<SkillId, number>, ageIndex: number): boolean {
+  if (def.ageRequired && ageIndex < AGES.findIndex((a) => a.id === def.ageRequired)) return false;
+  return def.prereqs.every((p) => (levels[p.skill] ?? 0) >= p.level);
+}
 
 export function computeUnlocks(state: GameState): { state: GameState; newlyUnlocked: SkillId[] } {
   const levels = getSkillLevels(state);
@@ -186,9 +224,7 @@ export function computeUnlocks(state: GameState): { state: GameState; newlyUnloc
   const skills = { ...state.skills };
   for (const id of SKILL_ORDER) {
     if (!skills[id] || skills[id].unlocked) continue;
-    const def = SKILLS[id];
-    const met = def.prereqs.every((p) => (levels[p.skill] ?? 0) >= p.level);
-    if (met) {
+    if (isSkillUnlockable(SKILLS[id], levels, state.ageIndex)) {
       skills[id] = { ...skills[id], unlocked: true };
       newlyUnlocked.push(id);
     }
@@ -218,16 +254,26 @@ export function getAgeAdvanceStatus(state: GameState, skillLevels: Record<SkillI
   return { nextAge, cost, skillsMet, resourcesMet, canAdvance: skillsMet && resourcesMet };
 }
 
-// Consumes the next age's resource cost and advances state.ageIndex by one.
-// Returns the unchanged state if the requirements aren't met.
-export function advanceAge(state: GameState, skillLevels: Record<SkillId, number>): GameState {
+// Consumes the next age's resource cost, advances state.ageIndex by one and
+// grants that age's reward. Returns the unchanged state (and no unlocks) if
+// the requirements aren't met.
+export function advanceAge(
+  state: GameState,
+  skillLevels: Record<SkillId, number>,
+): { state: GameState; newlyUnlocked: SkillId[] } {
   const status = getAgeAdvanceStatus(state, skillLevels);
-  if (!status.canAdvance || !status.nextAge) return state;
+  if (!status.canAdvance || !status.nextAge) return { state, newlyUnlocked: [] };
   const resources = { ...state.resources };
   for (const c of status.cost) {
     resources[c.resource] = (resources[c.resource] ?? 0) - c.amount;
   }
-  return { ...state, resources, ageIndex: state.ageIndex + 1 };
+  const granted = Array.from({ length: status.nextAge.reward.heroCopies }, () => createCard(AGE_REWARD_UNIT));
+  return computeUnlocks({
+    ...state,
+    resources,
+    ageIndex: state.ageIndex + 1,
+    gacha: { ...state.gacha, cards: [...state.gacha.cards, ...granted] },
+  });
 }
 
 // ---------- Upgrade effects ----------
@@ -345,10 +391,10 @@ function getActionEffects(skillId: SkillId, owned: string[], ageIndex: number, g
   }
 
   const ageBonus = getAgeBonus(ageIndex);
-  effects.timeMult *= ageBonus.timeMult;
+  effects.flatTimeReduction += ageBonus.flatTimeReduction;
   effects.outputMult *= ageBonus.outputMult;
-  if (ageIndex > 0) {
-    effects.timeModifiers.push({ source: AGES[ageIndex].name, effect: formatMult(ageBonus.timeMult) });
+  if (ageBonus.flatTimeReduction > 0) {
+    effects.timeModifiers.push({ source: AGES[ageIndex].name, effect: formatSeconds(ageBonus.flatTimeReduction) });
   }
 
   for (const id of globalUpgrades) {

@@ -5,8 +5,6 @@ import type { ResourceAmount, SkillId } from "./gameData";
 
 export type SettlementUpgradeId =
   | "treasury"
-  | "warForge"
-  | "masterForge"
   | "feastHall"
   | "grandFeast"
   | "royalFeast"
@@ -37,30 +35,6 @@ export const SETTLEMENT_UPGRADES: Record<SettlementUpgradeId, SettlementUpgradeD
       { resource: "stone", amount: 100 },
       { resource: "planks", amount: 50 },
       { resource: "bricks", amount: 30 },
-    ],
-    prereqs: [],
-  },
-  warForge: {
-    id: "warForge",
-    name: "War Forge",
-    description: "Forge weapons worthy of 4★ warriors. Unlocks 4★ summons.",
-    icon: "⚒",
-    cost: [
-      { resource: "copperBar", amount: 50 },
-      { resource: "ironBar", amount: 30 },
-      { resource: "coal", amount: 40 },
-    ],
-    prereqs: [],
-  },
-  masterForge: {
-    id: "masterForge",
-    name: "Master Forge",
-    description: "A master forge attracts legendary 5★ heroes to your cause.",
-    icon: "🔥",
-    cost: [
-      { resource: "steelBar", amount: 40 },
-      { resource: "steelTools", amount: 20 },
-      { resource: "ironBar", amount: 50 },
     ],
     prereqs: [],
   },
@@ -147,7 +121,7 @@ export const SETTLEMENT_UPGRADES: Record<SettlementUpgradeId, SettlementUpgradeD
   celestialAltar: {
     id: "celestialAltar",
     name: "Celestial Altar",
-    description: "A sacred altar that channels divine energy, guaranteeing legendary 5★ heroes. Unlocks the Legendary Pack: 10 guaranteed 5★ heroes for 100 Tribute.",
+    description: "A sacred altar that channels divine energy, guaranteeing legendary 5★ heroes. Unlocks Legendary Summons, paid in Glory from the Conquest skill.",
     icon: "🌟",
     cost: [
       { resource: "steelBar", amount: 30 },
@@ -161,8 +135,6 @@ export const SETTLEMENT_UPGRADES: Record<SettlementUpgradeId, SettlementUpgradeD
 
 export const SETTLEMENT_UPGRADE_ORDER: SettlementUpgradeId[] = [
   "treasury",
-  "warForge",
-  "masterForge",
   "feastHall",
   "grandFeast",
   "royalFeast",
@@ -182,14 +154,6 @@ export function tributeCap(constructionLevel: number, hasTreasury: boolean): num
   if (!hasTreasury) return Infinity;
   if (constructionLevel >= 99) return TRIBUTE_CAP_AT_99;
   return BASE_TRIBUTE_CAP + TRIBUTE_PER_LEVEL * constructionLevel;
-}
-
-// --- Gacha: star-tier gating based on forge upgrades ---
-
-export function maxSummonStars(upgrades: Set<SettlementUpgradeId>): number {
-  if (upgrades.has("masterForge")) return 5;
-  if (upgrades.has("warForge")) return 4;
-  return 3;
 }
 
 // --- Gacha: improved rates based on feast upgrades ---

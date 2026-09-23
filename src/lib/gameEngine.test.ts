@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { GLOBAL_UPGRADES, MAX_LEVEL, SKILLS, SKILL_ORDER, XP_PER_ACTION, XP_SCALING_RATE } from "./gameData";
 import {
+  AGE_ADVANCE_COSTS,
+  AGE_REWARD_UNIT,
+  GLOBAL_UPGRADES,
+  MAX_LEVEL,
+  SKILLS,
+  SKILL_ORDER,
+  XP_PER_ACTION,
+  XP_SCALING_RATE,
+} from "./gameData";
+import {
+  advanceAge,
   applyAction,
+  getAgeBonus,
+  getMaxSummonStars,
+  getSkillLevels,
+  isCombatUnlocked,
   canBuyGlobalUpgrade,
   rollOutputs,
   computeActionResult,
@@ -9,6 +23,7 @@ import {
   hasMaxedSkill,
   migrateUpgradeIds,
   xpForLevel,
+  type ActionResult,
   type GameState,
 } from "./gameEngine";
 
@@ -68,15 +83,15 @@ describe("action time", () => {
     const r = computeActionResult("foraging", 1, ["quickHands"], 2, "forage", ["haste"]);
     expect(r?.timeModifiers).toEqual([
       { source: "Quick Hands", effect: "-0.2s" },
-      { source: "Iron Age", effect: "×0.8" },
+      { source: "Iron Age", effect: "-0.4s" },
       { source: "Haste", effect: "×0.5" },
     ]);
-    expect(r?.time).toBeCloseTo((2 - 0.2) * 0.8 * 0.5, 5);
+    expect(r?.time).toBeCloseTo((2 - 0.2 - 0.4) * 0.5, 5);
   });
 
   it("applies the debug Hyperdrive after every other buff", () => {
     const r = computeActionResult("foraging", 1, ["quickHands"], 4, "forage", ["haste", "debugSpeed"]);
-    expect(r?.time).toBeCloseTo((2 - 0.2) * 0.55 * 0.5 * 0.01, 5);
+    expect(r?.time).toBeCloseTo((2 - 0.2 - 0.6) * 0.5 * 0.01, 5);
   });
 });
 
@@ -186,8 +201,12 @@ describe("mastery (global) upgrades", () => {
 });
 
 describe("upgrade data", () => {
-  it("gives every skill three upgrades with at least one effect each", () => {
+  it("gives every non-combat skill three upgrades with at least one effect each", () => {
     for (const id of SKILL_ORDER) {
+      if (SKILLS[id].category === "combat") {
+        expect(SKILLS[id].upgrades, id).toEqual([]);
+        continue;
+      }
       const ups = SKILLS[id].upgrades;
       expect(ups, id).toHaveLength(3);
       for (const u of ups) expect(u.effects.length, `${id}/${u.id}`).toBeGreaterThan(0);
@@ -206,9 +225,14 @@ describe("upgrade data", () => {
 
 const always = (v: number) => () => v;
 
+// A bare result for exercising rollOutputs' rounding without depending on game data.
+function fakeResult(patch: Partial<ActionResult>): ActionResult {
+  return { outputs: [], chancedOutputs: [], doubleChance: 0, doubleResources: null, ...patch } as ActionResult;
+}
+
 describe("computeActionResult", () => {
   it("is deterministic even with Ore Sense owned", () => {
-    // ageIndex 1 = Bronze Age: copper ore unlocked, x1.1 output.
+    // ageIndex 1 = Bronze Age: copper ore unlocked.
     const a = computeActionResult("mining", 1, ["oreSense"], 1, "mineStone");
     const results = Array.from({ length: 50 }, () =>
       computeActionResult("mining", 1, ["oreSense"], 1, "mineStone"),
@@ -218,21 +242,32 @@ describe("computeActionResult", () => {
   });
 
   it("reports the expected fractional amounts", () => {
-    const r = computeActionResult("woodcutting", 1, [], 1, "chopWood");
-    expect(r?.outputs).toEqual([{ resource: "wood", amount: 1.1 }]);
+    const r = computeActionResult("foraging", 1, [], 0, "forage");
+    expect(r?.outputs).toEqual([
+      { resource: "food", amount: 1 },
+      { resource: "plantFibres", amount: 0.5 },
+    ]);
+  });
+
+  it("doubles every output in the Renaissance", () => {
+    const r = computeActionResult("foraging", 1, [], 4, "forage");
+    expect(r?.outputs).toEqual([
+      { resource: "food", amount: 2 },
+      { resource: "plantFibres", amount: 1 },
+    ]);
   });
 });
 
 describe("rollOutputs", () => {
   it("rounds a fractional expectation up when the roll lands under the fraction", () => {
-    const r = computeActionResult("woodcutting", 1, [], 1, "chopWood")!;
+    const r = fakeResult({ outputs: [{ resource: "wood", amount: 1.1 }] });
     expect(rollOutputs(r, always(0.05))).toEqual([
       { resource: "wood", amount: 2, expected: 1.1, bonus: true },
     ]);
   });
 
   it("rounds a fractional expectation down otherwise", () => {
-    const r = computeActionResult("woodcutting", 1, [], 1, "chopWood")!;
+    const r = fakeResult({ outputs: [{ resource: "wood", amount: 1.1 }] });
     expect(rollOutputs(r, always(0.5))).toEqual([
       { resource: "wood", amount: 1, expected: 1.1, bonus: false },
     ]);
@@ -263,14 +298,13 @@ describe("rollOutputs", () => {
       { resource: "stone", amount: 2, expected: 1, bonus: true },
     ]);
     expect(rollOutputs(bronze, always(0.1))).toEqual([
-      { resource: "stone", amount: 4, expected: 1.1, bonus: true },
-      { resource: "copperOre", amount: 4, expected: 1.1, bonus: true },
+      { resource: "stone", amount: 2, expected: 1, bonus: true },
+      { resource: "copperOre", amount: 2, expected: 1, bonus: true },
     ]);
   });
 
   it("chance-rounds a byproduct that lands", () => {
-    // Bronze Age scales Sinew Cordage's 1 Cordage to 1.1.
-    const r = computeActionResult("hunting", 1, ["sinewCordage"], 1, "hunt")!;
+    const r = fakeResult({ chancedOutputs: [{ resource: "cordage", amount: 1.1, chance: 0.5 }] });
     const gains = rollOutputs(r, always(0.05));
     expect(gains).toContainEqual({ resource: "cordage", amount: 2, expected: 1.1, bonus: true });
   });
@@ -282,8 +316,76 @@ describe("applyAction", () => {
     const outcome = applyAction(state, "foraging", always(0.4));
     expect(outcome.state.resources).toEqual({ food: 1, plantFibres: 1 });
     expect(outcome.gains).toEqual([
-      { resource: "food", amount: 1, expected: 1.1, bonus: false },
-      { resource: "plantFibres", amount: 1, expected: 0.55, bonus: true },
+      { resource: "food", amount: 1, expected: 1, bonus: false },
+      { resource: "plantFibres", amount: 1, expected: 0.5, bonus: true },
     ]);
+  });
+});
+
+describe("ages", () => {
+  // Meets every age's skill condition and holds plenty of every advance cost.
+  function readyToAdvance(ageIndex: number): GameState {
+    return stateWith((s) => {
+      s.ageIndex = ageIndex;
+      s.skills.mining.xp = xpForLevel(60);
+      s.skills.smithing.xp = xpForLevel(60);
+      for (const cost of Object.values(AGE_ADVANCE_COSTS)) {
+        for (const c of cost) s.resources[c.resource] = 1000;
+      }
+    });
+  }
+
+  it("sums flat speed-ups and doubles output in the Renaissance", () => {
+    expect(getAgeBonus(0)).toEqual({ flatTimeReduction: 0, outputMult: 1 });
+    expect(getAgeBonus(1).flatTimeReduction).toBeCloseTo(0.2);
+    expect(getAgeBonus(3)).toEqual({ flatTimeReduction: expect.closeTo(0.6), outputMult: 1 });
+    expect(getAgeBonus(4)).toEqual({ flatTimeReduction: expect.closeTo(0.6), outputMult: 2 });
+    expect(computeActionResult("woodcutting", 1, [], 1, "chopWood")?.time).toBeCloseTo(1.8);
+  });
+
+  it("raises the summon star cap in Iron and Medieval", () => {
+    expect([0, 1, 2, 3, 4].map(getMaxSummonStars)).toEqual([3, 3, 4, 5, 5]);
+  });
+
+  it("opens combat from the Bronze Age", () => {
+    expect(isCombatUnlocked(0)).toBe(false);
+    expect(isCombatUnlocked(1)).toBe(true);
+    expect(isCombatUnlocked(4)).toBe(true);
+  });
+
+  it.each([
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+  ])("advancing from age %i grants %i copies of the 4★ reward hero", (from, copies) => {
+    const s = readyToAdvance(from);
+    const { state } = advanceAge(s, getSkillLevels(s));
+    expect(state.ageIndex).toBe(from + 1);
+    expect(state.gacha.cards).toHaveLength(copies);
+    expect(state.gacha.cards.every((c) => c.unitId === AGE_REWARD_UNIT && c.stars === 4)).toBe(true);
+  });
+
+  it("does nothing when the next age's requirements aren't met", () => {
+    const s = createInitialState();
+    const { state, newlyUnlocked } = advanceAge(s, getSkillLevels(s));
+    expect(state).toBe(s);
+    expect(newlyUnlocked).toEqual([]);
+  });
+
+  it("keeps Conquest locked until the Renaissance, then unlocks it", () => {
+    expect(createInitialState().skills.conquest.unlocked).toBe(false);
+    const medieval = readyToAdvance(2);
+    expect(advanceAge(medieval, getSkillLevels(medieval)).state.skills.conquest.unlocked).toBe(false);
+    const s = readyToAdvance(3);
+    const { state, newlyUnlocked } = advanceAge(s, getSkillLevels(s));
+    expect(state.skills.conquest.unlocked).toBe(true);
+    expect(newlyUnlocked).toEqual(["conquest"]);
+  });
+
+  it("Conquest yields 1/2/3 Glory per action, doubled by the Renaissance", () => {
+    expect(computeActionResult("conquest", 0, [], 4, "raid")?.outputs).toEqual([{ resource: "glory", amount: 2 }]);
+    expect(computeActionResult("conquest", 30, [], 4, "campaign")?.outputs).toEqual([{ resource: "glory", amount: 4 }]);
+    expect(computeActionResult("conquest", 60, [], 4, "conquer")?.outputs).toEqual([{ resource: "glory", amount: 6 }]);
   });
 });

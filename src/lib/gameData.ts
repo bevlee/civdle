@@ -41,7 +41,8 @@ export type ResourceId =
   | "bricks"
   | "shelter"
   | "enchantedGear"
-  | "starstone";
+  | "starstone"
+  | "glory";
 
 export const RESOURCES: Record<ResourceId, { name: string }> = {
   food: { name: "Food" },
@@ -85,6 +86,7 @@ export const RESOURCES: Record<ResourceId, { name: string }> = {
   shelter: { name: "Shelter" },
   enchantedGear: { name: "Enchanted Gear" },
   starstone: { name: "Starstone" },
+  glory: { name: "Glory" },
 };
 
 export type SkillId =
@@ -103,9 +105,10 @@ export type SkillId =
   | "weaving"
   | "carpentry"
   | "brewing"
-  | "construction";
+  | "construction"
+  | "conquest";
 
-export type SkillCategory = "gathering" | "crafting";
+export type SkillCategory = "gathering" | "crafting" | "combat";
 
 export interface ResourceAmount {
   resource: ResourceId;
@@ -161,6 +164,8 @@ export interface SkillDef {
   description: string;
   category: SkillCategory;
   prereqs: SkillPrereq[];
+  // Stays locked until this age is reached, regardless of prereqs.
+  ageRequired?: AgeId;
   recipes: Recipe[];
   upgrades: SkillUpgrade[];
 }
@@ -902,6 +907,20 @@ export const SKILLS: Record<SkillId, SkillDef> = {
       },
     ],
   },
+  conquest: {
+    id: "conquest",
+    name: "Conquest",
+    description: "March your banners across the known world. Every victory earns Glory, the only offering the legends will answer.",
+    category: "combat",
+    prereqs: [],
+    ageRequired: "renaissance",
+    recipes: [
+      { id: "raid", name: "Raid", requiredLevel: 0, inputs: [], outputs: [{ resource: "glory", amount: 1 }] },
+      { id: "campaign", name: "Campaign", requiredLevel: 30, inputs: [], outputs: [{ resource: "glory", amount: 2 }] },
+      { id: "conquer", name: "Conquer", requiredLevel: 60, inputs: [], outputs: [{ resource: "glory", amount: 3 }] },
+    ],
+    upgrades: [],
+  },
 };
 
 export const SKILL_ORDER: SkillId[] = [
@@ -921,44 +940,65 @@ export const SKILL_ORDER: SkillId[] = [
   "carpentry",
   "brewing",
   "construction",
+  "conquest",
 ];
 
 export type AgeId = "stoneAge" | "bronzeAge" | "ironAge" | "medieval" | "renaissance";
+
+export interface AgeReward {
+  // Copies of AGE_REWARD_UNIT granted on reaching this age.
+  heroCopies: number;
+  // Raises the highest star rarity regular summons can roll.
+  maxSummonStars?: number;
+  // Opens the Campaign and The Abyss.
+  unlocksCombat?: boolean;
+  unlocksSkill?: SkillId;
+}
 
 export interface AgeDef {
   id: AgeId;
   name: string;
   // A condition is a set of skill-level requirements; all must be met.
   condition: SkillPrereq[];
-  bonus: { timeMult: number; outputMult: number };
+  // This age's own contribution; getAgeBonus sums every age reached.
+  bonus: { flatTime: number; outputMult: number };
+  reward: AgeReward;
 }
 
-// Ages are checked in order; an age is active once its own condition, and every
-// prior age's condition, is met (bonuses are cumulative by construction below).
+// Every age-up grants copies of this 4★ Necromancer (1+2+3+4 = 10, enough to
+// promote one to 8★). Players see it as a "4★ hero" until it arrives.
+export const AGE_REWARD_UNIT = "vampire";
+
+// Ages are advanced one at a time by meeting the next age's skill condition
+// and paying its AGE_ADVANCE_COSTS.
 export const AGES: AgeDef[] = [
   {
     id: "stoneAge",
     name: "Stone Age",
     condition: [],
-    bonus: { timeMult: 1, outputMult: 1 },
+    bonus: { flatTime: 0, outputMult: 1 },
+    reward: { heroCopies: 0 },
   },
   {
     id: "bronzeAge",
     name: "Bronze Age",
     condition: [{ skill: "mining", level: 10 }],
-    bonus: { timeMult: 0.9, outputMult: 1.1 },
+    bonus: { flatTime: 0.2, outputMult: 1 },
+    reward: { heroCopies: 1, unlocksCombat: true },
   },
   {
     id: "ironAge",
     name: "Iron Age",
     condition: [{ skill: "smithing", level: 20 }],
-    bonus: { timeMult: 0.9, outputMult: 1.1 },
+    bonus: { flatTime: 0.2, outputMult: 1 },
+    reward: { heroCopies: 2, maxSummonStars: 4 },
   },
   {
     id: "medieval",
     name: "Medieval",
     condition: [{ skill: "smithing", level: 40 }],
-    bonus: { timeMult: 0.9, outputMult: 1.1 },
+    bonus: { flatTime: 0.2, outputMult: 1 },
+    reward: { heroCopies: 3, maxSummonStars: 5 },
   },
   {
     id: "renaissance",
@@ -967,7 +1007,8 @@ export const AGES: AgeDef[] = [
       { skill: "mining", level: 60 },
       { skill: "smithing", level: 60 },
     ],
-    bonus: { timeMult: 0.85, outputMult: 1.15 },
+    bonus: { flatTime: 0, outputMult: 2 },
+    reward: { heroCopies: 4, unlocksSkill: "conquest" },
   },
 ];
 
