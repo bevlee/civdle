@@ -3,6 +3,7 @@
   import { Separator } from "$lib/components/ui/separator";
   import {
     AGES,
+    DEBUG_GLOBAL_UPGRADES,
     RESOURCES,
     type ResourceId,
     SKILL_ORDER,
@@ -105,15 +106,20 @@
             Unlock All
           </Button>
         </div>
-        <Button
-          size="sm"
-          variant={game.hyperdrive ? "default" : "outline"}
-          class="mt-1.5 h-6 w-full text-xs"
-          title="Actions are 100x faster"
-          onclick={() => game.debugToggleHyperdrive()}
-        >
-          Hyperdrive: {game.hyperdrive ? "ON" : "OFF"}
-        </Button>
+        {#each DEBUG_GLOBAL_UPGRADES as upgrade (upgrade.id)}
+          {@const on = game.state.globalUpgrades.includes(upgrade.id)}
+          <Button
+            size="sm"
+            variant={on ? "default" : "outline"}
+            class="mt-1.5 h-6 w-full text-xs"
+            title={upgrade.description}
+            role="switch"
+            aria-checked={on}
+            onclick={() => game.toggleDebugUpgrade(upgrade.id)}
+          >
+            {upgrade.name}: {on ? "ON" : "OFF"}
+          </Button>
+        {/each}
       </section>
 
       <Separator />

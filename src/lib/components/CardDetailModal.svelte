@@ -14,6 +14,8 @@
   import { RARITY_NAMES, rarityColor, starDisplay, PURPLE_STAR_COLOR } from "$lib/rarity";
   import { Button } from "$lib/components/ui/button";
   import UnitCard from "./UnitCard.svelte";
+  import HeroStats from "./HeroStats.svelte";
+  import type { Fighter } from "$lib/combatEngine";
 
   let {
     card,
@@ -25,6 +27,7 @@
     locked = false,
     readOnly = false,
     statMult = 1,
+    fighter,
     onAddToParty,
     onRemoveFromParty,
     partyCards = [],
@@ -40,6 +43,7 @@
     locked?: boolean;
     readOnly?: boolean;
     statMult?: number;
+    fighter?: Fighter;
     onAddToParty?: () => void;
     onRemoveFromParty?: () => void;
     partyCards?: UnitCardT[];
@@ -50,7 +54,7 @@
   let traitCounts = $derived(countTraits(partyCards));
   let def = $derived(UNITS[card.unitId]);
   let baseStats = $derived(computeCardStats(card.unitId, card.stars, card.ascended));
-  let stats = $derived(statMult !== 1 ? {
+  let stats = $derived(fighter ? { hp: fighter.maxHp, atk: fighter.atk, def: fighter.def, spd: fighter.spd } : statMult !== 1 ? {
     hp: Math.floor(baseStats.hp * statMult),
     atk: Math.floor(baseStats.atk * statMult),
     def: Math.floor(baseStats.def * statMult),
@@ -72,7 +76,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4" onclick={onClose}>
   <div
-    class="flex max-w-lg flex-col gap-3 rounded-xl border border-border bg-popover p-4 shadow-2xl sm:flex-row"
+    class="unit-details flex max-h-[90dvh] overflow-y-auto max-w-lg flex-col gap-3 rounded-xl border border-border bg-popover p-4 shadow-2xl sm:flex-row"
     onclick={(e) => e.stopPropagation()}
     role="dialog"
     tabindex="-1"
@@ -92,16 +96,12 @@
           {RARITY_NAMES[def.baseStars]} · {FACTIONS[def.faction].name} · {type.icon} {type.name}
         </p>
         <p class="text-xs text-muted-foreground">
-          <span style:color={sd.purple ? PURPLE_STAR_COLOR : undefined}>{"★".repeat(sd.count)}</span> {card.stars}/{MAX_STARS}
+          <span style:color={sd.purple ? PURPLE_STAR_COLOR : "#fcd34d"}>{sd.symbol.repeat(sd.count)}</span> {card.stars}/{MAX_STARS}
         </p>
       </div>
 
-      <div class="grid grid-cols-4 gap-1 text-center text-xs">
-        <div class="rounded bg-muted px-1 py-1"><div class="text-muted-foreground">HP</div><div class="font-bold tabular-nums">{stats.hp}</div></div>
-        <div class="rounded bg-muted px-1 py-1"><div class="text-muted-foreground">ATK</div><div class="font-bold tabular-nums">{stats.atk}</div></div>
-        <div class="rounded bg-muted px-1 py-1"><div class="text-muted-foreground">DEF</div><div class="font-bold tabular-nums">{stats.def}</div></div>
-        <div class="rounded bg-muted px-1 py-1"><div class="text-muted-foreground">SPD</div><div class="font-bold tabular-nums">{stats.spd}</div></div>
-      </div>
+      <HeroStats {stats} currentHp={fighter?.hp} />
+      {#if fighter}<p class="text-[10px] text-amber-300">Live battle stats · army bonuses included</p>{/if}
 
       {#if statMult > 1.005}
         <p class="text-[10px] font-semibold text-red-300">+{Math.round((statMult - 1) * 100)}% stat bonus applied</p>
@@ -130,7 +130,6 @@
                   <span class="ml-1 text-[10px] text-muted-foreground">🔒 {gateLabel}</span>
                 {/if}
               </span>
-              <span class="text-[10px] text-muted-foreground">{syn.description}</span>
             </div>
             {#each syn.tiers as bonus, index}
               {@const active = isActive && tierFor(trait, traitCounts.get(trait) ?? 0) === index + 1}
@@ -193,3 +192,20 @@
     </div>
   </div>
 </div>
+
+<style>
+  .unit-details :global(.card-ascended-glow) {
+    animation: none;
+    box-shadow: 0 0 8px 1px oklch(0.85 0.16 85 / 0.25);
+  }
+
+  .unit-details :global(.card-ascended-sheen) {
+    opacity: 0.2;
+    animation-duration: 6s;
+  }
+
+  .unit-details :global(.card-ascended-star) {
+    animation: none;
+    filter: drop-shadow(0 0 2px oklch(0.9 0.2 85 / 0.35));
+  }
+</style>

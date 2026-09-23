@@ -2,8 +2,8 @@ import { BattlePlayback, type BattleSpeed } from "./battlePlayback";
 import { BattleAudio } from "./battleAudio";
 import {
   AGES,
+  DEBUG_GLOBAL_UPGRADES,
   GLOBAL_UPGRADES,
-  HYPERDRIVE_ID,
   type AgeId,
   type ResourceId,
   SKILLS,
@@ -33,7 +33,7 @@ import {
   isSkillUnlockable,
   getSkillEligibleAgeIndex,
   getSkillLevels,
-  getTributeCap,
+  getTreasuryMultiplier,
   hasMaxedSkill,
   migrateUpgradeIds,
   processOfflineProgress,
@@ -64,7 +64,7 @@ import {
 import { TOTAL_TUTORIAL_STEPS } from "./tutorial";
 import { movePartyCard } from "./party";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
-import { checkAchievements } from "./achievements";
+import { checkAchievements, checkAchievementMilestones } from "./achievements";
 import { timeline } from "./combatAnimation";
 import { untrack } from "svelte";
 import type { SettlementUpgradeId } from "./settlementData";
@@ -299,11 +299,10 @@ export class CivdleGame {
     if (!gacha.depths.encounter) {
       gacha = { ...gacha, depths: { ...gacha.depths, encounter: generateDepthsEncounter(gacha.depths.level) } };
     }
-    // Passive Depths income keeps flowing while away, clamped to tribute cap.
+    // Passive Depths income keeps flowing while away, boosted by treasury.
     const offlineTicks = Math.floor(Math.max(0, elapsedSeconds * 1000) / DEPTHS_INCOME_INTERVAL_MS);
-    const rawOfflineSpoils = offlineTicks * depthsIncomePerMinute(gacha.depths.level - 1);
-    const offlineCap = getTributeCap(finalState);
-    const offlineSpoils = Math.min(rawOfflineSpoils, Math.max(0, offlineCap - gacha.gold));
+    const treasuryMult = getTreasuryMultiplier(finalState);
+    const offlineSpoils = offlineTicks * depthsIncomePerMinute(gacha.depths.level - 1) * treasuryMult;
     if (offlineSpoils > 0) gacha = { ...gacha, gold: gacha.gold + offlineSpoils };
     finalState = { ...finalState, gacha };
     this.state = finalState;
@@ -377,6 +376,16 @@ export class CivdleGame {
           this.state = result.state;
           for (const achievementId of result.newlyUnlocked) {
             this.eventQueue.emit<AchievementEventData>("achievement", { achievementId });
+          }
+          const newMilestones = checkAchievementMilestones(this.state);
+          if (newMilestones.length > 0) {
+            const claimed = [...(this.state.achievementMilestonesClaimed ?? []), ...newMilestones];
+            const cards: UnitCard[] = newMilestones.map(() => createCard("monk", 5));
+            this.state = { ...this.state, achievementMilestonesClaimed: claimed };
+            this.#setGacha({ cards: [...this.state.gacha.cards, ...cards] });
+            for (const card of cards) {
+              this.eventQueue.emit<SummonEventData>("summon", { card });
+            }
           }
         });
       });
@@ -537,11 +546,8 @@ export class CivdleGame {
   #tickDepthsIncome(): void {
     const amount = this.depthsIncome;
     if (amount <= 0) return;
-    const cap = this.tributeCap;
-    const current = this.state.gacha.gold;
-    if (current >= cap) return;
-    const gained = Math.min(amount, cap - current);
-    this.#setGacha({ gold: current + gained });
+    const gained = amount * getTreasuryMultiplier(this.state);
+    this.#setGacha({ gold: this.state.gacha.gold + gained });
     this.eventQueue.emit<SpoilsGainEventData>("spoilsGain", { amount: gained });
   }
 
@@ -614,6 +620,16 @@ export class CivdleGame {
     };
   }
 
+  toggleDebugUpgrade(upgradeId: string): void {
+    if (!DEBUG_GLOBAL_UPGRADES.some((upgrade) => upgrade.id === upgradeId)) return;
+    this.state = {
+      ...this.state,
+      globalUpgrades: this.state.globalUpgrades.includes(upgradeId)
+        ? this.state.globalUpgrades.filter((id) => id !== upgradeId)
+        : [...this.state.globalUpgrades, upgradeId],
+    };
+  }
+
   dismissMessage(): void {
     this.message = null;
   }
@@ -657,8 +673,8 @@ export class CivdleGame {
     return getEffectiveRollRates(this.#settlementSet);
   }
 
-  get tributeCap(): number {
-    return getTributeCap(this.state);
+  get treasuryMultiplier(): number {
+    return getTreasuryMultiplier(this.state);
   }
 
   get maxSummonStars(): number {
@@ -921,7 +937,7 @@ export class CivdleGame {
     }
     const storyLevel = g.storyLevel + 1;
     this.#setGacha({
-      gold: g.gold + Math.min(g.storyLevel, Math.max(0, this.tributeCap - g.gold)),
+      gold: g.gold + g.storyLevel,
       storyLevel,
       encounter: storyLevel <= MAX_ENEMY_LEVEL ? generateStoryEncounter(storyLevel) : null,
       battle: null,
@@ -1005,19 +1021,6 @@ export class CivdleGame {
   /** Advances one age as if its requirements were met, granting its rewards. */
   debugAdvanceAge(): void {
     this.#applyAgeAdvance(enterNextAge(this.state));
-  }
-
-  get hyperdrive(): boolean {
-    return this.state.globalUpgrades.includes(HYPERDRIVE_ID);
-  }
-
-  /** Toggles the 100x action speed cheat (a debug-only global upgrade). */
-  debugToggleHyperdrive(): void {
-    const others = this.state.globalUpgrades.filter((id) => id !== HYPERDRIVE_ID);
-    this.state = {
-      ...this.state,
-      globalUpgrades: this.hyperdrive ? others : [...others, HYPERDRIVE_ID],
-    };
   }
 
   debugGrantSettlementUpgrade(upgradeId: SettlementUpgradeId): void {

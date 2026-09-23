@@ -441,3 +441,11 @@ export function checkAchievements(state: GameState, now: number = Date.now()): A
 export function unlockedCount(state: GameState): number {
   return Object.keys(state.achievements).length;
 }
+
+export const ACHIEVEMENT_MILESTONES = [25, 50, 75, 100];
+
+export function checkAchievementMilestones(state: GameState): number[] {
+  const pct = Math.floor((unlockedCount(state) / ACHIEVEMENTS.length) * 100);
+  const claimed = state.achievementMilestonesClaimed ?? [];
+  return ACHIEVEMENT_MILESTONES.filter((m) => pct >= m && !claimed.includes(m));
+}

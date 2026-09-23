@@ -29,7 +29,7 @@ export const SETTLEMENT_UPGRADES: Record<SettlementUpgradeId, SettlementUpgradeD
   treasury: {
     id: "treasury",
     name: "Treasury",
-    description: "Build a treasury to store Tribute. Construction level raises the cap.",
+    description: "Doubles Tribute earned from the Depths.",
     icon: "🏛",
     cost: [
       { resource: "stone", amount: 100 },
@@ -144,16 +144,10 @@ export const SETTLEMENT_UPGRADE_ORDER: SettlementUpgradeId[] = [
   "celestialAltar",
 ];
 
-// --- Treasury: tribute cap based on construction level ---
+// --- Treasury: doubles depths income ---
 
-const BASE_TRIBUTE_CAP = 100;
-const TRIBUTE_PER_LEVEL = 10;
-const TRIBUTE_CAP_AT_99 = 1500;
-
-export function tributeCap(constructionLevel: number, hasTreasury: boolean): number {
-  if (!hasTreasury) return Infinity;
-  if (constructionLevel >= 99) return TRIBUTE_CAP_AT_99;
-  return BASE_TRIBUTE_CAP + TRIBUTE_PER_LEVEL * constructionLevel;
+export function treasuryMultiplier(hasTreasury: boolean): number {
+  return hasTreasury ? 2 : 1;
 }
 
 // --- Gacha: improved rates based on feast upgrades ---

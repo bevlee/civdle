@@ -2,3 +2,6 @@
 // server-render, so skipping SSR avoids compiling the whole component tree
 // (including all of bits-ui) on the server for every dev start.
 export const ssr = false;
+
+// Emit the app shell as build/index.html for adapter-static.
+export const prerender = true;

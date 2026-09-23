@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: civdle
+  namespace: civdle
+  labels:
+    app: civdle
+spec:
+  # Stateless static files (game state lives in the browser), so rolling
+  # updates are safe.
+  replicas: 1
+  revisionHistoryLimit: 3
+  progressDeadlineSeconds: 300
+  selector:
+    matchLabels:
+      app: civdle
+  template:
+    metadata:
+      labels:
+        app: civdle
+    spec:
+      securityContext:
+        # nginx-unprivileged runs as the nginx user, uid/gid 101.
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: civdle
+          # Bare artifact name so Skaffold rewrites it to the tag it builds.
+          image: docker.io/bevdev1/civdle
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 15
+            failureThreshold: 3
+          volumeMounts:
+            # nginx writes its pid and client/proxy temp files here.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

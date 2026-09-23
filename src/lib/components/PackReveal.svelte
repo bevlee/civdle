@@ -23,6 +23,12 @@
   const START_MS = 700;
   const STAGGER_MS = 420;
   const FLIP_MS = 650;
+  const timers: ReturnType<typeof setTimeout>[] = [];
+
+  function clearRevealTimers() {
+    timers.forEach(clearTimeout);
+    timers.length = 0;
+  }
 
   // Shrink the 5-wide grid on narrow viewports (5 md cards + gaps ≈ 720px).
   let innerWidth = $state(1024);
@@ -44,7 +50,6 @@
   );
 
   onMount(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
     cards.forEach((_, i) => {
       timers.push(
         setTimeout(() => {
@@ -68,7 +73,7 @@
       );
     });
     timers.push(setTimeout(() => (done = true), START_MS + cards.length * STAGGER_MS + FLIP_MS));
-    return () => timers.forEach(clearTimeout);
+    return clearRevealTimers;
   });
 
   function handleClick() {
@@ -76,6 +81,9 @@
       if (Date.now() - skippedAt < 300) return;
       requestAnimationFrame(() => onDismiss(event.id));
     } else {
+      // Stop the staggered reveals before showing the full pack. Otherwise the
+      // next timer lowers flippedCount and starts revealing the same cards again.
+      clearRevealTimers();
       const alreadyFlipped = flippedCount;
       flippedCount = cards.length;
       for (let i = alreadyFlipped; i < cards.length; i++) {
@@ -150,7 +158,6 @@
             flipped={i < flippedCount}
             charging={i === flippedCount}
             chargeSpeed="0.5s"
-            animate
           />
         {/each}
       </div>

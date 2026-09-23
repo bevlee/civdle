@@ -75,7 +75,7 @@
   )}
   style:border-color={color}
   style:background-color={`color-mix(in oklch, ${FACTIONS[def.faction].color} 18%, var(--card))`}
-  title={`${def.name} ${"★".repeat(sd.count)}${sd.purple ? " (purple)" : ""} · ${type.name}`}
+  title={`${def.name} ${sd.symbol.repeat(sd.count)} (${stars} stars)${sd.purple ? " (purple)" : ""} · ${type.name}`}
 >
   {#if size === "tile"}
     <div class="flex h-full w-full items-end justify-center" role="img" aria-label={def.name}>
@@ -87,7 +87,7 @@
         ascended ? "text-yellow-300 text-sm" : cn(sd.purple ? "" : "text-yellow-400", STAR_CLASS.tile),
       )}
     >
-      {#if ascended}
+      {#if shiny}
         <span class="card-ascended-star">✦</span>
       {:else}
         {#each Array(sd.count) as _, i (i)}<span style:color={sd.purple ? PURPLE_STAR_COLOR : undefined}>★</span>{/each}
@@ -114,7 +114,7 @@
       <Sprite {unitId} {pose} {animate} flip={flipSprite} class="w-full" />
     </div>
     <div class={cn("flex flex-wrap justify-center px-1 py-0.5 drop-shadow", ascended ? "text-yellow-300" : cn(sd.purple ? "" : "text-yellow-400", STAR_CLASS[size]))}>
-      {#if ascended}
+      {#if shiny}
         <span class={cn("card-ascended-star", size === "lg" ? "text-xl" : "text-base")}>✦</span>
       {:else}
         {#each Array(sd.count) as _, i (i)}<span style:color={sd.purple ? PURPLE_STAR_COLOR : undefined}>★</span>{/each}

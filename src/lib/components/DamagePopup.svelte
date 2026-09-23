@@ -41,8 +41,8 @@
   {:else if hit?.dodged}
     MISS
   {:else if hit}
-    {#if hit.strong}<span class="text-red-500" title="Strong hit">▲</span>{/if}
-    {#if hit.weak}<span class="text-sky-300/70" title="Weak hit">▼</span>{/if}
-    {hit.damage}{hit.crit ? "!" : ""}
+    {hit.damage}{hit.crit ? " crit!" : ""}
+    {#if hit.strong}<span class="text-[10px] font-bold text-red-500">Strong</span>{/if}
+    {#if hit.weak}<span class="text-[10px] font-bold text-sky-300/70">Weak</span>{/if}
   {/if}
 </span>

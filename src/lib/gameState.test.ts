@@ -8,7 +8,7 @@ import {
   LEGENDARY_SINGLE_COST,
 } from "./gameState.svelte";
 import { createCard, GACHA_COST, PACK_SIZE } from "./combatData";
-import { xpForLevel } from "./gameEngine";
+import { computeActionResult, xpForLevel } from "./gameEngine";
 
 let game: CivdleGame;
 let cleanup: (() => void) | undefined;
@@ -41,18 +41,38 @@ function finishBattle() {
   expect(game.state.gacha.battle?.status).toBe("won");
 }
 
+describe("Hyperdrive toggle", () => {
+  it("switches the speed boost on and off without spending points or removing mastery", () => {
+    game.state.globalUpgrades = ["haste"];
+    game.state.skillPoints = 12;
+    const actionTime = () => computeActionResult("foraging", 1, [], 0, "forage", game.state.globalUpgrades)!.time;
+    const normalTime = actionTime();
+
+    game.toggleDebugUpgrade("debugSpeed");
+    expect(actionTime()).toBeCloseTo(normalTime / 100);
+    game.toggleDebugUpgrade("debugSpeed");
+    expect(actionTime()).toBe(normalTime);
+    expect(game.state.globalUpgrades).toEqual(["haste"]);
+    expect(game.state.skillPoints).toBe(12);
+  });
+
+  it("can disable an already-owned Hyperdrive and rejects non-debug upgrades", () => {
+    game.state.globalUpgrades = ["haste", "debugSpeed"];
+    game.toggleDebugUpgrade("debugSpeed");
+    game.toggleDebugUpgrade("haste");
+    game.toggleDebugUpgrade("bounty");
+    game.toggleDebugUpgrade("unknown");
+    expect(game.state.globalUpgrades).toEqual(["haste"]);
+  });
+});
+
 describe("story Tribute rewards", () => {
   it.each([
-    { gold: 1000, expected: 1000 },
-    { gold: 200, expected: 200 },
-    { gold: 199, expected: 200 },
+    { gold: 1000, expected: 1003 },
+    { gold: 200, expected: 203 },
     { gold: 50, expected: 53 },
-  ])("preserves $gold Tribute and applies only available reward capacity", ({ gold, expected }) => {
-    game.state.skills.construction.xp = xpForLevel(10);
-    game.state.resources = { stone: 100, planks: 50, bricks: 30 };
+  ])("awards storyLevel Tribute with no cap ($gold → $expected)", ({ gold, expected }) => {
     game.state.gacha.gold = gold;
-    game.buySettlementUpgradeAction("treasury");
-    expect(game.tributeCap).toBe(200);
     game.state.gacha.storyLevel = 3;
     equipWinner();
     game.startStoryFight();
@@ -299,15 +319,5 @@ describe("debug ages", () => {
     game.debugSetAge(2);
     expect(game.state.skills.conquest.unlocked).toBe(false);
     expect(game.maxSummonStars).toBe(4);
-  });
-});
-
-describe("debug Hyperdrive", () => {
-  it("toggles on and off", () => {
-    game.debugToggleHyperdrive();
-    expect(game.hyperdrive).toBe(true);
-    game.debugToggleHyperdrive();
-    expect(game.hyperdrive).toBe(false);
-    expect(game.state.globalUpgrades).toEqual([]);
   });
 });

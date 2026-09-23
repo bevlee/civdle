@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { ATTACK_TYPES, UNITS, ULTIMATES, type UnitCard } from "$lib/combatData";
+  import { UNITS, ULTIMATES, type UnitCard } from "$lib/combatData";
   import { ultimateCharge } from "$lib/battlePlayback";
   import type { Fighter } from "$lib/combatEngine";
   import Sprite, { type Pose } from "./Sprite.svelte";
-  import { TRAIT_SYNERGIES } from "$lib/traits";
   import { starDisplay, PURPLE_STAR_COLOR } from "$lib/rarity";
 
   let { card, fighter, enemy = false, pose = "idle", animate = false, ghost = false, ultEvery = 3, castingUltimate = false }: {
@@ -17,7 +16,6 @@
     castingUltimate?: boolean;
   } = $props();
 
-  const colors = ["#8fae84", "#b494ce", "#d4ae68"];
   let charge = $derived(ultimateCharge(fighter?.turns ?? 0, ultEvery));
   let chargeLabel = $derived(castingUltimate ? "Ultimate active" : charge.ready ? "Ultimate next" : `Ultimate in ${charge.remaining} personal actions`);
   let def = $derived(UNITS[card.unitId]);
@@ -28,8 +26,8 @@
   <div class="unit-sprite" class:ascended={card.ascended}><Sprite unitId={card.unitId} {pose} {animate} flip={enemy} class="h-full" /></div>
   {#if !ghost}
     <span class="unit-name">{def.name}</span>
-      {#if card.ascended}
-      <span class="unit-stars ascended-star card-ascended-star" aria-label="Ascended">✦</span>
+      {#if sd.symbol === "✦"}
+      <span class="unit-stars ascended-star" class:card-ascended-star={card.ascended} aria-label={`${card.stars} stars`}>✦</span>
     {:else}
       <span class="unit-stars" style:color={sd.purple ? PURPLE_STAR_COLOR : undefined} aria-label={`${card.stars} stars`}>{"★".repeat(sd.count)}</span>
     {/if}
@@ -44,12 +42,6 @@
         {#each Array(ultEvery) as _, index}<span class:filled={castingUltimate || index < charge.filled}></span>{/each}
         {#if fighter.hp > 0 && (castingUltimate || charge.ready)}<small>{castingUltimate ? "ULT" : "ULT next"}</small>{/if}
       </div>
-    {:else}
-      <div class="unit-traits" aria-label={`${ATTACK_TYPES[def.attackType].name}; ${def.traits.map(t => TRAIT_SYNERGIES[t].name).join(", ")}`}>
-        {#each def.traits as trait, i (trait)}
-          <span style:background={colors[i]} title={TRAIT_SYNERGIES[trait].name}></span>
-        {/each}
-      </div>
     {/if}
   {/if}
 </div>
@@ -59,8 +51,6 @@
   .unit-sprite { height: 64px; display: flex; justify-content: center; filter: drop-shadow(0 5px 4px #0008); pointer-events: none; }
   .unit-name { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 600; line-height: 15px; }
   .unit-stars { color: #f6d453; font-size: 9px; line-height: 11px; letter-spacing: -1px; }
-  .unit-traits { display: flex; gap: 3px; height: 8px; align-items: center; }
-  .unit-traits span { width: 4px; height: 4px; border-radius: 50%; }
   .unit-health { width: 50px; height: 3px; background: #ffffff12; margin-top: 4px; border-radius: 4px; overflow: hidden; }
   .unit-health > div { height: 100%; background: #92bd90; transition: width 250ms; }
   .unit-health > div.enemy { background: #c47d79; }
