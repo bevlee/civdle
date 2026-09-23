@@ -57,7 +57,7 @@ import {
 import { TOTAL_TUTORIAL_STEPS } from "./tutorial";
 import { movePartyCard } from "./party";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
-import { checkAchievements } from "./achievements";
+import { checkAchievements, checkAchievementMilestones } from "./achievements";
 import { timeline } from "./combatAnimation";
 import { untrack } from "svelte";
 import type { SettlementUpgradeId } from "./settlementData";
@@ -359,6 +359,16 @@ export class CivdleGame {
           this.state = result.state;
           for (const achievementId of result.newlyUnlocked) {
             this.eventQueue.emit<AchievementEventData>("achievement", { achievementId });
+          }
+          const newMilestones = checkAchievementMilestones(this.state);
+          if (newMilestones.length > 0) {
+            const claimed = [...(this.state.achievementMilestonesClaimed ?? []), ...newMilestones];
+            const cards: UnitCard[] = newMilestones.map(() => createCard("monk", 5));
+            this.state = { ...this.state, achievementMilestonesClaimed: claimed };
+            this.#setGacha({ cards: [...this.state.gacha.cards, ...cards] });
+            for (const card of cards) {
+              this.eventQueue.emit<SummonEventData>("summon", { card });
+            }
           }
         });
       });

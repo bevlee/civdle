@@ -109,6 +109,8 @@ export interface GameState {
   stats: GameStats;
   /** One-time settlement upgrades purchased with resources. */
   settlementUpgrades: SettlementUpgradeId[];
+  /** Achievement % milestones already claimed (e.g. [25, 50]). */
+  achievementMilestonesClaimed?: number[];
 }
 
 export function createInitialState(): GameState {
