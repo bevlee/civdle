@@ -697,6 +697,11 @@ export class CivdleGame {
     return hasCelestialAltar(this.#settlementSet);
   }
 
+  /** Glory summons need the Celestial Altar and the final age. */
+  get legendarySummonsUnlocked(): boolean {
+    return this.hasCelestialAltar && this.state.ageIndex >= AGES.length - 1;
+  }
+
   get #hasPendingSummon(): boolean {
     return this.eventQueue.events.some(e => e.type === "summon" || e.type === "summonPack");
   }
@@ -732,10 +737,10 @@ export class CivdleGame {
     this.eventQueue.emit<SummonPackEventData>("summonPack", { cards });
   }
 
-  /** Summon `count` guaranteed 5★ heroes for Glory. Needs the Celestial Altar. */
+  /** Summon `count` guaranteed 5★ heroes for Glory. Needs the Celestial Altar and the final age. */
   rollLegendary(count: 1 | 10): void {
     const cost = count === LEGENDARY_PACK_SIZE ? LEGENDARY_PACK_COST : LEGENDARY_SINGLE_COST * count;
-    if (!this.hasCelestialAltar || this.glory < cost || this.#hasPendingSummon) return;
+    if (!this.legendarySummonsUnlocked || this.glory < cost || this.#hasPendingSummon) return;
     const guaranteedRates = [{ stars: 5, rate: 1.0 }];
     const cards = Array.from({ length: count }, () => rollCard(Math.random, 5, guaranteedRates));
     this.state = {

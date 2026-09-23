@@ -15,6 +15,7 @@
     skillPoints,
     warSpoils,
     levels,
+    unlocked,
     resources,
     ageAdvanceStatus,
     onAdvance,
@@ -26,6 +27,7 @@
     skillPoints: number;
     warSpoils: number;
     levels: Record<SkillId, number>;
+    unlocked: (id: SkillId) => boolean;
     resources: Partial<Record<ResourceId, number>>;
     ageAdvanceStatus: AgeAdvanceStatus;
     onAdvance: () => void;
@@ -63,13 +65,25 @@
   let checklist = $derived.by(() => {
     const { nextAge, cost } = ageAdvanceStatus;
     if (!nextAge) return [];
+    // A condition on a still-locked skill (e.g. Smithing) can't be trained
+    // yet, so list the unmet prereqs that unlock it right before it.
+    const items: { label: string; current: number; required: number; met: boolean }[] = [];
+    const seen = new Set<string>();
+    const addSkill = (skill: SkillId, level: number, unlocks?: SkillId) => {
+      if (!unlocked(skill)) {
+        for (const p of SKILLS[skill].prereqs) {
+          if ((levels[p.skill] ?? 0) < p.level) addSkill(p.skill, p.level, skill);
+        }
+      }
+      const label = `${unlocked(skill) ? "" : "🔒 "}${SKILLS[skill].name} Lv ${level}${unlocks ? ` → unlocks ${SKILLS[unlocks].name}` : ""}`;
+      if (seen.has(label)) return;
+      seen.add(label);
+      const current = levels[skill] ?? 0;
+      items.push({ label, current, required: level, met: current >= level });
+    };
+    for (const c of nextAge.condition) addSkill(c.skill, c.level);
     return [
-      ...nextAge.condition.map((c) => ({
-        label: `${SKILLS[c.skill].name} Lv ${c.level}`,
-        current: levels[c.skill] ?? 0,
-        required: c.level,
-        met: (levels[c.skill] ?? 0) >= c.level,
-      })),
+      ...items,
       ...cost.map((c) => ({
         label: RESOURCES[c.resource].name,
         current: Math.floor(resources[c.resource] ?? 0),

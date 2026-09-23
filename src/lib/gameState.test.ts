@@ -9,6 +9,7 @@ import {
 } from "./gameState.svelte";
 import { createCard, GACHA_COST, PACK_SIZE } from "./combatData";
 import { computeActionResult, xpForLevel } from "./gameEngine";
+import { AGES } from "./gameData";
 
 let game: CivdleGame;
 let cleanup: (() => void) | undefined;
@@ -249,12 +250,24 @@ describe("legendary summons", () => {
     game.state.resources = { steelBar: 30, bricks: 25, mead: 20, fineClothing: 15 };
     game.buySettlementUpgradeAction("celestialAltar");
     expect(game.hasCelestialAltar).toBe(true);
+    game.state.ageIndex = AGES.length - 1;
   }
 
   it("needs the Celestial Altar", () => {
     game.state.resources = { glory: 500 };
     game.rollLegendaryPack();
     game.rollLegendarySingle();
+    expect(game.state.gacha.cards).toHaveLength(0);
+    expect(game.state.resources.glory).toBe(500);
+  });
+
+  it("needs the final age", () => {
+    buyAltar();
+    game.state.ageIndex = AGES.length - 2;
+    game.state.resources = { glory: 500 };
+    game.rollLegendaryPack();
+    game.rollLegendarySingle();
+    expect(game.legendarySummonsUnlocked).toBe(false);
     expect(game.state.gacha.cards).toHaveLength(0);
     expect(game.state.resources.glory).toBe(500);
   });
