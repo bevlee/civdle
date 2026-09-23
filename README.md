@@ -46,5 +46,5 @@ skaffold run
 kubectl -n civdle rollout status deployment/civdle --timeout=5m
 ```
 
-Off a release tag the image is tagged with the short commit SHA (plus `-dirty`
-for uncommitted changes).
+The image tag follows `git describe --tags`: `v0.2.0` on a tagged commit,
+`v0.2.0-3-gabc1234` three commits later, plus `-dirty` for uncommitted changes.
