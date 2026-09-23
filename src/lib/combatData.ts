@@ -524,6 +524,27 @@ export function generateStoryEncounter(level: number, rand: () => number = Math.
   return isBossLevel(level) ? generateBossEncounter(level, rand) : generateEncounter(level, rand);
 }
 
+export const STORY_TRIBUTE_PER_LEVEL = 10;
+
+/** Tribute paid for winning a campaign level. */
+export function storyTribute(level: number): number {
+  return level * STORY_TRIBUTE_PER_LEVEL;
+}
+
+/**
+ * The enemy a campaign win recruits: the boss if there is one, otherwise the
+ * highest-star enemy, ties broken by the unit's base stats.
+ */
+export function strongestEnemy(encounter: Encounter): UnitCard {
+  const boss = encounter.cards.find((c) => c.id === encounter.bossId);
+  if (boss) return boss;
+  return encounter.cards.reduce((best, c) =>
+    c.stars > best.stars || (c.stars === best.stars && unitStrength(UNITS[c.unitId]) > unitStrength(UNITS[best.unitId]))
+      ? c
+      : best,
+  );
+}
+
 // ---------- The Depths: endless, gently scaling, auto-grindable ----------
 
 /**

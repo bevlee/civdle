@@ -56,6 +56,8 @@ import {
   generateDepthsEncounter,
   generateStoryEncounter,
   getPromotionCost,
+  storyTribute,
+  strongestEnemy,
   promoteCard,
   rollCard,
   type UnitCard,
@@ -926,8 +928,8 @@ export class CivdleGame {
   }
 
   /**
-   * Closes the result panel. A story win pays the level in spoils and advances
-   * the story; a Depths win advances the depth. A loss keeps the same encounter
+   * Closes the result panel. A story win pays Tribute, recruits the strongest
+   * enemy into the army and advances the story; a Depths win advances the depth. A loss keeps the same encounter
    * so the player has to adapt their composition.
    */
   dismissBattle(): void {
@@ -960,8 +962,10 @@ export class CivdleGame {
       return;
     }
     const storyLevel = g.storyLevel + 1;
+    const recruit = g.encounter ? strongestEnemy(g.encounter) : null;
     this.#setGacha({
-      gold: g.gold + g.storyLevel,
+      gold: g.gold + storyTribute(g.storyLevel),
+      cards: recruit ? [...g.cards, createCard(recruit.unitId, recruit.stars)] : g.cards,
       storyLevel,
       encounter: storyLevel <= MAX_ENEMY_LEVEL ? generateStoryEncounter(storyLevel) : null,
       battle: null,

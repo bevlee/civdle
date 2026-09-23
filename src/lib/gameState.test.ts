@@ -8,7 +8,7 @@ import {
   LEGENDARY_SINGLE_COST,
   TRIBUTE_LEGENDARY_PACK_COST,
 } from "./gameState.svelte";
-import { createCard, GACHA_COST, PACK_COST, PACK_SIZE } from "./combatData";
+import { createCard, GACHA_COST, PACK_COST, PACK_SIZE, strongestEnemy } from "./combatData";
 import { AGE_ADVANCE_COSTS } from "./gameData";
 import { computeActionResult, xpForLevel } from "./gameEngine";
 
@@ -70,10 +70,10 @@ describe("Hyperdrive toggle", () => {
 
 describe("story Tribute rewards", () => {
   it.each([
-    { gold: 1000, expected: 1003 },
-    { gold: 200, expected: 203 },
-    { gold: 50, expected: 53 },
-  ])("awards storyLevel Tribute with no cap ($gold → $expected)", ({ gold, expected }) => {
+    { gold: 1000, expected: 1030 },
+    { gold: 200, expected: 230 },
+    { gold: 50, expected: 80 },
+  ])("awards 10× storyLevel Tribute with no cap ($gold → $expected)", ({ gold, expected }) => {
     game.state.gacha.gold = gold;
     game.state.gacha.storyLevel = 3;
     equipWinner();
@@ -86,6 +86,23 @@ describe("story Tribute rewards", () => {
     game.dismissBattle();
     expect(game.state.gacha.gold).toBe(expected);
     expect(game.state.gacha.storyLevel).toBe(4);
+  });
+
+  it("recruits the strongest enemy into the army on a win", () => {
+    game.state.gacha.storyLevel = 3;
+    equipWinner();
+    const before = game.state.gacha.cards.length;
+    game.startStoryFight();
+    const expected = strongestEnemy(game.state.gacha.encounter!);
+    finishBattle();
+    vi.advanceTimersByTime(10000);
+    game.dismissBattle();
+    game.dismissBattle();
+    const cards = game.state.gacha.cards;
+    expect(cards).toHaveLength(before + 1);
+    const recruit = cards[cards.length - 1];
+    expect(recruit).toMatchObject({ unitId: expected.unitId, stars: expected.stars });
+    expect(recruit.id).not.toBe(expected.id);
   });
 });
 
