@@ -106,7 +106,6 @@
       charging={phase === "charge"}
       chargeSpeed={`${Math.max(0.25, 0.9 - rarity * 0.12)}s`}
       showTraits
-      animate
     />
 
     {#if phase === "revealed"}
