@@ -113,49 +113,49 @@
 
 <style>
   figure { margin: 18px 0 0; padding: 18px; border: 1px solid #d9b66d40; border-radius: 12px; background: #d9b66d06; }
-  .example-label { font-size: 9px; color: var(--muted-foreground); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 14px; }
-  figcaption { margin-top: 14px; font-size: 11px; line-height: 1.6; color: var(--muted-foreground); }
+  .example-label { font-size: 14px; color: var(--muted-foreground); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 14px; }
+  figcaption { margin-top: 14px; font-size: 16px; line-height: 1.6; color: var(--muted-foreground); }
   .hero-preview { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; align-items: center; }
   .detail-preview { flex: 1; min-width: 180px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--popover); }
-  h3, .visual-heading { font-size: 13px; font-weight: 650; margin-bottom: 8px; }
-  h3 span, .detail-preview > p { font-size: 11px; color: var(--muted-foreground); margin-bottom: 10px; }
-  .annotations { margin-top: 12px; font-size: 12px; line-height: 1.8; }
+  h3, .visual-heading { font-size: 18px; font-weight: 650; margin-bottom: 8px; }
+  h3 span, .detail-preview > p { font-size: 16px; color: var(--muted-foreground); margin-bottom: 10px; }
+  .annotations { margin-top: 12px; font-size: 17px; line-height: 1.8; }
   .annotations b { color: #edcf93; }
   .matchups { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 16px; }
   .matchup { display: flex; gap: 8px; align-items: center; }
-  .matchup > div { display: flex; flex-direction: column; align-items: center; font-size: 11px; }
-  .matchup > span { color: #edcf93; font-size: 11px; text-align: center; }
-  small { display: block; font-size: 10px; }
+  .matchup > div { display: flex; flex-direction: column; align-items: center; font-size: 16px; }
+  .matchup > span { color: #edcf93; font-size: 16px; text-align: center; }
+  small { display: block; font-size: 15px; }
   .visual-heading { text-align: center; }
   .formation { display: grid; gap: 12px; }
   .formation-row { display: flex; justify-content: center; gap: 8px; align-items: center; }
-  .formation-row > span { width: 28px; font-size: 10px; color: var(--muted-foreground); }
+  .formation-row > span { width: 28px; font-size: 15px; color: var(--muted-foreground); }
   .slot { width: 100px; min-width: 0; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 6px 2px; }
-  .slot b { display: block; font-size: 9px; }
+  .slot b { display: block; font-size: 14px; }
   .slot.targeted { border-color: #edcf93; background: #d9b66d18; }
   .slot small { color: #edcf93; }
-  .type-picker, .cycle { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0; font-size: 12px; }
+  .type-picker, .cycle { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0; font-size: 17px; }
   button { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
   button[aria-pressed="true"] { color: #edcf93; border-color: #d9b66d; }
   button:focus-visible { outline: 2px solid #edcf93; outline-offset: 2px; }
-  .trait-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 12px; }
-  .trait-row span { color: #edcf93; font-size: 10px; }
+  .trait-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 17px; }
+  .trait-row span { color: #edcf93; font-size: 15px; }
   .locked { opacity: .55; }
   .thresholds, .stat-comparison { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 14px; }
-  .thresholds > div, .stat-comparison > div { padding: 8px; background: var(--muted); border-radius: 6px; font-size: 11px; text-align: center; }
+  .thresholds > div, .stat-comparison > div { padding: 8px; background: var(--muted); border-radius: 6px; font-size: 16px; text-align: center; }
   .stat-comparison span { display: block; margin-top: 4px; color: #edcf93; }
   .cards { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
-  .cards > div { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 110px; font-size: 10px; text-align: center; }
+  .cards > div { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 110px; font-size: 15px; text-align: center; }
   .badge, .synergy-result { border-radius: 6px; background: #d9b66d18; color: #edcf93; padding: 6px 10px; }
-  .synergy-result { display: grid; gap: 4px; text-align: center; font-size: 13px; margin-top: 16px; }
+  .synergy-result { display: grid; gap: 4px; text-align: center; font-size: 18px; margin-top: 16px; }
   .promotion { display: flex; align-items: center; justify-content: center; gap: 20px; }
   .promotion > div { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .promotion p { font-size: 11px; }
-  .arrow { color: #edcf93; font-size: 24px; }
-  .cost { background: var(--muted); padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 12px; }
-  .cost span { display: inline-block; margin: 6px 10px 0 0; font-size: 11px; color: var(--muted-foreground); }
+  .promotion p { font-size: 16px; }
+  .arrow { color: #edcf93; font-size: 29px; }
+  .cost { background: var(--muted); padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 17px; }
+  .cost span { display: inline-block; margin: 6px 10px 0 0; font-size: 16px; color: var(--muted-foreground); }
   .paths { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-  .paths > div { display: grid; gap: 12px; padding: 16px; background: var(--muted); border-radius: 8px; font-size: 12px; }
+  .paths > div { display: grid; gap: 12px; padding: 16px; background: var(--muted); border-radius: 8px; font-size: 17px; }
   .paths b { color: #edcf93; }
   @media (max-width: 520px) { figure { padding: 12px; } .thresholds, .paths { grid-template-columns: repeat(2, 1fr); } .promotion { gap: 8px; } .stat-comparison > div { padding: 6px 2px; } }
 </style>

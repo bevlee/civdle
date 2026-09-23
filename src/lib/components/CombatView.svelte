@@ -228,18 +228,18 @@
 <div class="combat-layout">
   <div class="combat-main">
     <header class="combat-header">
-      <div class="level-heading">
+      <div class="level-heading" class:stacked={mode === "depths"}>
         <h2>{mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</h2>
         {#if mode === "depths"}<span>+{game.depthsIncome * game.treasuryMultiplier} ⚔ / min{game.treasuryMultiplier > 1 ? " (2× Treasury)" : ""} · next tier at depth {nextTierAt}</span>
         {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}+{gacha.storyLevel} Tribute</span>{/if}
-        {#if mode === "depths"}<p class="text-[11px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
+        {#if mode === "depths"}<p class="text-[16px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
       </div>
       <div class="battle-controls">
         <button class="help-button" aria-haspopup="dialog" onclick={() => showHelp = true}>Combat guide</button>
         {#if mode === "depths"}
           <label class="auto-toggle"><input type="checkbox" checked={gacha.depths.auto} disabled={otherBattleActive || partyCards.length === 0} onchange={e => game.setDepthsAuto(e.currentTarget.checked)} /> Auto</label>
         {/if}
-        <Button size="sm" class="h-7 px-3 text-xs" disabled={!canFight} onclick={() => mode === "story" ? game.startStoryFight() : game.startDepthsFight()}>{isPlaying ? "Fighting…" : mode === "story" ? "⚔ Fight" : "⚔ Descend"}</Button>
+        <Button size="sm" class="h-9 px-3 text-[17px]" disabled={!canFight} onclick={() => mode === "story" ? game.startStoryFight() : game.startDepthsFight()}>{isPlaying ? "Fighting…" : mode === "story" ? "⚔ Fight" : "⚔ Descend"}</Button>
       </div>
     </header>
 
@@ -361,7 +361,7 @@
     </section>
 
     <ArmyInventory cards={gacha.cards} {partyIds} gold={gacha.gold} rollCost={GACHA_COST} packCost={PACK_COST}
-      maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.hasCelestialAltar} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
+      maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.legendarySummonsUnlocked} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
       onDragStart={startDrag} onDragEnd={endDrag} onDragOverChange={over => dragOverInventory = over} onDrop={inventoryDrop}
       onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} />
   </div>
@@ -399,14 +399,14 @@
   />
 {/if}
 <style>
-  .result-emblem { font-size: 32px; line-height: 1; }
+  .result-emblem { font-size: 40px; line-height: 1; }
   .battle-result-content .result-emblem { color: #ce8885; }
   .battle-result-content.win .result-emblem { color: #efd08a; }
-  .result-eyebrow { text-transform: uppercase; font-size: 9px; letter-spacing: 1.5px; color: #999; }
-  .stop-auto { font-size: 10px; color: #b9afb1; text-decoration: underline; cursor: pointer; }
+  .result-eyebrow { text-transform: uppercase; font-size: 17px; letter-spacing: 1.5px; color: #999; }
+  .stop-auto { font-size: 18px; color: #b9afb1; text-decoration: underline; cursor: pointer; }
 
-  .combat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 236px; align-items: start; gap: 18px; }
-  .playback-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 10px; color: var(--muted-foreground); }
+  .combat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; align-items: start; gap: 18px; }
+  .playback-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 15px; color: var(--muted-foreground); }
   .playback-controls > div { display: flex; gap: 2px; }
   .playback-controls button { border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; cursor: pointer; }
   .playback-controls button[aria-pressed="true"] { color: #eee; background: #ffffff18; border-color: #ffffff40; }
@@ -415,21 +415,22 @@
   .combat-main { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .combat-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; flex-wrap: wrap; }
   .level-heading, .battle-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .level-heading h2 { font-size: 18px; font-weight: 650; letter-spacing: -.3px; }
-  .level-heading > span { font-size: 10px; color: var(--muted-foreground); }
-  .help-button { font-size: 10px; text-decoration: underline dotted; text-underline-offset: 3px; color: var(--muted-foreground); cursor: pointer; }
-  .auto-toggle { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted-foreground); cursor: pointer; }
+  .level-heading h2 { font-size: 23px; font-weight: 650; letter-spacing: -.3px; }
+  .level-heading > span { font-size: 15px; color: var(--muted-foreground); }
+  .level-heading.stacked { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .help-button { font-size: 15px; text-decoration: underline dotted; text-underline-offset: 3px; color: var(--muted-foreground); cursor: pointer; }
+  .auto-toggle { display: flex; align-items: center; gap: 5px; font-size: 16px; color: var(--muted-foreground); cursor: pointer; }
   .auto-toggle input { accent-color: #ddd; }
-  .notice { font-size: 12px; color: var(--muted-foreground); border: 1px solid var(--border); border-radius: 8px; padding: 12px; line-height: 1.6; }
+  .notice { font-size: 17px; color: var(--muted-foreground); border: 1px solid var(--border); border-radius: 8px; padding: 12px; line-height: 1.6; }
   .battlefield { position: relative; background: #ffffff02; border: 1px solid var(--border); border-radius: 9px; padding: 16px 14px 0; overflow: hidden; }
   .army-headings { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; min-height: 64px; }
-  h3 { text-transform: uppercase; letter-spacing: 1.1px; font-size: 10px; font-weight: 600; color: #999; }
+  h3 { text-transform: uppercase; letter-spacing: 1.1px; font-size: 15px; font-weight: 600; color: #999; }
   .enemy-title { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; justify-content: flex-end; }
-  .enemy-boost { border-radius: 3px; padding: 3px 5px; font-size: 9px; white-space: nowrap; }
+  .enemy-boost { border-radius: 3px; padding: 3px 5px; font-size: 14px; white-space: nowrap; }
   .enemy-boost { color: #e7978f; background: #702b2b55; }
   .battle-stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 60px minmax(0, 1fr); height: 400px; margin-top: 8px; }
   .formation { position: relative; min-width: 0; }
-  .field-position { position: absolute; width: 100px; left: 25%; top: calc((var(--position) - 1) * 18%); transform: translateX(-50%); text-align: center; }
+  .field-position { position: absolute; width: 124px; left: 25%; top: calc((var(--position) - 1) * 18%); transform: translateX(-50%); text-align: center; }
   .player-formation .front { left: 75%; }
   .enemy-formation .field-position { left: 75%; }
   .enemy-formation .front { left: 25%; }
@@ -442,42 +443,42 @@
   .position-button.occupied.available:hover { background: radial-gradient(ellipse, #ffffff09, transparent 70%); }
   .drag-source { opacity: .3; }
   .empty-circle, .drop-circle { width: 74px; height: 74px; display: flex; align-items: center; justify-content: center; border: 1px dashed #ffffff27; border-radius: 50%; color: #6c6c6c; }
-  .empty-circle > span { font-size: 23px; font-weight: 300; }
-  .position-caption { margin-top: 5px; font-size: 9px; color: #656565; }
+  .empty-circle > span { font-size: 31px; font-weight: 300; }
+  .position-caption { margin-top: 5px; font-size: 17px; color: #656565; }
   .drop-circle { border: 1px solid #ddd; background: #ffffff12; box-shadow: 0 0 0 2px #ffffff30; }
-  .drop-caption { margin-top: 6px; font-size: 10px; color: #ddd; }
+  .drop-caption { margin-top: 6px; font-size: 18px; color: #ddd; }
   .placing .empty-circle, .selected .empty-circle { border-color: #ffffff66; background: #ffffff04; }
   .selected .empty-circle { border-style: solid; box-shadow: 0 0 0 2px #ffffff20; }
-  .versus { align-self: center; text-align: center; margin-top: -12px; font-size: 29px; letter-spacing: 3px; font-weight: 800; color: #ffffff22; }
-  .boss-label { position: absolute; z-index: 2; top: -8px; left: 50%; transform: translateX(-50%); font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: #edaaa1; background: #50251f; border-radius: 3px; padding: 1px 5px; }
-  .story-complete { font-size: 12px; line-height: 1.7; color: var(--muted-foreground); padding-top: 130px; text-align: center; }
-  .battlefield-footer { min-height: 30px; display: flex; justify-content: space-between; gap: 8px; font-size: 10px; align-items: center; color: var(--muted-foreground); border-top: 1px solid #ffffff05; }
+  .versus { align-self: center; text-align: center; margin-top: -12px; font-size: 37px; letter-spacing: 3px; font-weight: 800; color: #ffffff22; }
+  .boss-label { position: absolute; z-index: 2; top: -8px; left: 50%; transform: translateX(-50%); font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: #edaaa1; background: #50251f; border-radius: 3px; padding: 1px 5px; }
+  .story-complete { font-size: 17px; line-height: 1.7; color: var(--muted-foreground); padding-top: 130px; text-align: center; }
+  .battlefield-footer { min-height: 30px; display: flex; justify-content: space-between; gap: 8px; font-size: 15px; align-items: center; color: var(--muted-foreground); border-top: 1px solid #ffffff05; }
   .battlefield-footer button { text-decoration: underline; cursor: pointer; }
   .win { color: #9fca98; }
   .battle-result-overlay { position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: #00000088; backdrop-filter: blur(2px); border-radius: 8px; animation: result-fade-in 0.3s ease-out; }
   .battle-result-content { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 32px; border-radius: 12px; background: #1a1a1aee; border: 1px solid #ffffff18; }
   .battle-result-content.win { border-color: #9fca9855; }
   .battle-result-content.lose { border-color: #cf6b6255; }
-  .result-label { font-size: 28px; font-weight: 800; letter-spacing: 1px; }
+  .result-label { font-size: 36px; font-weight: 800; letter-spacing: 1px; }
   .battle-result-content.win .result-label { color: #9fca98; }
   .battle-result-content.lose .result-label { color: #cf6b62; }
-  .result-detail { font-size: 13px; color: #aaa; }
+  .result-detail { font-size: 21px; color: #aaa; }
   @keyframes result-fade-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
   .ultimate-overlay { position: absolute; inset: -8px 0 auto; z-index: 8; display: flex; align-items: start; justify-content: center; pointer-events: none; }
   .ultimate-overlay > div { background: #18120be6; border: 1px solid #9c723c55; padding: 5px 12px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; color: #f5c17c; }
-  .ultimate-overlay strong { font-size: 12px; letter-spacing: 1px; }
-  .ultimate-overlay span { font-size: 11px; }
+  .ultimate-overlay strong { font-size: 20px; letter-spacing: 1px; }
+  .ultimate-overlay span { font-size: 19px; }
   .battle-sidebar { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   .battle-log { border: 1px solid var(--border); border-radius: 8px; background: #ffffff02; padding: 10px; }
   .log-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .log-heading > span { font-size: 9px; color: #777; }
-  .log-entries { height: 190px; overflow-y: auto; margin-top: 9px; padding-right: 5px; font-size: 10px; line-height: 1.75; color: #999; scrollbar-width: thin; }
+  .log-heading > span { font-size: 14px; color: #777; }
+  .log-entries { height: 190px; overflow-y: auto; margin-top: 9px; padding-right: 5px; font-size: 15px; line-height: 1.75; color: #999; scrollbar-width: thin; }
   .log-entries p { margin-bottom: 3px; }
   .log-entries .ultimate { color: #d6b07e; }
   .log-entries .death { color: #b9827e; }
   .log-entries .info { color: #b0b0b0; }
   .log-empty { padding: 12px 0; }
-  @media (max-width: 1100px) { .combat-layout { grid-template-columns: minmax(0, 1fr) 205px; gap: 12px; } .battle-stage { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); } }
+  @media (max-width: 1100px) { .combat-layout { grid-template-columns: minmax(0, 1fr) 240px; gap: 12px; } .battle-stage { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); } }
   @media (max-width: 900px) { .combat-layout { grid-template-columns: minmax(0, 1fr); } .battle-sidebar { display: grid; grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 640px) { .battle-sidebar { grid-template-columns: 1fr; } .battlefield { padding: 12px 8px 0; } .field-position { width: 76px; } .battle-stage { height: 400px; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); } .army-headings { gap: 10px; } .empty-circle, .drop-circle { width: 56px; height: 56px; } .versus { font-size: 19px; } .position-button { min-height: 92px; } }
+  @media (max-width: 640px) { .battle-sidebar { grid-template-columns: 1fr; } .battlefield { padding: 12px 8px 0; } .field-position { width: 76px; } .battle-stage { height: 400px; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); } .army-headings { gap: 10px; } .empty-circle, .drop-circle { width: 56px; height: 56px; } .versus { font-size: 24px; } .position-button { min-height: 92px; } }
 </style>

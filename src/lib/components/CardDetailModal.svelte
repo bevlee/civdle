@@ -9,13 +9,14 @@
     type UnitCard as UnitCardT,
   } from "$lib/combatData";
   import { RESOURCES } from "$lib/gameData";
-  import { activeTraitsForCard, countTraits, tierFor, TRAIT_SYNERGIES } from "$lib/traits";
+  import { activeTraitsForCard, countTraits, tierFor } from "$lib/traits";
   import { RARITY_NAMES, rarityColor } from "$lib/rarity";
   import { Button } from "$lib/components/ui/button";
   import Hint from "./Hint.svelte";
   import UnitCard from "./UnitCard.svelte";
   import StarRow from "./StarRow.svelte";
   import HeroStats from "./HeroStats.svelte";
+  import TraitChip from "./TraitChip.svelte";
   import type { Fighter } from "$lib/combatEngine";
 
   let {
@@ -76,7 +77,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4" onclick={onClose}>
   <div
-    class="unit-details flex max-h-[90dvh] overflow-y-auto max-w-lg flex-col gap-3 rounded-xl border border-border bg-popover p-4 shadow-2xl sm:flex-row"
+    class="unit-details flex max-h-[90dvh] overflow-y-auto max-w-2xl flex-col gap-4 rounded-xl border border-border bg-popover p-4 shadow-2xl sm:flex-row"
     onclick={(e) => e.stopPropagation()}
     role="dialog"
     tabindex="-1"
@@ -84,66 +85,51 @@
   >
     <UnitCard unitId={card.unitId} stars={card.stars} ascended={card.ascended} size="lg" />
 
-    <div class="flex min-w-0 flex-1 flex-col gap-2 text-sm">
+    <div class="flex min-w-0 flex-1 flex-col gap-3 text-[19px]">
       <div>
-        <h3 class="text-lg font-bold">
+        <h3 class="text-[23px] font-bold">
           {def.name}
           {#if card.ascended}
             <Hint text="Ascended" class="ml-1 cursor-help"><span class="text-yellow-300">✦</span></Hint>
           {/if}
         </h3>
-        <p class="text-xs" style:color={rarityColor(def.baseStars)}>
+        <p class="text-[17px]" style:color={rarityColor(def.baseStars)}>
           {RARITY_NAMES[def.baseStars]} · {type.icon} {type.name}
         </p>
-        <p class="text-xs text-muted-foreground">
+        <p class="text-[17px] text-muted-foreground">
           <StarRow stars={card.stars} ascended={card.ascended} /> {card.stars}/{MAX_STARS}
         </p>
       </div>
 
-      <HeroStats {stats} currentHp={fighter?.hp} />
-      {#if fighter}<p class="text-[10px] text-amber-300">Live battle stats · army bonuses included</p>{/if}
+      <HeroStats {stats} currentHp={fighter?.hp} class="text-[17px]" />
+      {#if fighter}<p class="text-[15px] text-amber-300">Live battle stats · army bonuses included</p>{/if}
 
       {#if statMult > 1.005}
-        <p class="text-[10px] font-semibold text-red-300">+{Math.round((statMult - 1) * 100)}% stat bonus applied</p>
+        <p class="text-[15px] font-semibold text-red-300">+{Math.round((statMult - 1) * 100)}% stat bonus applied</p>
       {/if}
 
-      <p class="text-xs text-muted-foreground">
+      <p class="text-[17px] text-muted-foreground">
         {type.icon} {type.name}: beats {ATTACK_TYPES[type.beats].icon} {ATTACK_TYPES[type.beats].name}, weak to {ATTACK_TYPES[type.weakTo].icon} {ATTACK_TYPES[type.weakTo].name}.
       </p>
 
       <div class="flex flex-col gap-1">
-        <p class="rounded border border-amber-400/20 bg-amber-400/5 px-2 py-1 text-xs">
+        <p class="rounded border border-amber-400/20 bg-amber-400/5 px-2 py-1 text-[17px]">
           <strong>{ULTIMATES[def.attackType].name}</strong> · Ultimate<br />
           {ULTIMATES[def.attackType].description} Triggers every third personal action, or every second with an army cadence bonus.
         </p>
-        {#each def.traits as trait, traitIndex (trait)}
-          {@const syn = TRAIT_SYNERGIES[trait]}
-          {@const isActive = activeTraits.includes(trait)}
-          {@const nonAscTraits = def.traits.filter(t => t !== "ascendant") as string[]}
-          {@const posInRegular = nonAscTraits.indexOf(trait)}
-          {@const gateLabel = trait === "ascendant" ? null : posInRegular === 1 ? "6★" : posInRegular === 2 ? "8★" : null}
-          <div class="rounded border px-2 py-1 text-xs {isActive ? 'border-border/60' : 'border-border/30 opacity-50'}">
-            <div class="flex items-center justify-between">
-              <span class={trait === "ascendant" ? "font-bold text-yellow-300" : "font-semibold"}>
-                {syn.name}
-                {#if gateLabel && !isActive}
-                  <span class="ml-1 text-[10px] text-muted-foreground">🔒 {gateLabel}</span>
-                {/if}
-              </span>
-            </div>
-            {#each syn.tiers as bonus, index}
-              {@const active = isActive && tierFor(trait, traitCounts.get(trait) ?? 0) === index + 1}
-              <p class={active ? "text-[10px] text-amber-300 font-semibold" : "text-[10px] text-muted-foreground"}>
-                {syn.thresholds[index]}: {bonus}{active ? " · Active" : ""}
-              </p>
-            {/each}
-          </div>
-        {/each}
+        <div class="flex flex-wrap gap-1.5">
+          {#each def.traits as trait (trait)}
+            {@const regularIndex = (def.traits.filter(t => t !== "ascendant") as string[]).indexOf(trait)}
+            {@const gateLabel = trait === "ascendant" ? null : regularIndex === 1 ? "6★" : regularIndex === 2 ? "8★" : null}
+            {@const count = traitCounts.get(trait) ?? 0}
+            <TraitChip {trait} {count} tier={tierFor(trait, count)} lockedLabel={activeTraits.includes(trait) ? null : gateLabel} size="lg" />
+          {/each}
+        </div>
       </div>
 
       {#if !readOnly}
         {#if promotionCost}
-          <div class="rounded border border-border/40 bg-muted/50 px-2 py-1.5 text-xs">
+          <div class="rounded border border-border/40 bg-muted/50 px-2 py-1.5 text-[17px]">
             <div class="font-semibold text-muted-foreground mb-1">Promote to {card.stars + 1}★</div>
             <div class="flex flex-col gap-0.5">
               <span class={copies.length >= promotionCost.copies ? "text-green-400" : "text-red-400"}>
@@ -161,16 +147,16 @@
 
         <div class="mt-auto flex flex-wrap gap-1.5">
           {#if inParty}
-            <Button size="sm" variant="outline" disabled={locked} onclick={() => { onRemoveFromParty?.(); onClose(); }}>Remove from party</Button>
+            <Button size="lg" class="text-[17px]" variant="outline" disabled={locked} onclick={() => { onRemoveFromParty?.(); onClose(); }}>Remove from party</Button>
           {:else}
-            <Button size="sm" disabled={partyFull || locked} onclick={() => { onAddToParty?.(); onClose(); }}>
+            <Button size="lg" class="text-[17px]" disabled={partyFull || locked} onclick={() => { onAddToParty?.(); onClose(); }}>
               {partyFull ? "Party full" : "Add to party"}
             </Button>
           {/if}
           <Button
-            size="sm"
+            size="lg"
             variant={canPromoteNow ? "default" : "outline"}
-            class={canPromoteNow ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}
+            class={canPromoteNow ? "bg-yellow-500 text-[17px] text-black hover:bg-yellow-400" : "text-[17px]"}
             disabled={!canPromoteNow}
             onclick={() => onPromote?.()}
           >

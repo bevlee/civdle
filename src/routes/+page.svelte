@@ -87,6 +87,7 @@
       skillPoints={game.state.skillPoints}
       warSpoils={game.state.gacha.gold}
       levels={game.levels}
+      unlocked={(id) => game.state.skills[id].unlocked}
       resources={game.state.resources}
       ageAdvanceStatus={game.ageAdvanceStatus}
       onAdvance={() => game.advanceAgeAction()}
