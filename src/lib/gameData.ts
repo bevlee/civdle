@@ -350,10 +350,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     name: "Crafting",
     description: "Shape stone and fit wooden handles to make useful items. Tools, cordage, and baskets transform how your people work and live.",
     category: "crafting",
-    prereqs: [
-      { skill: "woodcutting", level: 10 },
-      { skill: "mining", level: 10 },
-    ],
+    prereqs: [{ skill: "woodcutting", level: 10 }],
     recipes: [
       {
         id: "tools",
@@ -510,10 +507,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     name: "Smithing",
     description: "The secrets of the forge are revealed. Smelting ore into metal bars unlocks the march toward a new age of civilization.",
     category: "crafting",
-    prereqs: [
-      { skill: "mining", level: 10 },
-      { skill: "crafting", level: 10 },
-    ],
+    prereqs: [{ skill: "mining", level: 10 }],
     recipes: [
       {
         id: "copperBar",
@@ -1038,8 +1032,8 @@ export const AGE_ADVANCE_COSTS: Partial<Record<AgeId, ResourceAmount[]>> = {
 };
 
 export const BASE_ACTION_TIME = 2; // seconds
-export const XP_PER_ACTION = 3;
-export const XP_SCALING_RATE = 1.12;
+export const XP_PER_ACTION = 10;
+export const XP_SCALING_RATE = 1.1;
 export const MAX_LEVEL = 99;
 
 // Civilization-wide "mastery" upgrades. They apply to every skill and only go on
