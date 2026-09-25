@@ -25,13 +25,37 @@
     disabled?: boolean;
     children: Snippet;
   } = $props();
+
+  // Touch has no hover, so a tap toggles the hint instead. The tooltip's own
+  // handlers close it on pointerdown and click, so those are skipped for touch.
+  // Taps on an enabled button inside the hint are left alone so it just acts.
+  let open = $state(false);
+  let touch = false;
+  let wasOpen = false;
+
+  type Handler = ((e: Event) => void) | undefined;
 </script>
 
 {#if !disabled && (text || title || content)}
-  <Tooltip.Root>
+  <Tooltip.Root bind:open>
     <Tooltip.Trigger>
       {#snippet child({ props })}
-        <span {...props} class={cn("inline-flex rounded-sm", className)}>
+        <span
+          {...props}
+          class={cn("inline-flex rounded-sm", className)}
+          onpointerdown={(e) => {
+            touch = e.pointerType !== "mouse";
+            wasOpen = open;
+            if (!touch) (props.onpointerdown as Handler)?.(e);
+          }}
+          onpointerup={(e) => {
+            (props.onpointerup as Handler)?.(e);
+            if (touch && !(e.target as Element).closest("button:not(:disabled)")) open = !wasOpen;
+          }}
+          onclick={(e) => {
+            if (!touch) (props.onclick as Handler)?.(e);
+          }}
+        >
           {@render children()}
         </span>
       {/snippet}

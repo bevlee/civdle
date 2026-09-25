@@ -22,13 +22,32 @@
 
   let isDebug = $derived(page.url.searchParams.has("debug"));
 
+  type CenterTab = "train" | "story" | "depths" | "settlement" | "items" | "achievements";
+
   let selectedSkill = $state<SkillId | null>(null);
-  let centerTab = $state<"train" | "story" | "depths" | "settlement" | "achievements">("train");
+  let centerTab = $state<CenterTab>("train");
   let achievementCount = $derived(Object.keys(game.state.achievements).length);
   let rightTab = $state<"inventory" | "shop">("inventory");
+  let isCombatTab = $derived(centerTab === "story" || centerTab === "depths");
+
+  // "items" is the Inventory/Shop sidebar folded into a tab for narrow screens,
+  // so it is hidden where the sidebar is shown (lg and up).
+  const TABS: { id: CenterTab; label: string; short: string; icon: string; combat?: boolean; narrowOnly?: boolean }[] = [
+    { id: "train", label: "Train", short: "Train", icon: "⚒" },
+    { id: "story", label: "Campaign", short: "Campaign", icon: "⚔", combat: true },
+    { id: "depths", label: "The Abyss", short: "Abyss", icon: "🌀", combat: true },
+    { id: "settlement", label: "Settlement", short: "Town", icon: "🏘" },
+    { id: "items", label: "Items", short: "Items", icon: "🎒", narrowOnly: true },
+    { id: "achievements", label: "Achievements", short: "Awards", icon: "🏆" },
+  ];
 
   onMount(() => {
     document.documentElement.classList.add("dark");
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const leaveItemsTab = () => {
+      if (wide.matches && centerTab === "items") centerTab = "train";
+    };
+    wide.addEventListener("change", leaveItemsTab);
     const cleanup = game.init();
 
     const firstUnlocked = SKILL_ORDER.find(
@@ -36,7 +55,10 @@
     );
     if (firstUnlocked) selectedSkill = firstUnlocked;
 
-    return cleanup;
+    return () => {
+      wide.removeEventListener("change", leaveItemsTab);
+      cleanup();
+    };
   });
 
   function handleSelectSkill(id: SkillId) {
@@ -75,12 +97,50 @@
   });
 </script>
 
+{#snippet itemsPanel()}
+  <div class="flex shrink-0 border-b border-border">
+    <button
+      class="flex-1 px-3 py-2 text-sm font-medium transition-colors {rightTab ===
+      'inventory'
+        ? 'border-b-2 border-primary text-foreground'
+        : 'text-muted-foreground hover:text-foreground'}"
+      onclick={() => (rightTab = "inventory")}
+    >
+      Inventory
+    </button>
+    <button
+      class="flex-1 px-3 py-2 text-sm font-medium transition-colors {rightTab ===
+      'shop'
+        ? 'border-b-2 border-primary text-foreground'
+        : 'text-muted-foreground hover:text-foreground'}"
+      onclick={() => (rightTab = "shop")}
+    >
+      Shop
+    </button>
+  </div>
+  <div class="flex-1 overflow-y-auto">
+    {#if rightTab === "inventory"}
+      <Inventory
+        resources={game.state.resources}
+        {highlightedResources}
+      />
+    {:else}
+      <Shop
+        state={game.state}
+        onBuy={(skillId, upgradeId) =>
+          game.buyUpgrade(skillId, upgradeId)}
+        onBuyGlobal={(upgradeId) => game.buyGlobalUpgrade(upgradeId)}
+      />
+    {/if}
+  </div>
+{/snippet}
+
 {#if !game.loaded}
-  <div class="flex min-h-screen items-center justify-center bg-background">
+  <div class="flex min-h-dvh items-center justify-center bg-background">
     <p class="text-muted-foreground">Loading…</p>
   </div>
 {:else}
-  <div class="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+  <div class="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
     <AgeDisplay
       ageIndex={game.ageIndex}
       ageBonus={game.ageBonus}
@@ -96,11 +156,12 @@
 
     {#if game.message}
       <div
-        class="flex items-center justify-between border-b border-border bg-muted/50 px-6 py-2"
+        class="flex items-center justify-between gap-3 border-b border-border bg-muted/50 px-3 py-2 sm:px-6"
       >
         <p class="text-sm text-muted-foreground">{game.message}</p>
         <button
-          class="text-xs text-muted-foreground hover:text-foreground"
+          class="-m-2 p-2 text-xs text-muted-foreground hover:text-foreground"
+          aria-label="Dismiss message"
           onclick={() => game.dismissMessage()}
         >
           ✕
@@ -109,9 +170,9 @@
     {/if}
 
     <div class="flex min-h-0 flex-1">
-      <!-- Left: Skill panel -->
-      <div class={centerTab === "story" || centerTab === "depths" ? "hidden sm:contents" : "contents"}>
+      <!-- Left: Skill panel (the Train tab shows it as a strip on phones) -->
       <SkillPanel
+        class="hidden md:flex"
         state={game.state}
         levels={game.levels}
         {selectedSkill}
@@ -119,64 +180,42 @@
         events={game.events}
         onDismissEvent={(id) => game.dismissEvent(id)}
       />
-      </div>
 
       <!-- Center: Train / Combat -->
       <main class="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div class="flex shrink-0 overflow-x-auto whitespace-nowrap border-b border-border">
-          <button
-            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
-            'train'
-              ? 'border-b-2 border-primary text-foreground'
-              : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (centerTab = "train")}
-          >
-            Train
-          </button>
-          <button
-            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
-            'story'
-              ? 'border-b-2 border-primary text-foreground'
-              : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (centerTab = "story")}
-            title={game.combatUnlocked ? undefined : "Unlocks in the Bronze Age"}
-          >
-            {game.combatUnlocked ? "" : "🔒 "}Campaign
-          </button>
-          <button
-            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
-            'depths'
-              ? 'border-b-2 border-primary text-foreground'
-              : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (centerTab = "depths")}
-            title={game.combatUnlocked ? undefined : "Unlocks in the Bronze Age"}
-          >
-            {game.combatUnlocked ? "" : "🔒 "}The Abyss
-          </button>
-          <button
-            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
-            'settlement'
-              ? 'border-b-2 border-primary text-foreground'
-              : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (centerTab = "settlement")}
-          >
-            Settlement
-          </button>
-          <button
-            class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
-            'achievements'
-              ? 'border-b-2 border-primary text-foreground'
-              : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (centerTab = "achievements")}
-          >
-            Achievements
-            <span class="ml-1 text-xs tabular-nums text-muted-foreground">
-              {achievementCount}/{ACHIEVEMENTS.length}
-            </span>
-          </button>
+        <div class="hidden shrink-0 overflow-x-auto whitespace-nowrap border-b border-border md:flex">
+          {#each TABS as tab (tab.id)}
+            <button
+              class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
+              tab.id
+                ? 'border-b-2 border-primary text-foreground'
+                : 'text-muted-foreground hover:text-foreground'} {tab.narrowOnly ? 'lg:hidden' : ''}"
+              onclick={() => (centerTab = tab.id)}
+              title={tab.combat && !game.combatUnlocked ? "Unlocks in the Bronze Age" : undefined}
+            >
+              {tab.combat && !game.combatUnlocked ? "🔒 " : ""}{tab.label}
+              {#if tab.id === "achievements"}
+                <span class="ml-1 text-xs tabular-nums text-muted-foreground">
+                  {achievementCount}/{ACHIEVEMENTS.length}
+                </span>
+              {/if}
+            </button>
+          {/each}
         </div>
 
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex flex-1 flex-col overflow-y-auto">
+          {#if centerTab === "train"}
+            <SkillPanel
+              horizontal
+              class="md:hidden"
+              state={game.state}
+              levels={game.levels}
+              {selectedSkill}
+              onSelect={handleSelectSkill}
+              events={game.events}
+              onDismissEvent={(id) => game.dismissEvent(id)}
+            />
+          {/if}
           {#if centerTab === "train" && selectedSkill}
             <TrainingView
               skillId={selectedSkill}
@@ -195,7 +234,7 @@
                 Select a skill to begin training.
               </p>
             </div>
-          {:else if (centerTab === "story" || centerTab === "depths") && !game.combatUnlocked}
+          {:else if isCombatTab && !game.combatUnlocked}
             <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
               <p class="text-2xl">🔒</p>
               <p class="font-semibold">Unlocks in the Bronze Age</p>
@@ -205,11 +244,11 @@
               </p>
             </div>
           {:else if centerTab === "story"}
-            <div class="p-3">
+            <div class="p-2 sm:p-3">
               <CombatView {game} mode="story" />
             </div>
           {:else if centerTab === "depths"}
-            <div class="p-3">
+            <div class="p-2 sm:p-3">
               <CombatView {game} mode="depths" />
             </div>
           {:else if centerTab === "settlement"}
@@ -217,6 +256,10 @@
               state={game.state}
               onBuy={(upgradeId) => game.buySettlementUpgradeAction(upgradeId)}
             />
+          {:else if centerTab === "items"}
+            <div class="flex min-h-0 flex-1 flex-col">
+              {@render itemsPanel()}
+            </div>
           {:else if centerTab === "achievements"}
             <AchievementsView state={game.state} levels={game.levels} />
           {/if}
@@ -224,48 +267,40 @@
       </main>
 
       <!-- Right: Inventory / Shop -->
-      {#if centerTab !== "story" && centerTab !== "depths"}
-      <aside
-        class="flex w-72 shrink-0 flex-col border-l border-border"
-      >
-        <div class="flex border-b border-border">
-          <button
-            class="flex-1 px-3 py-2 text-sm font-medium transition-colors {rightTab ===
-            'inventory'
-              ? 'border-b-2 border-primary text-foreground'
-              : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (rightTab = "inventory")}
-          >
-            Inventory
-          </button>
-          <button
-            class="flex-1 px-3 py-2 text-sm font-medium transition-colors {rightTab ===
-            'shop'
-              ? 'border-b-2 border-primary text-foreground'
-              : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (rightTab = "shop")}
-          >
-            Shop
-          </button>
-        </div>
-        <div class="flex-1 overflow-y-auto">
-          {#if rightTab === "inventory"}
-            <Inventory
-              resources={game.state.resources}
-              {highlightedResources}
-            />
-          {:else}
-            <Shop
-              state={game.state}
-              onBuy={(skillId, upgradeId) =>
-                game.buyUpgrade(skillId, upgradeId)}
-              onBuyGlobal={(upgradeId) => game.buyGlobalUpgrade(upgradeId)}
-            />
-          {/if}
-        </div>
-      </aside>
+      {#if !isCombatTab}
+        <aside class="hidden w-72 shrink-0 flex-col border-l border-border lg:flex">
+          {@render itemsPanel()}
+        </aside>
       {/if}
     </div>
+
+    <!-- Phone navigation: thumb-reachable tabs along the bottom edge -->
+    <nav
+      aria-label="Sections"
+      class="grid shrink-0 grid-cols-6 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+    >
+      {#each TABS as tab (tab.id)}
+        {@const active = centerTab === tab.id}
+        <button
+          class="relative flex flex-col items-center gap-0.5 px-0.5 pt-2 pb-1.5 text-[10px] font-medium transition-colors {active
+            ? 'text-foreground'
+            : 'text-muted-foreground'}"
+          aria-current={active ? "page" : undefined}
+          onclick={() => (centerTab = tab.id)}
+        >
+          {#if active}<span class="absolute inset-x-3 top-0 h-0.5 rounded-full bg-primary"></span>{/if}
+          <span class="text-base leading-none {active ? '' : 'opacity-70 grayscale'}" aria-hidden="true">
+            {tab.combat && !game.combatUnlocked ? "🔒" : tab.icon}
+          </span>
+          <span class="truncate">{tab.short}</span>
+          {#if game.state.gacha.battle && game.state.gacha.battleMode === tab.id}
+            <span class="absolute top-1.5 right-1/4 size-1.5 rounded-full bg-amber-400" aria-label="Battle running"></span>
+          {:else if tab.id === "train" && game.state.activeSkill}
+            <span class="absolute top-1.5 right-1/4 size-1.5 rounded-full bg-green-500" aria-label="Training"></span>
+          {/if}
+        </button>
+      {/each}
+    </nav>
   </div>
 
   {#if game.pendingUnlocks.length > 0}

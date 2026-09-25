@@ -416,5 +416,5 @@
       </div>
     {/if}
   </div>
-  <p class="px-3 pb-2 text-[10px] text-muted-foreground">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or select an empty position and then a card."}</p>
+  <p class="px-3 pb-2 text-[10px] text-muted-foreground">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or tap an empty position and then a card."}</p>
 </div>

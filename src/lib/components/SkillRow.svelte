@@ -15,6 +15,7 @@
     onSelect,
     events,
     onDismissEvent,
+    compact = false,
   }: {
     id: SkillId;
     level: number;
@@ -24,6 +25,7 @@
     onSelect: (id: SkillId) => void;
     events: QueuedEvent[];
     onDismissEvent: (id: string) => void;
+    compact?: boolean;
   } = $props();
 
   let levelUpEvent = $derived(
@@ -40,6 +42,13 @@
     ),
   );
 
+  let button: HTMLButtonElement;
+
+  // Keep the selected skill visible in the phone strip, e.g. after an unlock selects it.
+  $effect(() => {
+    if (compact && isSelected) button.scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
+
   $effect(() => {
     if (!unlockEvent) return;
     const timeout = setTimeout(() => onDismissEvent(unlockEvent!.id), 1500);
@@ -48,10 +57,13 @@
 </script>
 
 <button
+  bind:this={button}
   onclick={() => onSelect(id)}
   class={cn(
     "relative flex flex-col gap-1 overflow-hidden rounded-md px-3 py-2 text-left transition-colors hover:bg-accent",
+    compact && "w-32 shrink-0 border border-border",
     isSelected && "bg-accent",
+    compact && isSelected && "border-primary/60",
     unlockEvent && "animate-slide-in-right",
   )}
 >
@@ -63,8 +75,8 @@
     {/key}
   {/if}
   <div class="flex items-center justify-between text-sm">
-    <span class="flex items-center gap-1.5 font-medium">
-      {SKILLS[id].name}
+    <span class="flex min-w-0 items-center gap-1.5 font-medium">
+      <span class={cn(compact && "truncate")}>{SKILLS[id].name}</span>
       {#if isActive}
         <span class="text-green-500">●</span>
       {/if}
@@ -72,7 +84,7 @@
         <Badge class="h-4 px-1 text-[10px] leading-none">NEW</Badge>
       {/if}
     </span>
-    <span class="text-muted-foreground">Lv {level}</span>
+    <span class="shrink-0 whitespace-nowrap text-muted-foreground">Lv {level}</span>
   </div>
   <Progress value={pct} class="h-1.5" />
   {#if levelUpEvent}

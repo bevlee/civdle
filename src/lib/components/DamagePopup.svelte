@@ -28,7 +28,7 @@
 
 <span
   class={cn(
-    "animate-popup pointer-events-none absolute top-1 left-1/2 z-20 whitespace-nowrap drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]",
+    "animate-popup pointer-events-none absolute top-1 left-1/2 z-20 flex items-baseline gap-1 whitespace-nowrap drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] max-sm:flex-col max-sm:items-center max-sm:gap-0 max-sm:leading-tight",
     heal !== undefined && "text-sm font-semibold text-green-400",
     hit?.dodged && "text-xs font-medium text-muted-foreground italic",
     hit && !hit.dodged && !hit.crit && "text-sm font-medium text-red-300",
@@ -41,7 +41,7 @@
   {:else if hit?.dodged}
     MISS
   {:else if hit}
-    {hit.damage}{hit.crit ? " crit!" : ""}
+    <span>{hit.damage}{hit.crit ? " crit!" : ""}</span>
     {#if hit.strong}<span class="text-[10px] font-bold text-red-500">Strong</span>{/if}
     {#if hit.weak}<span class="text-[10px] font-bold text-sky-300/70">Weak</span>{/if}
   {/if}

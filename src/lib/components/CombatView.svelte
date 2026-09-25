@@ -245,7 +245,7 @@
         {#if mode === "depths"}
           <label class="auto-toggle"><input type="checkbox" checked={gacha.depths.auto} disabled={otherBattleActive || partyCards.length === 0} onchange={e => game.setDepthsAuto(e.currentTarget.checked)} /> Auto</label>
         {/if}
-        <Button size="sm" class="h-7 px-3 text-xs" disabled={!canFight} onclick={() => mode === "story" ? game.startStoryFight() : game.startDepthsFight()}>{isPlaying ? "Fighting…" : mode === "story" ? "⚔ Fight" : "⚔ Descend"}</Button>
+        <Button size="sm" class="h-9 px-4 text-sm sm:h-7 sm:px-3 sm:text-xs" disabled={!canFight} onclick={() => mode === "story" ? game.startStoryFight() : game.startDepthsFight()}>{isPlaying ? "Fighting…" : mode === "story" ? "⚔ Fight" : "⚔ Descend"}</Button>
       </div>
     </header>
 
@@ -366,10 +366,20 @@
       </footer>
     </section>
 
-    <ArmyInventory cards={gacha.cards} {partyIds} gold={gacha.gold} rollCost={GACHA_COST} packCost={PACK_COST}
-      maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.hasCelestialAltar} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} hasHallOfLegends={game.hasHallOfLegends} tributeLegendaryPackCost={TRIBUTE_LEGENDARY_PACK_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
-      onDragStart={startDrag} onDragEnd={endDrag} onDragOverChange={over => dragOverInventory = over} onDrop={inventoryDrop}
-      onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} onOpenTributeLegendaryPack={() => game.rollTributeLegendaryPack()} />
+    <!-- On phones, choosing a card for a position lifts the army into a bottom sheet
+         so the battlefield stays in view instead of scrolling down to the list. -->
+    <div class="army-dock" class:picking={selectedSlot !== null}>
+      {#if selectedSlot !== null}
+        <div class="sheet-heading">
+          <span>Choose a unit for position {selectedSlot + 1}</span>
+          <button onclick={() => (selectedSlot = null)}>Cancel</button>
+        </div>
+      {/if}
+      <ArmyInventory cards={gacha.cards} {partyIds} gold={gacha.gold} rollCost={GACHA_COST} packCost={PACK_COST}
+        maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.hasCelestialAltar} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} hasHallOfLegends={game.hasHallOfLegends} tributeLegendaryPackCost={TRIBUTE_LEGENDARY_PACK_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
+        onDragStart={startDrag} onDragEnd={endDrag} onDragOverChange={over => dragOverInventory = over} onDrop={inventoryDrop}
+        onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} onOpenTributeLegendaryPack={() => game.rollTributeLegendaryPack()} />
+    </div>
   </div>
 
   <aside class="battle-sidebar" aria-label="Battle report">
@@ -485,5 +495,22 @@
   .log-empty { padding: 12px 0; }
   @media (max-width: 1100px) { .combat-layout { grid-template-columns: minmax(0, 1fr) 205px; gap: 12px; } .battle-stage { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); } }
   @media (max-width: 900px) { .combat-layout { grid-template-columns: minmax(0, 1fr); } .battle-sidebar { display: grid; grid-template-columns: 1fr 1fr; } }
+  .sheet-heading { display: none; }
+  @media (max-width: 767px) {
+    .army-dock.picking { position: fixed; inset: auto 0 0; z-index: 40; max-height: 60dvh; overflow-y: auto; padding: 0 8px calc(8px + env(safe-area-inset-bottom)); background: var(--background); border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -12px 32px #000c; animation: sheet-up .2s ease-out; }
+    .picking .sheet-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 4px 8px; font-size: 12px; font-weight: 600; background: var(--background); }
+    .sheet-heading button { padding: 4px 8px; font-weight: 400; color: var(--muted-foreground); text-decoration: underline; }
+  }
+  @keyframes sheet-up { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (max-width: 640px) {
+    .combat-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; }
+    .level-heading { display: contents; }
+    .level-heading h2 { font-size: 16px; }
+    .level-heading > span, .level-heading > p { grid-column: 1 / -1; }
+    .battle-controls { grid-column: 2; grid-row: 1; gap: 8px; }
+    .playback-controls { font-size: 11px; gap: 6px; }
+    .playback-controls button { padding: 6px 10px; }
+  }
   @media (max-width: 640px) { .battle-sidebar { grid-template-columns: 1fr; } .battlefield { padding: 12px 8px 0; } .field-position { width: 76px; } .battle-stage { height: 400px; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); } .army-headings { gap: 10px; } .empty-circle, .drop-circle { width: 56px; height: 56px; } .versus { font-size: 19px; } .position-button { min-height: 92px; } }
+  @media (max-width: 640px) and (max-height: 700px) { .battle-stage { height: 340px; } }
 </style>
