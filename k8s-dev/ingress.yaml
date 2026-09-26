@@ -10,7 +10,7 @@ spec:
   tls:
     - hosts:
         - civdle-dev.bevsoft.com
-      secretName: civdle-tls
+      secretName: bevsoft-wildcard-tls
   rules:
     # Vite's HMR websocket shares this host and port, which Traefik proxies as-is.
     - host: civdle-dev.bevsoft.com
