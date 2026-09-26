@@ -176,7 +176,7 @@
   role="group"
   aria-label="Army inventory"
   class={cn(
-    "flex flex-col gap-2 rounded-lg border bg-muted/20 transition-colors",
+    "flex flex-col gap-2 rounded-lg border bg-muted/20 transition-colors max-md:h-full max-md:min-h-0",
     dropActive && dragOver ? "border-primary bg-primary/10" : "border-border",
   )}
   ondragover={handleDragOver}
@@ -376,7 +376,7 @@
     </div>
   {/if}
 
-  <div class="max-h-60 overflow-y-auto px-3 pb-1">
+  <div class="max-h-60 overflow-y-auto px-3 pb-1 max-md:max-h-none max-md:min-h-0 max-md:flex-1">
     {#if cards.length > 0 && sorted.length === 0}
       <p class="py-6 text-center text-sm text-muted-foreground">
         No units match these filters.
@@ -416,5 +416,5 @@
       </div>
     {/if}
   </div>
-  <p class="px-3 pb-2 text-[10px] text-muted-foreground">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or tap an empty position and then a card."}</p>
+  <p class="px-3 pb-2 text-[10px] text-muted-foreground max-md:hidden">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or tap an empty position and then a card."}</p>
 </div>

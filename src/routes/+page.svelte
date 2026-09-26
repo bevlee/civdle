@@ -203,7 +203,7 @@
           {/each}
         </div>
 
-        <div class="flex flex-1 flex-col overflow-y-auto">
+        <div class="flex flex-1 flex-col overflow-y-auto {isCombatTab ? 'max-md:overflow-hidden' : ''}">
           {#if centerTab === "train"}
             <SkillPanel
               horizontal
@@ -244,11 +244,11 @@
               </p>
             </div>
           {:else if centerTab === "story"}
-            <div class="p-2 sm:p-3">
+            <div class="flex min-h-0 flex-1 flex-col p-2 sm:p-3">
               <CombatView {game} mode="story" />
             </div>
           {:else if centerTab === "depths"}
-            <div class="p-2 sm:p-3">
+            <div class="flex min-h-0 flex-1 flex-col p-2 sm:p-3">
               <CombatView {game} mode="depths" />
             </div>
           {:else if centerTab === "settlement"}

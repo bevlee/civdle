@@ -76,7 +76,7 @@
   {/if}
   <div class="flex items-center justify-between text-sm">
     <span class="flex min-w-0 items-center gap-1.5 font-medium">
-      <span class={cn(compact && "truncate")}>{SKILLS[id].name}</span>
+      <span class="truncate" title={SKILLS[id].name}>{SKILLS[id].name}</span>
       {#if isActive}
         <span class="text-green-500">●</span>
       {/if}

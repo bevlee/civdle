@@ -84,7 +84,7 @@
 
   let missing = $derived(checklist.filter((c) => !c.met));
 
-  // On phones the requirements and rewards fold away behind a summary toggle.
+  // On phones the whole advancement panel folds away behind the age badge.
   let detailsOpen = $state(false);
 </script>
 
@@ -92,7 +92,22 @@
   <div class="flex items-center justify-between gap-2 sm:gap-4">
     <div class="flex min-w-0 items-center gap-2 sm:gap-3">
       <h1 class="text-base font-bold tracking-tight sm:text-lg">Civdle</h1>
-      <Badge variant="secondary" class="text-xs sm:text-sm">{age.name}</Badge>
+      <!-- On phones the age badge opens the advancement panel, which is hidden to save space. -->
+      <button
+        class="relative flex items-center gap-1 sm:pointer-events-none"
+        aria-expanded={detailsOpen}
+        aria-controls="age-advance"
+        aria-label={`${age.name}. Show age advancement`}
+        onclick={() => (detailsOpen = !detailsOpen)}
+      >
+        <Badge variant="secondary" class="text-xs sm:text-sm">{age.name}</Badge>
+        {#if ageAdvanceStatus.nextAge}
+          <span aria-hidden="true" class={cn("text-xs text-muted-foreground transition-transform sm:hidden", detailsOpen && "rotate-180")}>▾</span>
+        {/if}
+        {#if ageAdvanceStatus.canAdvance}
+          <span class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-amber-400 sm:hidden" aria-label="Ready to advance"></span>
+        {/if}
+      </button>
       {#if bonusText}
         <span class="hidden text-xs text-muted-foreground sm:inline">{bonusText}</span>
       {/if}
@@ -140,7 +155,7 @@
     </div>
   </div>
   {#if ageAdvanceStatus.nextAge}
-    <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+    <div id="age-advance" class={cn("flex-wrap items-center gap-2 sm:flex sm:gap-3", detailsOpen ? "flex" : "hidden")}>
       <Hint side="bottom" title="Still needed" disabled={missing.length === 0}>
         {#snippet content()}
           {#each missing as item (item.label)}
@@ -159,21 +174,7 @@
           Advance to {ageAdvanceStatus.nextAge.name}
         </Button>
       </Hint>
-      <button
-        class="ml-auto flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 sm:hidden"
-        aria-expanded={detailsOpen}
-        aria-controls="age-advance-details"
-        onclick={() => (detailsOpen = !detailsOpen)}
-      >
-        <span class={cn("tabular-nums", missing.length === 0 && "text-emerald-400")}>
-          {checklist.length - missing.length}/{checklist.length} met
-        </span>
-        <span aria-hidden="true" class={cn("transition-transform", detailsOpen && "rotate-180")}>▾</span>
-      </button>
-      <div
-        id="age-advance-details"
-        class={cn("w-full flex-col gap-2 sm:contents", detailsOpen ? "flex" : "hidden")}
-      >
+      <div class="flex w-full flex-col gap-2 sm:contents">
         {#if bonusText}
           <span class="text-xs text-muted-foreground sm:hidden">Current bonus: {bonusText}</span>
         {/if}
