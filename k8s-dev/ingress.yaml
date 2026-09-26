@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: civdle-ingress
+  namespace: civdle-dev
+  labels:
+    app: civdle
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - civdle-dev.bevsoft.com
+      secretName: civdle-tls
+  rules:
+    # Vite's HMR websocket shares this host and port, which Traefik proxies as-is.
+    - host: civdle-dev.bevsoft.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: civdle
+                port:
+                  number: 80

@@ -20,3 +20,34 @@ manifests:
   kustomize:
     paths:
       - k8s
+
+profiles:
+  # `skaffold dev` turns this on automatically; `skaffold run` stays on the
+  # production nginx image above. Runs the Vite dev server in civdle-dev at
+  # https://civdle-dev.bevsoft.com, syncing edits into the pod for hot reload.
+  - name: dev
+    activation:
+      - command: dev
+    build:
+      tagPolicy:
+        envTemplate:
+          template: dev
+      artifacts:
+        - image: docker.io/bevdev1/civdle
+          docker:
+            dockerfile: Dockerfile.dev
+          # Source and static assets are copied into the running pod; anything
+          # else (package.json, config files) triggers a full image rebuild.
+          sync:
+            manual:
+              - src: "src/**"
+                dest: .
+              - src: "static/**"
+                dest: .
+    manifests:
+      kustomize:
+        paths:
+          - k8s-dev
+    deploy:
+      kubectl:
+        defaultNamespace: civdle-dev

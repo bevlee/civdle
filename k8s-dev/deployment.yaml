@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: civdle
+  namespace: civdle-dev
+  labels:
+    app: civdle
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  # Recreate so a redeploy never leaves two dev servers behind the ingress.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: civdle
+  template:
+    metadata:
+      labels:
+        app: civdle
+    spec:
+      securityContext:
+        # The node image's unprivileged user, which owns /app (see Dockerfile.dev).
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: civdle
+          # Bare artifact name so Skaffold rewrites it to the tag it builds.
+          image: docker.io/bevdev1/civdle
+          # The :dev tag is reused, so always pull.
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 5173
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            # Vite writes .svelte-kit and dependency caches, and Skaffold syncs
+            # source files in, so the root filesystem stays writable in dev.
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          # Vite compiles on the first request, so give it time before probing.
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 6

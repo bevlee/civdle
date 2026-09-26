@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Dev stack for `skaffold dev` (the dev profile in skaffold.yaml): the Vite dev
+# server at civdle-dev.bevsoft.com, in its own namespace.
+resources:
+  - namespace.yaml
+  - service.yaml
+  - deployment.yaml
+  - certificate.yaml
+  - ingress.yaml
