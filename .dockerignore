@@ -5,8 +5,10 @@ build
 .gitignore
 .github
 Dockerfile
+Dockerfile.dev
 .dockerignore
 k8s
+k8s-dev
 skaffold.yaml
 .env
 .env.*

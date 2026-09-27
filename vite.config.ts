@@ -17,5 +17,10 @@ export default defineConfig({
 			// static files that nginx serves in the container image.
 			adapter: adapter()
 		})
-	]
+	],
+	server: {
+		// The `skaffold dev` pod is reached through the ingress under this host,
+		// which Vite would otherwise reject.
+		allowedHosts: ['civdle-dev.bevsoft.com']
+	}
 });

@@ -2,8 +2,8 @@
   import { syncBattleAnimations, type BattleSpeed } from "$lib/battlePlayback";
   import { tick, untrack } from "svelte";
   import { attackMotion, blinkDistance, projectilePath, timeline } from "$lib/combatAnimation";
-  import { DEPTHS_SPOILS_PER_TIER, DEPTHS_TIER_SIZE, GACHA_COST, MAX_ENEMY_LEVEL, PACK_COST, PARTY_SIZE, ULTIMATES, UNITS, isBossLevel, regionForLevel, type AttackType, type UnitCard } from "$lib/combatData";
-  import { LEGENDARY_PACK_COST, LEGENDARY_SINGLE_COST } from "$lib/gameState.svelte";
+  import { DEPTHS_SPOILS_PER_TIER, DEPTHS_TIER_SIZE, GACHA_COST, MAX_ENEMY_LEVEL, PACK_COST, PARTY_SIZE, ULTIMATES, UNITS, isBossLevel, regionForLevel, storyTribute, strongestEnemy, type AttackType, type UnitCard } from "$lib/combatData";
+  import { LEGENDARY_PACK_COST, LEGENDARY_SINGLE_COST, TRIBUTE_LEGENDARY_PACK_COST } from "$lib/gameState.svelte";
   import type { BattleMode, BattleState, Fighter, Hit } from "$lib/combatEngine";
   import { isFrontRow, POSITIONS } from "$lib/position";
   import type { CivdleGame } from "$lib/gameState.svelte";
@@ -30,6 +30,12 @@
   let partyIds = $derived(new Set(gacha.party.filter((id): id is string => id !== null)));
   let encounter = $derived(mode === "story" ? gacha.encounter : gacha.depths.encounter);
   let storyBoss = $derived(mode === "story" && isBossLevel(gacha.storyLevel));
+  // The enemy that joins your army when this campaign level is won.
+  let storyRecruit = $derived(gacha.encounter ? strongestEnemy(gacha.encounter) : null);
+  let storyRewardText = $derived(
+    `+${storyTribute(gacha.storyLevel)} Tribute` +
+      (storyRecruit ? ` · ${UNITS[storyRecruit.unitId].name} ${UNITS[storyRecruit.unitId].baseStars}★ joins you` : ""),
+  );
   let nextTierAt = $derived((Math.floor(game.depthsCleared / DEPTHS_TIER_SIZE) + 1) * DEPTHS_TIER_SIZE);
   let canFight = $derived(!formationLocked && partyCards.length > 0 && !(mode === "story" && game.storyComplete));
   let pendingImpact = $state(false);
@@ -43,6 +49,8 @@
   let lastBattle = $state<BattleState | null>(null);
   let report = $derived(battle ?? lastBattle);
   let showHelp = $state(false);
+  // Phones show the battle log and stats as a sheet over the battlefield.
+  let showLog = $state(false);
   let selectedCardId = $state<string | null>(null);
   let selectedCard = $derived(gacha.cards.find(c => c.id === selectedCardId) ?? null);
   let selectedSlot = $state<number | null>(null);
@@ -231,15 +239,15 @@
       <div class="level-heading" class:stacked={mode === "depths"}>
         <h2>{mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</h2>
         {#if mode === "depths"}<span>+{game.depthsIncome * game.treasuryMultiplier} ⚔ / min{game.treasuryMultiplier > 1 ? " (2× Treasury)" : ""} · next tier at depth {nextTierAt}</span>
-        {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}+{gacha.storyLevel} Tribute</span>{/if}
-        {#if mode === "depths"}<p class="text-[16px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
+        {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}{storyRewardText}</span>{/if}
+        {#if mode === "depths"}<p class="depths-blurb text-[16px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
       </div>
       <div class="battle-controls">
-        <button class="help-button" aria-haspopup="dialog" onclick={() => showHelp = true}>Combat guide</button>
+        <button class="help-button" aria-haspopup="dialog" aria-label="Combat guide" onclick={() => showHelp = true}><span class="help-label">Combat guide</span><span class="help-icon" aria-hidden="true">?</span></button>
         {#if mode === "depths"}
           <label class="auto-toggle"><input type="checkbox" checked={gacha.depths.auto} disabled={otherBattleActive || partyCards.length === 0} onchange={e => game.setDepthsAuto(e.currentTarget.checked)} /> Auto</label>
         {/if}
-        <Button size="sm" class="h-9 px-3 text-[17px]" disabled={!canFight} onclick={() => mode === "story" ? game.startStoryFight() : game.startDepthsFight()}>{isPlaying ? "Fighting…" : mode === "story" ? "⚔ Fight" : "⚔ Descend"}</Button>
+        <Button size="sm" class="h-9 px-4 text-sm sm:h-9 sm:px-3 sm:text-[17px]" disabled={!canFight} onclick={() => mode === "story" ? game.startStoryFight() : game.startDepthsFight()}>{isPlaying ? "Fighting…" : mode === "story" ? "⚔ Fight" : "⚔ Descend"}</Button>
       </div>
     </header>
 
@@ -252,6 +260,7 @@
       </div>
       <button class="sound-toggle" aria-label="Battle sounds" aria-pressed={!game.battleMuted} onclick={() => game.setBattleMuted(!game.battleMuted)}>Sound: {game.battleMuted ? "off" : "on"}</button>
       {#if game.battlePaused}<span role="status">Battle paused</span>{/if}
+      <button class="log-toggle" aria-expanded={showLog} aria-controls="battle-report" onclick={() => (showLog = !showLog)}>Log</button>
     </div>
 
     {#if showHelp}
@@ -337,7 +346,7 @@
               <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</p>
               <span class="result-label">{battle?.status === "won" ? "Victory!" : "Defeated"}</span>
               {#if battle?.status === "won"}
-                <span class="result-detail">{mode === "story" ? `+${gacha.storyLevel} Tribute` : `Depth ${gacha.depths.level} cleared`}</span>
+                <span class="result-detail">{mode === "story" ? storyRewardText : `Depth ${gacha.depths.level} cleared`}</span>
               {:else}
                 <span class="result-detail">Adjust your formation and try again.</span>
               {/if}
@@ -356,17 +365,20 @@
         {:else if selectedSlot !== null}
           <span>{`Choose a card from your army for position ${selectedSlot! + 1}.`}</span>
           <button onclick={() => { selectedSlot = null; }}>Cancel</button>
-        {:else}<span>Front row takes hits first.</span><span>{partyCards.length}/{PARTY_SIZE} deployed</span>{/if}
+        {/if}
       </footer>
     </section>
 
-    <ArmyInventory cards={gacha.cards} {partyIds} gold={gacha.gold} rollCost={GACHA_COST} packCost={PACK_COST}
-      maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.legendarySummonsUnlocked} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
-      onDragStart={startDrag} onDragEnd={endDrag} onDragOverChange={over => dragOverInventory = over} onDrop={inventoryDrop}
-      onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} />
+    <div class="army-dock">
+      <ArmyInventory cards={gacha.cards} {partyIds} gold={gacha.gold} rollCost={GACHA_COST} packCost={PACK_COST}
+        maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.legendarySummonsUnlocked} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} hasHallOfLegends={game.hasHallOfLegends} tributeLegendaryPackCost={TRIBUTE_LEGENDARY_PACK_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
+        onDragStart={startDrag} onDragEnd={endDrag} onDragOverChange={over => dragOverInventory = over} onDrop={inventoryDrop}
+        onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} onOpenTributeLegendaryPack={() => game.rollTributeLegendaryPack()} />
+    </div>
   </div>
 
-  <aside class="battle-sidebar" aria-label="Battle report">
+  <aside id="battle-report" class="battle-sidebar" class:open={showLog} aria-label="Battle report">
+    <div class="report-heading"><h3>Battle report</h3><button onclick={() => (showLog = false)}>Close</button></div>
     <section class="battle-log">
       <div class="log-heading"><h3>Battle log</h3><span>{report ? `${battle ? "Turn" : "Last battle · Turn"} ${report.turn}` : "Ready"}</span></div>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex (The scrollable log needs keyboard access.) -->
@@ -480,5 +492,60 @@
   .log-empty { padding: 12px 0; }
   @media (max-width: 1100px) { .combat-layout { grid-template-columns: minmax(0, 1fr) 240px; gap: 12px; } .battle-stage { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); } }
   @media (max-width: 900px) { .combat-layout { grid-template-columns: minmax(0, 1fr); } .battle-sidebar { display: grid; grid-template-columns: 1fr 1fr; } }
+  .log-toggle, .report-heading, .help-icon { display: none; }
+  @keyframes sheet-up { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (max-width: 640px) {
+    .combat-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; }
+    .level-heading { display: contents; }
+    .level-heading h2 { font-size: 16px; }
+    .level-heading > span, .level-heading > p { grid-column: 1 / -1; }
+    .battle-controls { grid-column: 2; grid-row: 1; gap: 8px; }
+    .playback-controls { font-size: 11px; gap: 6px; }
+    .playback-controls button { padding: 6px 10px; }
+  }
   @media (max-width: 640px) { .battle-sidebar { grid-template-columns: 1fr; } .battlefield { padding: 12px 8px 0; } .field-position { width: 76px; } .battle-stage { height: 400px; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); } .army-headings { gap: 10px; } .empty-circle, .drop-circle { width: 56px; height: 56px; } .versus { font-size: 24px; } .position-button { min-height: 92px; } }
+  /* Phones: the combat view fills the screen without page scrolling. The battlefield
+     takes the spare height and only the army list scrolls. */
+  @media (max-width: 767px) {
+    /* Stretch, not the desktop grid's "start": otherwise the column shrinks to fit the army list. */
+    .combat-layout { display: flex; flex-direction: column; align-items: stretch; flex: 1; min-height: 0; }
+    .combat-main { flex: 1; min-height: 0; gap: 8px; }
+    .combat-header, .playback-controls { flex-shrink: 0; }
+    .depths-blurb { display: none; }
+    .log-toggle { display: block; }
+    .battlefield { flex: 1 1 0; min-height: 250px; display: flex; flex-direction: column; padding: 8px 8px 4px; }
+    .army-headings { min-height: 0; }
+    .battle-stage { flex: 1; min-height: 0; height: auto; margin-top: 4px; }
+    /* Spread the five slots over the stage height so the last unit sits on the bottom edge. */
+    .battle-stage { container-type: size; }
+    .formation { --unit-h: 108px; }
+    .field-position { top: calc((var(--position) - 1) * (100% - var(--unit-h)) / 4); }
+    .help-label { display: none; }
+    .help-icon { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 50%; font-size: 12px; text-decoration: none; }
+    .help-button { text-decoration: none; }
+    .battlefield-footer { display: none; }
+    .army-dock { flex: 0 1 auto; min-height: 118px; display: flex; flex-direction: column; }
+    .army-dock > :global(*) { flex: 1; }
+    .battle-sidebar { display: none; }
+    .battle-sidebar.open { display: flex; position: fixed; inset: auto 0 0; z-index: 40; max-height: 70dvh; overflow-y: auto; padding: 0 8px calc(8px + env(safe-area-inset-bottom)); background: var(--background); border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -12px 32px #000c; animation: sheet-up .2s ease-out; }
+    .open .report-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 12px 4px 4px; background: var(--background); }
+    .report-heading button { padding: 4px 8px; font-size: 12px; color: var(--muted-foreground); text-decoration: underline; }
+  }
+  /* Short stages (small phones): shrink units so the five slots don't overlap. */
+  @container (max-height: 330px) {
+    .formation { --unit-h: 88px; }
+    .position-button { min-height: 76px; }
+    .empty-circle, .drop-circle { width: 44px; height: 44px; }
+    .field-position :global(.unit-sprite) { height: 44px; }
+    .field-position :global(.unit-name) { font-size: 9px; line-height: 12px; }
+    .field-position.targeted::after { top: 36px; }
+  }
+  @container (max-height: 260px) {
+    .formation { --unit-h: 72px; }
+    .position-button { min-height: 64px; }
+    .empty-circle, .drop-circle { width: 36px; height: 36px; }
+    .field-position :global(.unit-sprite) { height: 34px; }
+    .position-caption { display: none; }
+    .field-position.targeted::after { top: 28px; }
+  }
 </style>

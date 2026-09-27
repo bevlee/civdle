@@ -1,0 +1,9 @@
+# Vite's dev server sends ~9 MB of uncompressed modules on a cold load (all
+# of bits-ui unbundled, plus source maps); gzip at Traefik cuts that ~6x.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: compress
+  namespace: civdle-dev
+spec:
+  compress: {}

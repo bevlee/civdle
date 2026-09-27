@@ -11,6 +11,7 @@
   import {
     type GameState,
     computeActionResult,
+    getLockedOutputs,
     xpForLevel,
   } from "$lib/gameEngine";
 
@@ -60,6 +61,19 @@
       state.globalUpgrades,
     ),
   );
+
+  // Outputs the player has never produced here stay a mystery ("???") until
+  // unlocked; extra rolls of a resource they already make keep their name.
+  let lockedOutputs = $derived.by(() => {
+    if (!result) return [];
+    const known = new Set([
+      ...result.outputs.map((o) => o.resource),
+      ...result.chancedOutputs.map((o) => o.resource),
+    ]);
+    return getLockedOutputs(result.recipe, level, ageIndex).map((o) =>
+      known.has(o.resource) ? o : { ...o, label: "???" },
+    );
+  });
 
   // Describes an expected (average) amount as the guaranteed whole number plus
   // the chance of one more, e.g. "1 Wood (+1 at 10%)" or "Clay (30%)".
@@ -119,7 +133,7 @@
               selected ? "border-primary bg-accent" : "border-border"
             } ${locked ? "cursor-not-allowed opacity-40" : "hover:bg-accent"}`}
           >
-            {recipe.name}
+            {locked ? "???" : recipe.name}
             {#if locked}
               <span class="ml-1 text-xs text-muted-foreground">
                 (Lv {recipe.requiredLevel})
@@ -157,6 +171,15 @@
             {describeOutput(bonus.resource, bonus.amount)}
           {/each}
         </p>
+        {#if lockedOutputs.length > 0}
+          <p class="text-xs text-muted-foreground">
+            Later:
+            {#each lockedOutputs as o, i (i)}
+              {i > 0 ? ", " : ""}<span class="opacity-70">{o.label}</span>
+              <span class="rounded bg-muted px-1 py-0.5 text-[10px]">{o.requirement}</span>
+            {/each}
+          </p>
+        {/if}
         {#if result.refundChance > 0}
           <p class="text-xs text-muted-foreground">
             {formatPct(result.refundChance)} chance to keep materials

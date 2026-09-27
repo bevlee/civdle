@@ -31,10 +31,13 @@
     glory = 0,
     legendaryPackCost = 100,
     legendarySingleCost = 10,
+    hasHallOfLegends = false,
+    tributeLegendaryPackCost = 1000,
     onSummon,
     onOpenPack,
     onOpenLegendaryPack,
     onLegendarySummon,
+    onOpenTributeLegendaryPack,
   }: {
     cards: UnitCardT[];
     partyIds: Set<string>;
@@ -44,10 +47,13 @@
     maxStars?: number;
     rollRates?: RollRate[];
     hasCelestialAltar?: boolean;
-    /** Glory from the Conquest skill — the only currency for 5★-only summons. */
+    /** Glory from the Conquest skill — pays for the Celestial Altar's 5★-only summons. */
     glory?: number;
     legendaryPackCost?: number;
     legendarySingleCost?: number;
+    /** The Hall of Legends sells a 5★-only pack for Tribute. */
+    hasHallOfLegends?: boolean;
+    tributeLegendaryPackCost?: number;
     locked?: boolean;
     /** Card currently being dragged anywhere on the screen. */
     draggingId?: string | null;
@@ -64,6 +70,7 @@
     onOpenPack: () => void;
     onOpenLegendaryPack?: () => void;
     onLegendarySummon?: () => void;
+    onOpenTributeLegendaryPack?: () => void;
   } = $props();
 
   function handleDragOver(e: DragEvent) {
@@ -169,7 +176,7 @@
   role="group"
   aria-label="Army inventory"
   class={cn(
-    "flex flex-col gap-2 rounded-lg border bg-muted/20 transition-colors",
+    "flex flex-col gap-2 rounded-lg border bg-muted/20 transition-colors max-md:h-full max-md:min-h-0",
     dropActive && dragOver ? "border-primary bg-primary/10" : "border-border",
   )}
   ondragover={handleDragOver}
@@ -232,6 +239,19 @@
             class="h-8 border-yellow-500/40 px-2 text-[15px] text-yellow-300 hover:bg-yellow-500/10"
           >
             10× 5★ · {legendaryPackCost} Glory
+          </Button>
+        </Hint>
+      {/if}
+      {#if hasHallOfLegends && onOpenTributeLegendaryPack}
+        <Hint text="10 guaranteed 5★ heroes, paid in Tribute">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={locked || gold < tributeLegendaryPackCost}
+            onclick={onOpenTributeLegendaryPack}
+            class="h-8 border-yellow-500/40 px-2 text-[15px] text-yellow-300 hover:bg-yellow-500/10"
+          >
+            10× 5★ · {tributeLegendaryPackCost} ⚔
           </Button>
         </Hint>
       {/if}
@@ -356,7 +376,7 @@
     </div>
   {/if}
 
-  <div class="max-h-[26rem] overflow-y-auto px-3 pb-1">
+  <div class="max-h-[26rem] overflow-y-auto px-3 pb-1 max-md:max-h-none max-md:min-h-0 max-md:flex-1">
     {#if cards.length > 0 && sorted.length === 0}
       <p class="py-6 text-center text-[19px] text-muted-foreground">
         No units match these filters.
@@ -396,5 +416,5 @@
       </div>
     {/if}
   </div>
-  <p class="px-3 pb-2 text-[15px] text-muted-foreground">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or select an empty position and then a card."}</p>
+  <p class="px-3 pb-2 text-[15px] text-muted-foreground max-md:hidden">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or tap an empty position and then a card."}</p>
 </div>

@@ -11,7 +11,8 @@ export type SettlementUpgradeId =
   | "emperorsBanquet"
   | "heroicTribute"
   | "divineSummons"
-  | "celestialAltar";
+  | "celestialAltar"
+  | "hallOfLegends";
 
 export interface SettlementUpgradeDef {
   id: SettlementUpgradeId;
@@ -131,6 +132,19 @@ export const SETTLEMENT_UPGRADES: Record<SettlementUpgradeId, SettlementUpgradeD
     ],
     prereqs: [],
   },
+  hallOfLegends: {
+    id: "hallOfLegends",
+    name: "Hall of Legends",
+    description: "A great hall where legends answer rich offerings. Unlocks the Legendary Pack: 10 guaranteed 5★ heroes for 1,000 Tribute.",
+    icon: "🏆",
+    cost: [
+      { resource: "enchantedGear", amount: 10 },
+      { resource: "fineClothing", amount: 40 },
+      { resource: "furniture", amount: 40 },
+      { resource: "bricks", amount: 30 },
+    ],
+    prereqs: [],
+  },
 };
 
 export const SETTLEMENT_UPGRADE_ORDER: SettlementUpgradeId[] = [
@@ -142,6 +156,7 @@ export const SETTLEMENT_UPGRADE_ORDER: SettlementUpgradeId[] = [
   "heroicTribute",
   "divineSummons",
   "celestialAltar",
+  "hallOfLegends",
 ];
 
 // --- Treasury: doubles depths income ---
@@ -227,4 +242,8 @@ export function getEffectiveRollRates(upgrades: Set<SettlementUpgradeId>): RollR
 
 export function hasCelestialAltar(upgrades: Set<SettlementUpgradeId>): boolean {
   return upgrades.has("celestialAltar");
+}
+
+export function hasHallOfLegends(upgrades: Set<SettlementUpgradeId>): boolean {
+  return upgrades.has("hallOfLegends");
 }
