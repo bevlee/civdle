@@ -2,16 +2,16 @@
   import { onDestroy, onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
-  import { AGES, RESOURCES, SKILLS, type Recipe, type SkillId } from "$lib/gameData";
+  import { SKILLS, type SkillId } from "$lib/gameData";
   import { cn } from "$lib/utils";
 
   let {
     skillId,
-    ageIndex,
+    level,
     onDismiss,
   }: {
     skillId: SkillId;
-    ageIndex: number;
+    level: number;
     onDismiss: () => void;
   } = $props();
 
@@ -28,22 +28,11 @@
   });
 
   const def = $derived(SKILLS[skillId]);
-  const recipes = $derived(def.recipes);
+  // Only what can be made now is named; the rest stays a mystery, matching the
+  // "???" recipes in the training view. Inputs and outputs are shown there too.
+  const available = $derived(def.recipes.filter((r) => r.requiredLevel <= level));
+  const hiddenCount = $derived(def.recipes.length - available.length);
   const prereqs = $derived(def.prereqs);
-
-  // Each output once, tagged with the age it arrives in when that's still ahead.
-  function describeOutputs(recipe: Recipe): string {
-    const seen = new Set<string>();
-    const labels: string[] = [];
-    for (const o of recipe.outputs) {
-      if (seen.has(o.resource)) continue;
-      seen.add(o.resource);
-      const age = o.ageRequired ? AGES.find((a) => a.id === o.ageRequired) : undefined;
-      const later = age && AGES.indexOf(age) > ageIndex;
-      labels.push(later ? `${RESOURCES[o.resource].name} (${age.name})` : RESOURCES[o.resource].name);
-    }
-    return labels.join(", ");
-  }
 
   function handleDismiss() {
     if (dismissTimeout !== null) return;
@@ -83,21 +72,16 @@
           Unlocks
         </p>
         <div class="flex flex-col gap-2">
-          {#each recipes as recipe (recipe.id)}
-            <div
-              class="flex items-start gap-3 rounded-lg bg-muted/50 px-3 py-2"
-            >
-              <span class="mt-0.5 text-sm font-medium">{recipe.name}</span>
-              <span class="ml-auto text-xs text-muted-foreground">
-                {#if recipe.inputs.length > 0}
-                  {recipe.inputs
-                    .map((i) => RESOURCES[i.resource].name)
-                    .join(", ")} →
-                {/if}
-                {describeOutputs(recipe)}
-              </span>
+          {#each available as recipe (recipe.id)}
+            <div class="rounded-lg bg-muted/50 px-3 py-2 text-sm font-medium">
+              {recipe.name}
             </div>
           {/each}
+          {#if hiddenCount > 0}
+            <p class="px-1 text-xs text-muted-foreground">
+              +{hiddenCount} more {hiddenCount === 1 ? "recipe" : "recipes"} to discover as you level up
+            </p>
+          {/if}
         </div>
       </div>
       {#if prereqs.length > 0}
