@@ -506,7 +506,8 @@
   /* Phones: the combat view fills the screen without page scrolling. The battlefield
      takes the spare height and only the army list scrolls. */
   @media (max-width: 767px) {
-    .combat-layout { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    /* Stretch, not the desktop grid's "start": otherwise the column shrinks to fit the army list. */
+    .combat-layout { display: flex; flex-direction: column; align-items: stretch; flex: 1; min-height: 0; }
     .combat-main { flex: 1; min-height: 0; gap: 8px; }
     .combat-header, .playback-controls { flex-shrink: 0; }
     .depths-blurb { display: none; }

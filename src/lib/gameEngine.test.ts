@@ -383,6 +383,13 @@ describe("ages", () => {
     expect(describeAgeReward(AGES[1])).toContain("Mining: Copper Ore");
   });
 
+  it("conceals what an age unlocks until it is reached", () => {
+    const iron = AGES.find((a) => a.id === "ironAge")!;
+    const concealed = describeAgeReward(iron, { conceal: true });
+    expect(concealed).toEqual(expect.arrayContaining(["??? skill", "Mining: ??? ×2"]));
+    expect(concealed.join(" ")).not.toMatch(/Iron Ore|Coal|Construction/);
+  });
+
   it("keeps Construction locked until the Iron Age even with its prereqs met", () => {
     const s = stateWith((st) => {
       st.skills.carpentry.xp = xpForLevel(15);
