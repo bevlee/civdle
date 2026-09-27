@@ -35,7 +35,7 @@
 
   let age = $derived(AGES[ageIndex]);
   let bonusText = $derived(describeAgeBonus(ageBonus));
-  let nextReward = $derived(ageAdvanceStatus.nextAge ? describeAgeReward(ageAdvanceStatus.nextAge) : []);
+  let nextReward = $derived(ageAdvanceStatus.nextAge ? describeAgeReward(ageAdvanceStatus.nextAge, { conceal: true }) : []);
   let nextBonusText = $derived.by(() => {
     const next = ageAdvanceStatus.nextAge;
     return next ? describeAgeBonus({ flatTimeReduction: next.bonus.flatTime, outputMult: next.bonus.outputMult }) : "";
@@ -82,16 +82,96 @@
   const statClass =
     "cursor-help items-center gap-2 px-1.5 py-1 -mx-1.5 -my-1 transition-colors hover:bg-muted/60";
 
-  let missing = $derived(checklist.filter((c) => !c.met));
+  // Requirements and rewards live in a dropdown under the Advance button.
+  let detailsOpen = $state(false);
+  let advanceMenu = $state<HTMLDivElement>();
+
+  function handleAdvanceClick() {
+    // Until the age can be reached, the button explains what is still needed.
+    if (ageAdvanceStatus.canAdvance) {
+      detailsOpen = false;
+      onAdvance();
+    } else {
+      detailsOpen = !detailsOpen;
+    }
+  }
+
+  function closeOnOutsideClick(event: PointerEvent) {
+    if (detailsOpen && advanceMenu && !advanceMenu.contains(event.target as Node)) detailsOpen = false;
+  }
 </script>
 
-<header class="flex flex-col gap-3 border-b border-border px-6 py-4">
-  <div class="flex items-center justify-between gap-4">
-    <div class="flex items-center gap-3">
-      <h1 class="text-lg font-bold tracking-tight">Civdle</h1>
-      <Badge variant="secondary" class="text-sm">{age.name}</Badge>
+<svelte:window
+  onpointerdown={closeOnOutsideClick}
+  onkeydown={(event) => { if (event.key === "Escape") detailsOpen = false; }}
+/>
+
+<header class="relative flex flex-col gap-2 border-b border-border px-3 py-2 sm:gap-3 sm:px-6 sm:py-4">
+  <div class="flex items-center justify-between gap-2 sm:gap-4">
+    <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+      <!-- Phones drop the wordmark so the age and Advance controls fit beside the stats. -->
+      <h1 class="hidden text-base font-bold tracking-tight sm:block sm:text-lg">Civdle</h1>
+      <Badge variant="secondary" class="shrink-0 text-xs sm:text-sm">{age.name}</Badge>
+      {#if ageAdvanceStatus.nextAge}
+        <!-- On phones the dropdown spans the header; from sm up it hangs under the button. -->
+        <div class="flex shrink-0 sm:relative" bind:this={advanceMenu}>
+          <Button
+            size="sm"
+            onclick={handleAdvanceClick}
+            variant={ageAdvanceStatus.canAdvance ? "default" : "secondary"}
+            class={cn("h-7 rounded-r-none px-2.5 text-xs", ageAdvanceStatus.canAdvance ? "animate-pulse-glow" : "text-muted-foreground")}
+            title={`Advance to ${ageAdvanceStatus.nextAge.name}`}
+          >
+            Advance
+          </Button>
+          <Button
+            size="sm"
+            variant={ageAdvanceStatus.canAdvance ? "default" : "secondary"}
+            class="relative h-7 rounded-l-none border-l border-background/40 px-1.5 text-xs"
+            aria-expanded={detailsOpen}
+            aria-controls="age-advance"
+            aria-label={`Requirements and rewards for ${ageAdvanceStatus.nextAge.name}`}
+            onclick={() => (detailsOpen = !detailsOpen)}
+          >
+            <span aria-hidden="true" class={cn("transition-transform", detailsOpen && "rotate-180")}>▾</span>
+          </Button>
+          {#if detailsOpen}
+            <div
+              id="age-advance"
+              class="absolute inset-x-3 top-full z-50 mt-1 flex sm:inset-x-auto sm:left-0 sm:mt-1.5 sm:w-[22rem] flex-col gap-3 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+            >
+              <p class="text-sm font-semibold">{ageAdvanceStatus.nextAge.name}</p>
+              <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-semibold text-muted-foreground">Requirements</span>
+                {#each checklist as item (item.label)}
+                  <div class={cn("flex justify-between gap-4 text-xs", item.met ? "text-emerald-400" : "text-foreground")}>
+                    <span>{item.met ? "✓ " : ""}{item.label}</span>
+                    <span class="tabular-nums">{Math.min(item.current, item.required)} / {item.required}</span>
+                  </div>
+                {/each}
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-semibold text-amber-300">Reward</span>
+                <div class="flex flex-wrap gap-1.5 text-xs">
+                  {#each [nextBonusText, ...nextReward].filter(Boolean) as reward (reward)}
+                    <span class="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-300">
+                      {reward}
+                    </span>
+                  {/each}
+                </div>
+              </div>
+              {#if bonusText}
+                <span class="text-xs text-muted-foreground">Current bonus: {bonusText}</span>
+              {/if}
+              {#if ageAdvanceStatus.canAdvance}
+                <Button size="sm" onclick={handleAdvanceClick}>Advance to {ageAdvanceStatus.nextAge.name}</Button>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
       {#if bonusText}
-        <span class="text-xs text-muted-foreground">{bonusText}</span>
+        <span class="hidden text-xs text-muted-foreground sm:inline">{bonusText}</span>
       {/if}
       {#each ageAdvanceEvents as event (event.id)}
         <FloatingText
@@ -103,10 +183,10 @@
         />
       {/each}
     </div>
-    <div class="flex items-center gap-4">
+    <div class="flex shrink-0 items-center gap-3 sm:gap-4">
       <div class="relative flex items-center">
         <Hint side="bottom" class={statClass} title="⚔ Tribute" text="Earned by winning battles and from the Depths. Spend it on summons and card packs for your army.">
-          <span class="text-sm text-muted-foreground">⚔ Tribute</span>
+          <span class="text-sm text-muted-foreground">⚔ <span class="hidden sm:inline">Tribute</span></span>
           <Badge variant="secondary" class="text-sm tabular-nums">
             {warSpoils}
           </Badge>
@@ -122,7 +202,7 @@
       </div>
       <div class="relative flex items-center">
         <Hint side="bottom" class={statClass} title="Skill Points" text="Earned each time a skill levels up. Spend them in the Shop on permanent upgrades.">
-          <span class="text-sm text-muted-foreground">Skill Points</span>
+          <span class="text-sm text-muted-foreground"><span class="sm:hidden">SP</span><span class="hidden sm:inline">Skill Points</span></span>
           <Badge class="text-sm tabular-nums">{skillPoints}</Badge>
         </Hint>
         {#each skillPointEvents as event (event.id)}
@@ -136,50 +216,4 @@
       </div>
     </div>
   </div>
-  {#if ageAdvanceStatus.nextAge}
-    <div class="flex flex-wrap items-center gap-3">
-      <Hint side="bottom" title="Still needed" disabled={missing.length === 0}>
-        {#snippet content()}
-          {#each missing as item (item.label)}
-            <div class="flex justify-between gap-4">
-              <span class="text-muted-foreground">{item.label}</span>
-              <span class="tabular-nums">{item.current} / {item.required}</span>
-            </div>
-          {/each}
-        {/snippet}
-        <Button
-          onclick={onAdvance}
-          disabled={!ageAdvanceStatus.canAdvance}
-          variant={ageAdvanceStatus.canAdvance ? "default" : "secondary"}
-          class={cn(ageAdvanceStatus.canAdvance && "animate-pulse-glow")}
-        >
-          Advance to {ageAdvanceStatus.nextAge.name}
-        </Button>
-      </Hint>
-      <div class="flex flex-wrap gap-2">
-        {#each checklist as item (item.label)}
-          <span
-            class={cn(
-              "rounded-md border px-2 py-1 text-xs",
-              item.met
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                : "border-border text-muted-foreground",
-            )}
-          >
-            {item.met ? "✓ " : ""}{item.label}{!item.met
-              ? ` (${item.current}/${item.required})`
-              : ""}
-          </span>
-        {/each}
-      </div>
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <span class="font-semibold text-amber-300">Reward</span>
-        {#each [nextBonusText, ...nextReward].filter(Boolean) as reward (reward)}
-          <span class="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-amber-300">
-            {reward}
-          </span>
-        {/each}
-      </div>
-    </div>
-  {/if}
 </header>

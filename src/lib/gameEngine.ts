@@ -205,24 +205,34 @@ export function describeAgeBonus(bonus: AgeBonus): string {
   return parts.join(" · ");
 }
 
-export function describeAgeReward(age: AgeDef): string[] {
+// With `conceal`, new skills and recipe outputs are listed as "???" so the
+// preview teases what an age brings without spoiling it.
+export function describeAgeReward(age: AgeDef, { conceal = false }: { conceal?: boolean } = {}): string[] {
   const parts: string[] = [];
   if (age.reward.heroCopies > 0) parts.push(`4★ hero ×${age.reward.heroCopies}`);
   if (age.reward.unlocksCombat) parts.push("Campaign & The Abyss");
   if (age.reward.maxSummonStars) parts.push(`${age.reward.maxSummonStars}★ summons`);
-  if (age.reward.unlocksSkill) parts.push(`${SKILLS[age.reward.unlocksSkill].name} skill`);
+  const newSkills: string[] = [];
+  const newOutputs: string[] = [];
+  const concealedOutputs = new Map<string, number>();
+  if (age.reward.unlocksSkill) newSkills.push(SKILLS[age.reward.unlocksSkill].name);
   for (const id of SKILL_ORDER) {
     const def = SKILLS[id];
-    if (def.ageRequired === age.id && age.reward.unlocksSkill !== id) parts.push(`${def.name} skill`);
+    if (def.ageRequired === age.id && age.reward.unlocksSkill !== id) newSkills.push(def.name);
+    const seen = new Set<string>();
     for (const recipe of def.recipes) {
       for (const o of recipe.outputs) {
         // Level-milestone repeats are announced by the skill, not the age.
-        if (o.ageRequired !== age.id || o.levelRequired !== undefined) continue;
-        const label = `${def.name}: ${RESOURCES[o.resource].name}`;
-        if (!parts.includes(label)) parts.push(label);
+        if (o.ageRequired !== age.id || o.levelRequired !== undefined || seen.has(o.resource)) continue;
+        seen.add(o.resource);
+        newOutputs.push(`${def.name}: ${RESOURCES[o.resource].name}`);
+        concealedOutputs.set(def.name, (concealedOutputs.get(def.name) ?? 0) + 1);
       }
     }
   }
+  if (!conceal) return [...parts, ...newSkills.map((name) => `${name} skill`), ...newOutputs];
+  if (newSkills.length > 0) parts.push(newSkills.length > 1 ? `??? skill ×${newSkills.length}` : "??? skill");
+  for (const [skill, count] of concealedOutputs) parts.push(count > 1 ? `${skill}: ??? ×${count}` : `${skill}: ???`);
   return parts;
 }
 
