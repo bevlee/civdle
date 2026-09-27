@@ -16,6 +16,7 @@
     events,
     onDismissEvent,
     compact = false,
+    class: className,
   }: {
     id: SkillId;
     level: number;
@@ -26,6 +27,7 @@
     events: QueuedEvent[];
     onDismissEvent: (id: string) => void;
     compact?: boolean;
+    class?: string;
   } = $props();
 
   let levelUpEvent = $derived(
@@ -65,6 +67,7 @@
     isSelected && "bg-accent",
     compact && isSelected && "border-primary/60",
     unlockEvent && "animate-slide-in-right",
+    className,
   )}
 >
   {#if levelUpEvent}
