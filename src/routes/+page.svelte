@@ -408,7 +408,7 @@
                   </span>
                 </button>
               </div>
-              <CombatView {game} mode={battleMode} />
+              <CombatView {game} mode={battleMode} onOpenSettlement={() => (centerTab = "settlement")} />
             </div>
           {:else if centerTab === "settlement"}
             <SettlementView

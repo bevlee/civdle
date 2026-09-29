@@ -230,14 +230,23 @@ export const DIVINE_SUMMONS_RATES: RollRate[] = [
   { stars: 1, rate: 0.02 },
 ];
 
+// The buildings that set summon rates, best first: the best one built applies.
+const RATE_UPGRADES: [SettlementUpgradeId, RollRate[]][] = [
+  ["divineSummons", DIVINE_SUMMONS_RATES],
+  ["heroicTribute", HEROIC_TRIBUTE_RATES],
+  ["emperorsBanquet", EMPERORS_BANQUET_RATES],
+  ["royalFeast", ROYAL_FEAST_RATES],
+  ["grandFeast", GRAND_FEAST_RATES],
+  ["feastHall", FEAST_HALL_RATES],
+];
+
+/** The building whose summon rates apply, or null for the base rates. */
+export function rollRateUpgrade(upgrades: Set<SettlementUpgradeId>): SettlementUpgradeId | null {
+  return RATE_UPGRADES.find(([id]) => upgrades.has(id))?.[0] ?? null;
+}
+
 export function getEffectiveRollRates(upgrades: Set<SettlementUpgradeId>): RollRate[] {
-  if (upgrades.has("divineSummons")) return DIVINE_SUMMONS_RATES;
-  if (upgrades.has("heroicTribute")) return HEROIC_TRIBUTE_RATES;
-  if (upgrades.has("emperorsBanquet")) return EMPERORS_BANQUET_RATES;
-  if (upgrades.has("royalFeast")) return ROYAL_FEAST_RATES;
-  if (upgrades.has("grandFeast")) return GRAND_FEAST_RATES;
-  if (upgrades.has("feastHall")) return FEAST_HALL_RATES;
-  return BASE_RATES;
+  return RATE_UPGRADES.find(([id]) => upgrades.has(id))?.[1] ?? BASE_RATES;
 }
 
 export function hasCelestialAltar(upgrades: Set<SettlementUpgradeId>): boolean {
