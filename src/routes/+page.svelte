@@ -86,9 +86,26 @@
     centerTab = "train";
   }
 
+  // Which recipe the Train tab shows per skill. Viewing never changes training;
+  // it defaults to the skill's selected (last trained) recipe.
+  let viewedRecipe = $state<Partial<Record<SkillId, string>>>({});
+  const viewedRecipeOf = (id: SkillId) =>
+    viewedRecipe[id] ?? game.state.skills[id].selectedRecipeId;
+  let viewedRecipeId = $derived(selectedSkill ? viewedRecipeOf(selectedSkill) : null);
+
+  function viewRecipe(id: SkillId, recipeId: string) {
+    viewedRecipe = { ...viewedRecipe, [id]: recipeId };
+  }
+
+  // Jump chips and "Back" open a skill on a given recipe (the phone picker follows).
+  function openRecipe(id: SkillId, recipeId: string) {
+    viewRecipe(id, recipeId);
+    handleSelectSkill(id);
+  }
+
   function handleStartTraining() {
     if (!selectedSkill) return;
-    game.startTraining(selectedSkill);
+    game.startTraining(selectedSkill, viewedRecipeOf(selectedSkill));
   }
 
   function handleStopTraining() {
@@ -109,16 +126,14 @@
 
   function openTraining() {
     const active = game.state.activeSkill;
-    if (active) selectedSkill = active;
+    if (active) openRecipe(active, game.state.skills[active].selectedRecipeId);
     centerTab = "train";
   }
 
   let highlightedResources = $derived.by(() => {
     if (!selectedSkill) return undefined;
     const def = SKILLS[selectedSkill];
-    const recipe = def.recipes.find(
-      (r) => r.id === game.state.skills[selectedSkill!].selectedRecipeId,
-    );
+    const recipe = def.recipes.find((r) => r.id === viewedRecipeId);
     if (!recipe) return undefined;
     return new Set([
       ...recipe.inputs.map((i) => i.resource),
@@ -271,14 +286,15 @@
           {#if centerTab === "train" && selectedSkill}
             <TrainingView
               skillId={selectedSkill}
+              viewedRecipeId={viewedRecipeOf(selectedSkill)}
               state={game.state}
               level={game.levels[selectedSkill]}
               ageIndex={game.ageIndex}
               progress={game.displayProgress}
               onStart={handleStartTraining}
               onStop={handleStopTraining}
-              onSelectRecipe={(recipeId) =>
-                game.selectRecipe(selectedSkill!, recipeId)}
+              onViewRecipe={(recipeId) => viewRecipe(selectedSkill!, recipeId)}
+              onJump={openRecipe}
             />
           {:else if centerTab === "train"}
             <div class="flex flex-1 items-center justify-center p-6">
