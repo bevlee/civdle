@@ -400,7 +400,8 @@
 {/if}
 
 {#if selectedCard}
-  <CardDetailModal card={selectedCard} inParty={partyIds.has(selectedCard.id)} partyFull={partyIds.size >= PARTY_SIZE}
+  {@const slot = gacha.party.indexOf(selectedCard.id)}
+  <CardDetailModal card={selectedCard} inParty={slot >= 0} slot={slot >= 0 ? slot : null} partyFull={partyIds.size >= PARTY_SIZE}
     canPromoteNow={game.canPromoteCard(selectedCard.id)} copies={game.copiesOf(selectedCard.id)}
     resources={game.state.resources} locked={formationLocked} readOnly={formationLocked}
     fighter={playerFighters.find(f => f.id === selectedCard.id)}
