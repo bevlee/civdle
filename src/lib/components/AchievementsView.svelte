@@ -6,6 +6,7 @@
     CATEGORY_LABELS,
     CATEGORY_ORDER,
     SKILL_MILESTONE_LEVELS,
+    isSkillMilestone,
     skillMilestoneId,
     type AchievementCategory,
     type AchievementDef,
@@ -35,7 +36,7 @@
   // Skill milestones render as a compact chip grid; the other "skills"
   // entries (combos) render as ordinary cards.
   let skillCombos = $derived(
-    (byCategory.get("skills") ?? []).filter((d) => !d.id.startsWith("skill.")),
+    (byCategory.get("skills") ?? []).filter((d) => !isSkillMilestone(d.id)),
   );
 
   function isUnlocked(id: string): boolean {

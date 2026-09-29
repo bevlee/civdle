@@ -111,6 +111,13 @@ const skillMilestones: AchievementDef[] = SKILL_ORDER.flatMap((skillId) =>
   })),
 );
 
+const SKILL_MILESTONE_IDS = new Set(skillMilestones.map((d) => d.id));
+
+// Milestones render as their own per-skill grid rather than as achievement cards.
+export function isSkillMilestone(id: string): boolean {
+  return SKILL_MILESTONE_IDS.has(id);
+}
+
 const skillCombos: AchievementDef[] = [
   {
     id: "skills.allTen",
