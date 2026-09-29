@@ -37,10 +37,10 @@ describe("achievementList", () => {
     expect(result.filters.find((f) => f.id === "resources")?.done).toBe(1);
   });
 
-  it("labels chips short and sections long", () => {
+  it("labels chips short and sections long, with the skills section holding the combos", () => {
     const result = list(createInitialState());
     expect(result.filters.map((f) => f.label)).toEqual(["All", "Skills", "Resources", "Ages", "Army", "Combat", "Misc"]);
-    expect(result.sections.find((s) => s.category === "skills")?.label).toBe("Skill Milestones");
+    expect(result.sections.find((s) => s.category === "skills")?.label).toBe("Skill combos");
     expect(result.sections.find((s) => s.category === "misc")?.label).toBe("Miscellaneous");
   });
 

@@ -1,4 +1,4 @@
-// Achievements for the phone screen: filter chips with counts, and each section sorted by how close you are.
+// The achievements screen: filter chips with counts, a skill-milestone grid, and each section sorted by how close you are.
 
 import {
   ACHIEVEMENTS,
@@ -65,6 +65,7 @@ export const FILTER_LABELS: Record<AchievementCategory, string> = {
   misc: "Misc",
 };
 
+const SKILL_COMBOS_LABEL = "Skill combos";
 const SECRET_NAME = "???";
 const SECRET_DESCRIPTION = "Hidden achievement. Keep playing to find out.";
 const SECRET_ICON = "❓";
@@ -116,7 +117,8 @@ export function achievementList(
 
   const sections = CATEGORY_ORDER.filter((c) => filter === "all" || filter === c).map((category) => ({
     category,
-    label: CATEGORY_LABELS[category],
+    // Milestones get their own grid, so the skills section holds only the combos.
+    label: category === "skills" ? SKILL_COMBOS_LABEL : CATEGORY_LABELS[category],
     items: byCategory
       .get(category)!
       .filter((def) => !isSkillMilestone(def.id))
