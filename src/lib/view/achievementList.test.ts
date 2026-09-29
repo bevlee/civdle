@@ -9,7 +9,7 @@ import {
 } from "../achievements";
 import { createInitialState, getSkillLevels, xpForLevel, type GameState } from "../gameEngine";
 import { SKILL_ORDER } from "../gameData";
-import { achievementList } from "./achievementList";
+import { achievementList, formatUnlockDate } from "./achievementList";
 
 function list(state: GameState, filter: Parameters<typeof achievementList>[2] = "all") {
   return achievementList(state, getSkillLevels(state), filter);
@@ -150,5 +150,17 @@ describe("achievementList", () => {
     } finally {
       delete def.progress;
     }
+  });
+});
+
+describe("formatUnlockDate", () => {
+  const now = new Date(2026, 8, 29).getTime();
+
+  it("shows month and day for this year", () => {
+    expect(formatUnlockDate(new Date(2026, 8, 14, 15).getTime(), now, "en-US")).toBe("Sep 14");
+  });
+
+  it("adds the year for an earlier year", () => {
+    expect(formatUnlockDate(new Date(2025, 11, 3).getTime(), now, "en-US")).toBe("Dec 3, 2025");
   });
 });

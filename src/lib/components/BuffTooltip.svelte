@@ -23,7 +23,7 @@
 
 <Tooltip.Root>
   <Tooltip.Trigger
-    class="cursor-help rounded-sm underline decoration-dotted decoration-muted-foreground/60 underline-offset-4"
+    class="tap-target cursor-help rounded-sm underline decoration-dotted decoration-muted-foreground/60 underline-offset-4"
   >
     {@render children()}
   </Tooltip.Trigger>

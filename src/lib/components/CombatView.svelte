@@ -232,24 +232,25 @@
         {/if}
         <Button class="h-11 shrink-0 rounded-xl px-4 text-[15px] font-semibold" disabled={!canFight} onclick={startFight}>{fightLabel}</Button>
       </div>
-      <div class="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Battle playback">
-        <button class="h-9 w-10 shrink-0 rounded-[10px] border border-border text-[13px] transition-colors disabled:opacity-40 {game.battlePaused ? 'text-foreground' : 'text-muted-foreground'}"
+      <!-- The vertical padding keeps the buttons' 44px hit areas inside the scroller's clip. -->
+      <div class="-my-1 flex items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]" role="group" aria-label="Battle playback">
+        <button class="tap-target h-9 w-10 shrink-0 rounded-[10px] border border-border text-[13px] transition-colors disabled:opacity-40 {game.battlePaused ? 'text-foreground' : 'text-muted-foreground'}"
           disabled={!battle} aria-pressed={game.battlePaused} aria-label="Pause battle"
           onclick={() => game.setBattlePaused(!game.battlePaused)}>{game.battlePaused ? "▶" : "Ⅱ"}</button>
-        <div class="flex shrink-0 overflow-hidden rounded-[10px] border border-border" role="group" aria-label="Battle speed">
+        <div class="flex shrink-0 rounded-[10px] border border-border" role="group" aria-label="Battle speed">
           {#each [0.5, 1, 2] as speed}
-            <button class="h-9 w-9 text-[13px] font-semibold transition-colors {game.battleSpeed === speed ? 'bg-accent text-foreground' : 'text-muted-foreground'}"
+            <button class="tap-target h-9 w-9 text-[13px] font-semibold transition-colors first:rounded-l-[9px] last:rounded-r-[9px] {game.battleSpeed === speed ? 'bg-accent text-foreground' : 'text-muted-foreground'}"
               aria-label={`${speed}× battle speed`} aria-pressed={game.battleSpeed === speed}
               onclick={() => game.setBattleSpeed(speed as BattleSpeed)}>{speed === 0.5 ? "½" : speed}×</button>
           {/each}
         </div>
         <span class="flex-1"></span>
-        <button class="h-9 shrink-0 rounded-[10px] border border-border px-2.5 text-[13px] whitespace-nowrap text-muted-foreground"
+        <button class="tap-target h-9 shrink-0 rounded-[10px] border border-border px-2.5 text-[13px] whitespace-nowrap text-muted-foreground"
           aria-label="Battle sounds" aria-pressed={!game.battleMuted}
           onclick={() => game.setBattleMuted(!game.battleMuted)}>{game.battleMuted ? "🔈 Off" : "🔊 On"}</button>
-        <button class="h-9 shrink-0 rounded-[10px] border border-border px-2.5 text-[13px] text-muted-foreground"
+        <button class="tap-target h-9 shrink-0 rounded-[10px] border border-border px-2.5 text-[13px] text-muted-foreground"
           aria-expanded={showLog} aria-controls="battle-report" onclick={() => (showLog = !showLog)}>Log</button>
-        <button class="size-9 shrink-0 rounded-full border border-border text-[13px] text-muted-foreground"
+        <button class="tap-target size-9 shrink-0 rounded-full border border-border text-[13px] text-muted-foreground"
           aria-haspopup="dialog" aria-label="Combat guide" onclick={() => showHelp = true}>?</button>
       </div>
     </div>
@@ -547,14 +548,14 @@
     .battle-sidebar { display: none; }
     .battle-sidebar.open { display: flex; position: fixed; inset: auto 0 0; z-index: 40; max-height: 70dvh; overflow-y: auto; padding: 0 8px calc(8px + env(safe-area-inset-bottom)); background: var(--background); border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -12px 32px #000c; animation: sheet-up .2s ease-out; }
     .open .report-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 12px 4px 4px; background: var(--background); }
-    .report-heading button { padding: 4px 8px; font-size: 12px; color: var(--muted-foreground); text-decoration: underline; }
+    .report-heading button { min-height: 44px; margin: -8px 0; padding: 0 8px; font-size: 12px; color: var(--muted-foreground); text-decoration: underline; }
     /* A compact result card that fits a short board. */
     .battle-result-content { gap: 4px; padding: 16px 24px; max-width: calc(100% - 16px); text-align: center; }
     .result-emblem { font-size: 28px; }
     .result-eyebrow { font-size: 11px; letter-spacing: .12em; }
     .result-label { font-size: 28px; }
     .result-detail { font-size: 14px; }
-    .stop-auto { font-size: 13px; min-height: 36px; }
+    .stop-auto { font-size: 13px; min-height: 44px; }
   }
   /* Short stages (small phones): shrink units so the five slots don't overlap. */
   @container (max-height: 330px) {

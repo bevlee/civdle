@@ -56,7 +56,7 @@ export interface AchievementListView {
 }
 
 // Short chip labels; section headers keep the longer CATEGORY_LABELS.
-export const FILTER_LABELS: Record<AchievementCategory, string> = {
+const FILTER_LABELS: Record<AchievementCategory, string> = {
   skills: "Skills",
   resources: "Resources",
   ages: "Ages",
@@ -140,4 +140,14 @@ export function achievementList(
       : [];
 
   return { ...count(ACHIEVEMENTS), filters, sections, milestones };
+}
+
+/**
+ * When an achievement was unlocked: "Sep 14", with the year only when it isn't this year.
+ * Uses the player's locale unless one is given.
+ */
+export function formatUnlockDate(timestamp: number, now: number = Date.now(), locale?: string): string {
+  const date = new Date(timestamp);
+  const sameYear = date.getFullYear() === new Date(now).getFullYear();
+  return date.toLocaleDateString(locale, { month: "short", day: "numeric", year: sameYear ? undefined : "numeric" });
 }

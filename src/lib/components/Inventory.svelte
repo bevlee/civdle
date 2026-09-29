@@ -62,11 +62,11 @@
         .filter((r) => r.amount > 0)}
       {#if entries.length > 0}
         <section class="flex flex-col gap-2 md:gap-1.5" aria-label={section.label}>
-          <h4
+          <h3
             class="text-xs font-semibold tracking-[.06em] text-muted-foreground uppercase md:tracking-wider md:text-muted-foreground/70"
           >
             {section.label}
-          </h4>
+          </h3>
           <ul class="grid grid-cols-2 gap-2 md:gap-1.5">
             {#each entries as { id, amount } (id)}
               {@const highlighted = highlightedResources?.has(id)}

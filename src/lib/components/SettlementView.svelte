@@ -85,7 +85,8 @@
     </div>
 
     {#if !b.built}
-      <div class="flex flex-wrap gap-1.5">
+      <!-- Phones space wrapped rows apart so the jump chips' 44px hit areas don't overlap. -->
+      <div class="flex flex-wrap gap-1.5 max-md:gap-y-3">
         {#each b.cost as c (c.resource)}
           {@const jump = c.short ? costJump(c.resource, levels, unlocked) : null}
           {@const chipClass = cn(
@@ -96,7 +97,7 @@
           )}
           {#if jump}
             <button
-              class={cn(chipClass, "hover:bg-red-500/20")}
+              class={cn(chipClass, "tap-target hover:bg-red-500/20")}
               aria-label={`${RESOURCES[c.resource].name}: ${c.have.toLocaleString()} of ${c.need.toLocaleString()}. Train it in ${jump.label}`}
               onclick={() => onJump(jump.skillId, jump.recipeId)}
             >

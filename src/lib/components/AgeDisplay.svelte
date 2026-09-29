@@ -180,14 +180,20 @@
       </div>
       <div class="relative flex items-center">
         <Hint side="bottom" title="Skill Points" text="Earned each time a skill levels up. Spend them in the Town's Shop on permanent upgrades.">
-          <button
-            class={cn(statClass, "flex cursor-pointer rounded-sm")}
-            aria-label={`${skillPoints} skill points. Open the Shop`}
-            onclick={onOpenShop}
-          >
-            <span class="text-sm text-muted-foreground"><span class="sm:hidden">SP</span><span class="hidden sm:inline">Skill Points</span></span>
-            <Badge class="text-sm tabular-nums">{skillPoints}</Badge>
-          </button>
+          {#snippet trigger({ props })}
+            <button
+              {...props}
+              class={cn(statClass, "flex cursor-pointer rounded-sm")}
+              aria-label={`${skillPoints} skill points. Open the Shop`}
+              onclick={(e) => {
+                (props.onclick as ((e: MouseEvent) => void) | undefined)?.(e);
+                onOpenShop?.();
+              }}
+            >
+              <span class="text-sm text-muted-foreground"><span class="sm:hidden">SP</span><span class="hidden sm:inline">Skill Points</span></span>
+              <Badge class="text-sm tabular-nums">{skillPoints}</Badge>
+            </button>
+          {/snippet}
         </Hint>
         {#each skillPointEvents as event (event.id)}
           <FloatingText

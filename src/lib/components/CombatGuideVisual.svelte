@@ -40,7 +40,7 @@
   {:else if topic === "positions" || topic === "attacks" || topic === "ready"}
     {#if topic === "attacks"}
       <div class="type-picker" role="group" aria-label="Preview ultimate targeting">
-        {#each Object.values(ATTACK_TYPES) as type}<button aria-pressed={attackType === type.id} onclick={() => attackType = type.id}>{type.icon} {type.name}</button>{/each}
+        {#each Object.values(ATTACK_TYPES) as type}<button class="tap-target" aria-pressed={attackType === type.id} onclick={() => attackType = type.id}>{type.icon} {type.name}</button>{/each}
       </div>
       <p class="visual-heading">{ULTIMATES[attackType].name} · highlighted targets</p>
     {:else}<p class="visual-heading">{topic === "ready" ? "Example five-hero formation" : "Incoming basic attacks ↓"}</p>{/if}

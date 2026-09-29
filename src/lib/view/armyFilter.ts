@@ -19,8 +19,8 @@ export interface ArmyFilter {
 
 export const NO_FILTER: ArmyFilter = { stars: 0, type: "all", trait: null };
 
-export const STAR_OPTIONS: StarFilter[] = [0, 1, 2, 3, 4, 5];
-export const TYPE_OPTIONS: TypeFilter[] = ["all", "melee", "ranged", "magic"];
+const STAR_OPTIONS: StarFilter[] = [0, 1, 2, 3, 4, 5];
+const TYPE_OPTIONS: TypeFilter[] = ["all", "melee", "ranged", "magic"];
 
 const TYPE_LABELS: Record<TypeFilter, string> = { all: "All", melee: "Melee", ranged: "Ranged", magic: "Magic" };
 
@@ -36,7 +36,7 @@ export function traitLabel(trait: Trait): string {
   return TRAIT_SYNERGIES[trait].name;
 }
 
-export function matchesFilter(card: UnitCard, filter: ArmyFilter): boolean {
+function matchesFilter(card: UnitCard, filter: ArmyFilter): boolean {
   const def = UNITS[card.unitId];
   if (filter.stars !== 0 && def.baseStars !== filter.stars) return false;
   if (filter.type !== "all" && def.attackType !== filter.type) return false;

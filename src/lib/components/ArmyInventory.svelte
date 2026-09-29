@@ -191,7 +191,7 @@
 {#snippet emptyFiltered(cls: string)}
   <div class={cls}>
     No heroes match these filters.
-    <button class="h-9 rounded-[10px] border border-border px-3.5 text-sm font-semibold text-foreground" onclick={clearFilters}>
+    <button class="tap-target h-9 rounded-[10px] border border-border px-3.5 text-sm font-semibold text-foreground" onclick={clearFilters}>
       Clear filters
     </button>
   </div>
@@ -294,7 +294,7 @@
     <div class="flex min-w-0 items-center gap-2">
       <button
         bind:this={toggleButton}
-        class="flex h-9 shrink-0 items-center gap-1.5"
+        class="tap-target flex h-9 shrink-0 items-center gap-1.5"
         aria-expanded={expanded}
         aria-controls="army-expanded"
         aria-label={expanded ? "Collapse army" : `Expand army, ${countLabel} heroes`}
@@ -305,7 +305,7 @@
       </button>
       {#if filtered}
         <button
-          class="flex h-7 min-w-0 items-center gap-1.5 rounded-lg border border-foreground/30 bg-card pr-1.5 pl-2.5 text-xs font-semibold"
+          class="tap-target flex h-7 min-w-0 items-center gap-1.5 rounded-lg border border-foreground/30 bg-card pr-1.5 pl-2.5 text-xs font-semibold"
           aria-label={`Clear filters: ${filterLabel}`}
           onclick={clearFilters}
         >
@@ -317,7 +317,7 @@
         </span>
       {/if}
       <span class="flex-1"></span>
-      <button class="h-9 shrink-0 rounded-[10px] bg-primary px-3 text-sm font-semibold whitespace-nowrap text-primary-foreground" aria-haspopup="dialog" onclick={onOpenSummon}>
+      <button class="tap-target h-9 shrink-0 rounded-[10px] bg-primary px-3 text-sm font-semibold whitespace-nowrap text-primary-foreground" aria-haspopup="dialog" onclick={onOpenSummon}>
         Summon ›
       </button>
     </div>
@@ -326,7 +326,7 @@
         <p class="self-center text-[13px] text-muted-foreground">No heroes yet — summon some with Tribute.</p>
       {:else if shown.length === 0}
         <p class="self-center text-[13px] whitespace-nowrap text-muted-foreground">
-          No heroes match. <button class="font-semibold text-foreground underline underline-offset-2" onclick={clearFilters}>Clear filters</button>
+          No heroes match. <button class="tap-target font-semibold text-foreground underline underline-offset-2" onclick={clearFilters}>Clear filters</button>
         </p>
       {:else}
         {#each shown as card (card.id)}
@@ -354,27 +354,23 @@
   >
     {#if expanded || gridDrag}
       <div class="flex shrink-0 items-center gap-2 px-3">
-        <span class="text-[17px] font-bold whitespace-nowrap tabular-nums">Army · {countLabel}</span>
-        {#if filtered}
-          <button class="h-7 px-2 text-[13px] text-muted-foreground underline underline-offset-2" onclick={clearFilters}>Clear</button>
-        {/if}
-        <span class="flex-1"></span>
+        <span class="min-w-0 flex-1 truncate text-[17px] font-bold whitespace-nowrap tabular-nums">Army · {countLabel}</span>
         <label class="sr-only" for="army-sort-phone">Sort by</label>
-        <select id="army-sort-phone" class="h-9 rounded-[10px] border border-border bg-card px-2 text-[13px]" bind:value={sortKey}>
+        <select id="army-sort-phone" class="h-11 shrink-0 rounded-[10px] border border-border bg-card px-2 text-[13px]" bind:value={sortKey}>
           {#each Object.entries(SORT_LABELS) as [key, label] (key)}
             <option value={key}>{label}</option>
           {/each}
         </select>
-        <button class="h-9 w-9 rounded-[10px] border border-border text-[12px] text-muted-foreground" aria-label={sortDesc ? "Sorted descending" : "Sorted ascending"}
+        <button class="size-11 shrink-0 rounded-[10px] border border-border text-[12px] text-muted-foreground" aria-label={sortDesc ? "Sorted descending" : "Sorted ascending"}
           onclick={() => (sortDesc = !sortDesc)}>{sortDesc ? "▼" : "▲"}</button>
-        <button bind:this={doneButton} class="h-9 rounded-[10px] border border-border px-3.5 text-sm font-semibold" onclick={closeExpanded}>Done</button>
+        <button bind:this={doneButton} class="h-11 shrink-0 rounded-[10px] border border-border px-3.5 text-sm font-semibold" onclick={closeExpanded}>Done</button>
       </div>
 
       <div class="mx-3 flex shrink-0 gap-0.5 rounded-[11px] bg-card p-[3px]" role="group" aria-label="Filter by attack type">
         {#each typeRows as row (row.type)}
           {@const on = filter.type === row.type}
           <button
-            class={cn("flex h-[34px] flex-1 items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold", on ? "bg-accent text-foreground" : "text-muted-foreground")}
+            class={cn("tap-target flex h-[34px] flex-1 items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold", on ? "bg-accent text-foreground" : "text-muted-foreground")}
             aria-pressed={on}
             onclick={() => setType(row.type)}
           >
@@ -386,7 +382,7 @@
         {#each starRows as row (row.stars)}
           {@const on = filter.stars === row.stars}
           <button
-            class={cn("flex h-[34px] min-w-0 flex-1 flex-col items-center justify-center gap-px rounded-lg", on && "bg-accent", row.n === 0 && !on && "opacity-40")}
+            class={cn("tap-target flex h-[34px] min-w-0 flex-1 flex-col items-center justify-center gap-px rounded-lg", on && "bg-accent", row.n === 0 && !on && "opacity-40")}
             aria-pressed={on}
             aria-label={`${row.stars === 0 ? "Any rarity" : `${row.stars} star`}, ${row.n}`}
             onclick={() => setStars(row.stars)}
@@ -396,13 +392,24 @@
           </button>
         {/each}
       </div>
-      {#if traits.length > 0}
-        <div class="flex shrink-0 gap-1.5 overflow-x-auto px-3 [scrollbar-width:none]" role="group" aria-label="Filter by trait">
+      {#if traits.length > 0 || filtered}
+        <!-- The vertical padding keeps the chips' 44px hit areas inside the scroller's clip.
+             Clear sits here rather than in the header, which has no room for it on small phones. -->
+        <div class="-my-1.5 flex shrink-0 gap-1.5 overflow-x-auto px-3 py-1.5 [scrollbar-width:none]" role="group" aria-label="Filter by trait">
+          {#if filtered}
+            <button
+              class="tap-target flex h-8 shrink-0 items-center gap-1 rounded-full border border-foreground/30 px-3 text-[13px] font-semibold whitespace-nowrap"
+              aria-label="Clear filters"
+              onclick={clearFilters}
+            >
+              Clear<span class="text-muted-foreground" aria-hidden="true">×</span>
+            </button>
+          {/if}
           {#each traits as t (t)}
             {@const on = filter.trait === t}
             <button
               class={cn(
-                "h-8 shrink-0 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap",
+                "tap-target h-8 shrink-0 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap",
                 on ? "border-primary bg-primary text-primary-foreground" : "border-border text-foreground",
               )}
               aria-pressed={on}
