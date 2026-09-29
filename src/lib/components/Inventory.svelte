@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Card, CardContent } from "$lib/components/ui/card";
   import { RESOURCES, type ResourceId } from "$lib/gameData";
   import { cn } from "$lib/utils";
 
@@ -55,46 +54,39 @@
     No resources yet — start training a skill.
   </p>
 {:else}
-  <div class="flex flex-col gap-3 p-3">
+  <!-- Phones get the roomier rows of the Items tab; the sidebar stays compact. -->
+  <div class="flex flex-col gap-[18px] p-4 md:gap-3 md:p-3">
     {#each RESOURCE_SECTIONS as section (section.label)}
       {@const entries = section.resources
         .map((id) => ({ id, amount: Math.floor(resources[id] ?? 0) }))
         .filter((r) => r.amount > 0)}
       {#if entries.length > 0}
-        <div>
+        <section class="flex flex-col gap-2 md:gap-1.5" aria-label={section.label}>
           <h4
-            class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+            class="text-xs font-semibold tracking-[.06em] text-muted-foreground uppercase md:tracking-wider md:text-muted-foreground/70"
           >
             {section.label}
           </h4>
-          <div class="grid grid-cols-2 gap-1.5">
+          <ul class="grid grid-cols-2 gap-2 md:gap-1.5">
             {#each entries as { id, amount } (id)}
               {@const highlighted = highlightedResources?.has(id)}
-              <Card
+              <li
                 class={cn(
-                  "relative gap-0 overflow-visible py-1.5 transition-colors",
-                  highlighted && "border-amber-500/60 bg-amber-500/10",
+                  "flex min-h-11 min-w-0 items-center justify-between gap-2 rounded-xl border border-transparent bg-card px-3 py-1.5 text-[15px] leading-tight transition-colors",
+                  "md:min-h-8 md:rounded-lg md:border-border md:px-2.5 md:text-sm",
+                  highlighted && "border-amber-500/60 bg-amber-500/10 md:border-amber-500/60",
                 )}
               >
-                <CardContent
-                  class="flex items-center justify-between px-2.5 py-0 text-sm"
-                >
-                  <span
-                    class={cn(
-                      "text-muted-foreground",
-                      highlighted && "text-amber-300",
-                    )}
-                  >
-                    {RESOURCES[id].name}
-                  </span>
-                  <span class="font-mono font-semibold">
-                    {amount.toLocaleString()}
-                  </span>
-                </CardContent>
-              </Card>
+                <span class={cn("min-w-0 md:text-muted-foreground", highlighted && "text-amber-300 md:text-amber-300")}>
+                  {RESOURCES[id].name}
+                </span>
+                <span class="shrink-0 font-semibold tabular-nums">
+                  {amount.toLocaleString()}
+                </span>
+              </li>
             {/each}
-          </div>
-        </div>
+          </ul>
+        </section>
       {/if}
     {/each}
   </div>

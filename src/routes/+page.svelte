@@ -12,7 +12,6 @@
   import SkillPanel from "$lib/components/SkillPanel.svelte";
   import TrainingView from "$lib/components/TrainingView.svelte";
   import Inventory from "$lib/components/Inventory.svelte";
-  import Shop from "$lib/components/Shop.svelte";
   import CombatView from "$lib/components/CombatView.svelte";
   import TownView from "$lib/components/TownView.svelte";
   import type { TownSegment } from "$lib/view/townView";
@@ -46,7 +45,6 @@
   let selectedSkill = $state<SkillId | null>(null);
   let centerTab = $state<CenterTab>("train");
   let achievementCount = $derived(unlockedCount(game.state));
-  let rightTab = $state<"inventory" | "shop">("inventory");
   let isCombatTab = $derived(centerTab === "battle");
 
   // Each tab opens at its top, so a jump from far down Town lands on the skill picker.
@@ -102,7 +100,7 @@
     { id: "depths", label: "The Abyss" },
   ];
 
-  // "items" is the Inventory/Shop sidebar folded into a tab for narrow screens,
+  // "items" is the Inventory sidebar folded into a tab for narrow screens,
   // so it is hidden where the sidebar is shown (lg and up).
   const TABS: { id: CenterTab; label: string; icon: string; combat?: boolean; narrowOnly?: boolean }[] = [
     { id: "train", label: "Train", icon: "⚒" },
@@ -211,41 +209,8 @@
 </script>
 
 {#snippet itemsPanel()}
-  <div class="flex shrink-0 border-b border-border">
-    <button
-      class="flex-1 px-3 py-2 text-sm font-medium transition-colors {rightTab ===
-      'inventory'
-        ? 'border-b-2 border-primary text-foreground'
-        : 'text-muted-foreground hover:text-foreground'}"
-      onclick={() => (rightTab = "inventory")}
-    >
-      Inventory
-    </button>
-    <button
-      class="flex-1 px-3 py-2 text-sm font-medium transition-colors {rightTab ===
-      'shop'
-        ? 'border-b-2 border-primary text-foreground'
-        : 'text-muted-foreground hover:text-foreground'}"
-      onclick={() => (rightTab = "shop")}
-    >
-      Shop
-    </button>
-  </div>
   <div class="flex-1 overflow-y-auto">
-    {#if rightTab === "inventory"}
-      <Inventory
-        resources={game.state.resources}
-        {highlightedResources}
-      />
-    {:else}
-      <Shop
-        state={game.state}
-        levels={game.levels}
-        onBuy={(skillId, upgradeId) =>
-          game.buyUpgrade(skillId, upgradeId)}
-        onBuyGlobal={(upgradeId) => game.buyGlobalUpgrade(upgradeId)}
-      />
-    {/if}
+    <Inventory resources={game.state.resources} {highlightedResources} />
   </div>
 {/snippet}
 
@@ -458,9 +423,10 @@
         </div>
       </main>
 
-      <!-- Right: Inventory / Shop -->
+      <!-- Right: Inventory -->
       {#if !isCombatTab}
-        <aside class="hidden w-72 shrink-0 flex-col border-l border-border lg:flex">
+        <aside class="hidden w-72 shrink-0 flex-col border-l border-border lg:flex" aria-label="Inventory">
+          <h2 class="shrink-0 border-b border-border px-3 py-2 text-sm font-medium">Inventory</h2>
           {@render itemsPanel()}
         </aside>
       {/if}
