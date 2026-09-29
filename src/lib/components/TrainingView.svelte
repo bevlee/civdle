@@ -15,43 +15,56 @@
     getLockedOutputs,
     xpForLevel,
   } from "$lib/gameEngine";
+  import type { QueuedEvent } from "$lib/eventQueue.svelte";
+  import { actionBarState, stillTrainingLine } from "$lib/view/actionBar";
+  import { latestLevelUp, type LevelUpFlash } from "$lib/view/levelUp";
   import { resourceSource } from "$lib/view/resourceSource";
+  import { usesJump } from "$lib/view/usesJump";
+  import { xpProgressPct } from "$lib/view/xpProgress";
   import { cn } from "$lib/utils";
 
   /**
    * The Train tab's skill detail. Recipe chips only change which recipe is viewed;
-   * training changes through Train/Stop here (desktop) or the phone's action bar.
+   * training changes through Train/Switch/Stop here (desktop) or the phone's action bar.
    */
   let {
     skillId,
     viewedRecipeId,
-    state,
+    state: game,
+    levels,
     level,
     ageIndex,
     progress,
+    events,
     onStart,
     onStop,
+    onBack,
     onViewRecipe,
     onJump,
   }: {
     skillId: SkillId;
     viewedRecipeId: string;
     state: GameState;
+    levels: Record<SkillId, number>;
     level: number;
     ageIndex: number;
     progress: number;
+    events: QueuedEvent[];
     onStart: () => void;
     onStop: () => void;
+    /** Shows the skill and recipe that are training. */
+    onBack: () => void;
     onViewRecipe: (recipeId: string) => void;
-    /** Opens the skill and recipe that make an input. */
-    onJump: (skillId: SkillId, recipeId: string) => void;
+    /** Opens the skill that makes an input, on its recipe when one is given. */
+    onJump: (skillId: SkillId, recipeId: string | null) => void;
   } = $props();
 
+  const formatTime = (t: number) => `${t.toFixed(2)}s`;
+  const formatXp = (xp: number) => `+${xp} XP`;
+
   let def = $derived(SKILLS[skillId]);
-  let skillState = $derived(state.skills[skillId]);
-  let isTraining = $derived(state.activeSkill === skillId);
-  // The running recipe is the skill's selected one; the viewed one may differ.
-  let viewingActive = $derived(isTraining && viewedRecipeId === skillState.selectedRecipeId);
+  let skillState = $derived(game.skills[skillId]);
+  let isTraining = $derived(game.activeSkill === skillId);
   let isCrafting = $derived(
     def.category === "crafting" || def.recipes.length > 1,
   );
@@ -60,13 +73,8 @@
   );
 
   let xpBase = $derived(xpForLevel(level));
-  let xpNext = $derived(xpForLevel(Math.min(level + 1, 99)));
-  let xpSpan = $derived(Math.max(1, xpNext - xpBase));
-  let xpPct = $derived(
-    level >= 99
-      ? 100
-      : Math.min(100, ((skillState.xp - xpBase) / xpSpan) * 100),
-  );
+  let xpSpan = $derived(Math.max(1, xpForLevel(Math.min(level + 1, 99)) - xpBase));
+  let xpPct = $derived(xpProgressPct(skillState.xp, level));
 
   let result = $derived(
     computeActionResult(
@@ -75,7 +83,7 @@
       skillState.upgrades,
       ageIndex,
       viewedRecipeId,
-      state.globalUpgrades,
+      game.globalUpgrades,
     ),
   );
 
@@ -94,23 +102,49 @@
 
   let uses = $derived(
     (result?.inputs ?? []).map((input) => {
-      const have = state.resources[input.resource] ?? 0;
-      const source = resourceSource(input.resource);
-      const jumpable = source !== null && state.skills[source.skillId].unlocked;
-      const sourceLabel = !source
-        ? ""
-        : source.skillId === skillId
-          ? (def.recipes.find((r) => r.id === source.recipeId)?.name ?? def.name)
-          : SKILLS[source.skillId].name;
-      return {
-        ...input,
-        have,
-        short: have < input.amount,
-        source: jumpable ? source : null,
-        sourceLabel,
-      };
+      const have = game.resources[input.resource] ?? 0;
+      const jump = usesJump(resourceSource(input.resource), {
+        viewedSkill: skillId,
+        levels,
+        unlocked: (id) => game.skills[id].unlocked,
+      });
+      return { ...input, have, short: have < input.amount, jump };
     }),
   );
+
+  // Desktop Train / Switch / Stop, decided the same way as the phone's action bar.
+  let activeSkill = $derived(game.activeSkill);
+  let activeRecipeId = $derived(activeSkill ? game.skills[activeSkill].selectedRecipeId : null);
+  let bar = $derived(
+    actionBarState({
+      viewedSkill: skillId,
+      viewedRecipeId: viewedRecipe.id,
+      viewedLevel: level,
+      activeSkill,
+      activeRecipeId,
+      resources: game.resources,
+      secondsLeft: result ? Math.max(0, (1 - progress) * result.time) : 0,
+      timeText: result ? formatTime(result.time) : "",
+      xpText: result ? formatXp(result.xp) : "",
+    }),
+  );
+
+  // Phones have no skill list to flash, so the header shows a level-up briefly.
+  // Events are dismissed elsewhere; the seen id is plain so this only reruns on new events.
+  let levelFlash = $state<LevelUpFlash | null>(null);
+  let lastLevelUpId: string | null = null;
+  $effect(() => {
+    const latest = latestLevelUp(events);
+    if (!latest || latest.id === lastLevelUpId) return;
+    lastLevelUpId = latest.id;
+    levelFlash = latest;
+  });
+  $effect(() => {
+    if (!levelFlash) return;
+    const timeout = setTimeout(() => (levelFlash = null), 1500);
+    return () => clearTimeout(timeout);
+  });
+  let flash = $derived(levelFlash?.skillId === skillId ? levelFlash : null);
 
   // An expected (average) amount splits into the guaranteed whole number and the
   // chance of one more: 1.25 is "×1" with "+25%", 0.3 is just "30%".
@@ -144,14 +178,12 @@
   });
 
   const have = (resource: ResourceId) =>
-    Math.floor(state.resources[resource] ?? 0).toLocaleString();
+    Math.floor(game.resources[resource] ?? 0).toLocaleString();
 
   function formatPct(chance: number): string {
     return `${Math.round(chance * 100)}%`;
   }
 
-  const formatTime = (t: number) => `${t.toFixed(2)}s`;
-  const formatXp = (xp: number) => `+${xp} XP`;
 
   const sectionLabel = "text-xs font-semibold tracking-wide text-muted-foreground uppercase";
 </script>
@@ -170,16 +202,32 @@
           </span>
         {/if}
       </span>
-      <span class="shrink-0 text-xl font-bold tabular-nums">
-        Lv {nice(level)}<span class="text-[13px] font-medium text-muted-foreground"> / 99</span>
+      <span class="relative shrink-0 text-xl font-bold tabular-nums">
+        {#if flash}
+          {#key flash.id}
+            <span
+              class="animate-flash-gold pointer-events-none absolute -inset-x-1.5 inset-y-0 rounded-md bg-amber-400/35 md:hidden"
+              aria-hidden="true"
+            ></span>
+          {/key}
+        {/if}
+        <span class={cn("relative transition-colors duration-300", flash && "max-md:text-amber-300")}>Lv {nice(level)}</span><span
+          class="relative text-[13px] font-medium text-muted-foreground"> / 99</span
+        >
       </span>
     </div>
     <div class="flex items-center gap-2.5">
       <Progress value={xpPct} class="h-1.5 flex-1" />
-      <span class="shrink-0 text-xs text-muted-foreground tabular-nums">
+      {#if flash}
+        <span class="shrink-0 text-xs font-semibold text-amber-300 tabular-nums md:hidden">
+          Level up! Lv {flash.newLevel}
+        </span>
+      {/if}
+      <span class={cn("shrink-0 text-xs text-muted-foreground tabular-nums", flash && "max-md:hidden")}>
         {Math.floor(skillState.xp - xpBase)} / {xpSpan} XP
       </span>
     </div>
+    <span class="sr-only md:hidden" aria-live="polite">{flash ? `Level up! ${def.name} is level ${flash.newLevel}` : ""}</span>
   </header>
 
   <div class="flex flex-col gap-5 px-4 pt-3.5 pb-6 md:max-w-xl md:p-0">
@@ -232,20 +280,27 @@
                   {have(input.resource)}
                 </b>
               </span>
-              {#if input.source}
-                {@const source = input.source}
-                <button
-                  class={cn(
-                    "h-8 rounded-lg border px-2.5 text-[13px] font-semibold whitespace-nowrap transition-colors",
-                    input.short
-                      ? "border-transparent bg-destructive/20 text-destructive"
-                      : "border-border text-muted-foreground hover:text-foreground",
-                  )}
-                  aria-label="Go to {input.sourceLabel}"
-                  onclick={() => onJump(source.skillId, source.recipeId)}
-                >
-                  {input.sourceLabel} ›
-                </button>
+              {#if input.jump}
+                {@const jump = input.jump}
+                {@const chip = cn(
+                  "flex h-8 items-center rounded-lg border px-2.5 text-[13px] font-semibold whitespace-nowrap transition-colors",
+                  input.short
+                    ? "border-transparent bg-destructive/20 text-destructive"
+                    : "border-border text-muted-foreground group-hover:text-foreground",
+                )}
+                {#if jump.recipeId === null && jump.skillId === skillId}
+                  <!-- Made by a recipe of this skill that isn't reached yet: nothing to jump to. -->
+                  <span class={chip}>???</span>
+                {:else}
+                  <!-- The 44px button is the hit area; the chip inside keeps its compact look. -->
+                  <button
+                    class="group flex min-h-11 items-center"
+                    aria-label="Go to {jump.label}"
+                    onclick={() => onJump(jump.skillId, jump.recipeId)}
+                  >
+                    <span class={chip}>{jump.label} ›</span>
+                  </button>
+                {/if}
               {/if}
             </div>
           {/each}
@@ -329,16 +384,31 @@
       </p>
     {/if}
 
-    <!-- Phones train from the sticky action bar instead. -->
+    <!-- Phones train from the sticky action bar instead. Whatever is viewed, a running
+         skill can always be stopped from here. -->
     <div class="hidden flex-col gap-3 md:flex">
-      <Progress value={viewingActive ? progress * 100 : 0} class="h-3 max-w-sm" />
-      <div class="flex gap-2">
-        {#if viewingActive}
+      <Progress value={bar.kind === "stop" ? progress * 100 : 0} class="h-3 max-w-sm" />
+      <div class="flex flex-wrap gap-2">
+        {#if bar.kind === "stop"}
           <Button variant="destructive" onclick={onStop}>Stop</Button>
         {:else}
-          <Button onclick={onStart} disabled={!result}>Train</Button>
+          <Button onclick={onStart} disabled={bar.kind === "locked" || bar.kind === "short"}>
+            {bar.label}
+          </Button>
+          {#if activeSkill}
+            <Button variant="destructive" onclick={onStop}>Stop</Button>
+          {/if}
         {/if}
       </div>
+      {#if bar.kind !== "stop" && activeSkill && activeRecipeId}
+        <p class="flex items-center gap-2 text-sm text-muted-foreground">
+          <span class="size-[7px] shrink-0 rounded-full bg-green-500" aria-hidden="true"></span>
+          <span>Still training {stillTrainingLine(activeSkill, activeRecipeId)} ·</span>
+          <button class="font-semibold text-foreground underline-offset-4 hover:underline" onclick={onBack}>
+            Back
+          </button>
+        </p>
+      {/if}
     </div>
   </div>
 </div>
