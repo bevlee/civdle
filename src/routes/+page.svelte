@@ -7,6 +7,7 @@
   import AgeSheet from "$lib/components/mobile/AgeSheet.svelte";
   import SkillPicker from "$lib/components/mobile/SkillPicker.svelte";
   import ActionBar from "$lib/components/mobile/ActionBar.svelte";
+  import NowPlaying from "$lib/components/mobile/NowPlaying.svelte";
   import { ageChecklist, checklistProgress } from "$lib/view/ageChecklist";
   import SkillPanel from "$lib/components/SkillPanel.svelte";
   import TrainingView from "$lib/components/TrainingView.svelte";
@@ -373,6 +374,19 @@
         onTrain={handleStartTraining}
         onStop={handleStopTraining}
         onBack={openTraining}
+      />
+    {/if}
+
+    <!-- Phone: what is training, one tap from any other tab -->
+    {#if centerTab !== "train" && game.state.activeSkill}
+      <NowPlaying
+        class="md:hidden"
+        skillId={game.state.activeSkill}
+        level={game.levels[game.state.activeSkill]}
+        startedAt={game.state.trainingStartedAt}
+        progress={game.displayProgress}
+        onOpen={openTraining}
+        onStop={handleStopTraining}
       />
     {/if}
 
