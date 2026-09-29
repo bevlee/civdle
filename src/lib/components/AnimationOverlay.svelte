@@ -17,15 +17,15 @@
 
   let {
     events,
+    ageEvent,
     onDismiss,
   }: {
     events: QueuedEvent[];
+    /** The age advance to celebrate, when the overlay queue says it's its turn. */
+    ageEvent: QueuedEvent<AgeAdvanceEventData> | null;
     onDismiss: (id: string) => void;
   } = $props();
 
-  let ageEvents = $derived(
-    events.filter((e): e is QueuedEvent<AgeAdvanceEventData> => e.type === "ageAdvance"),
-  );
   // Summons and star-ups are modal: show one at a time, in order.
   let summonEvent = $derived(
     events.find((e): e is QueuedEvent<SummonEventData> => e.type === "summon") ?? null,
@@ -38,12 +38,14 @@
   );
 </script>
 
-{#if ageEvents.length > 0 || summonEvent || packEvent || starUpEvent}
+{#if ageEvent || summonEvent || packEvent || starUpEvent}
   <div class="pointer-events-none fixed inset-0 z-[100] overflow-hidden">
-    {#each ageEvents as event (event.id)}
-      <AgeAdvanceEffect {event} color={AGE_FLASH_COLOR[event.data.ageId]} {onDismiss} />
-    {/each}
-    {#if starUpEvent}
+    <!-- An age advance plays out first; any reveal it brought (a new hero) follows. -->
+    {#if ageEvent}
+      {#key ageEvent.id}
+        <AgeAdvanceEffect event={ageEvent} color={AGE_FLASH_COLOR[ageEvent.data.ageId]} {onDismiss} />
+      {/key}
+    {:else if starUpEvent}
       {#key starUpEvent.id}
         <StarUpEffect event={starUpEvent} {onDismiss} />
       {/key}
