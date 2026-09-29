@@ -3,9 +3,9 @@
   import { Button } from "$lib/components/ui/button";
   import FloatingText from "./FloatingText.svelte";
   import Hint from "./Hint.svelte";
-  import { AGES, type ResourceId, type SkillId } from "$lib/gameData";
+  import { AGES } from "$lib/gameData";
   import { describeAgeBonus, type AgeAdvanceStatus, type AgeBonus } from "$lib/gameEngine";
-  import { ageChecklist, ageRewards } from "$lib/view/ageChecklist";
+  import { ageRewards, type ChecklistItem } from "$lib/view/ageChecklist";
   import type { AgeAdvanceEventData } from "$lib/gameState.svelte";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
   import { cn } from "$lib/utils";
@@ -15,9 +15,7 @@
     ageBonus,
     skillPoints,
     warSpoils,
-    levels,
-    unlocked,
-    resources,
+    checklist,
     ageAdvanceStatus,
     onAdvance,
     events,
@@ -28,9 +26,8 @@
     ageBonus: AgeBonus;
     skillPoints: number;
     warSpoils: number;
-    levels: Record<SkillId, number>;
-    unlocked: (id: SkillId) => boolean;
-    resources: Partial<Record<ResourceId, number>>;
+    /** What the next age still asks for (see ageChecklist). */
+    checklist: ChecklistItem[];
     ageAdvanceStatus: AgeAdvanceStatus;
     onAdvance: () => void;
     events: QueuedEvent[];
@@ -54,8 +51,6 @@
       (e): e is QueuedEvent<{ amount: number }> => e.type === "spoilsGain",
     ),
   );
-
-  let checklist = $derived(ageChecklist({ ageAdvanceStatus, levels, unlocked, resources }));
 
   const statClass =
     "cursor-help items-center gap-2 px-1.5 py-1 -mx-1.5 -my-1 transition-colors hover:bg-muted/60";

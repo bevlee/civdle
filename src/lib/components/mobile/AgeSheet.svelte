@@ -24,7 +24,7 @@
   let rewards = $derived(nextAge ? ageRewards(nextAge) : []);
   let blocker = $derived.by(() => {
     const item = firstUnmet(checklist);
-    if (!item) return "";
+    if (!item) return "Not yet";
     if (item.skill) return `Not yet — train ${SKILLS[item.skill].name}`;
     return `Not yet — ${item.required - item.current} more ${item.label}`;
   });

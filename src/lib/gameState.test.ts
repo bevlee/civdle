@@ -320,6 +320,11 @@ describe("training clock", () => {
       loadSave(oldSave(null));
       expect(game.state.trainingStartedAt).toBeNull();
     });
+
+    it("drops a start time saved without an active skill", () => {
+      loadSave({ ...new CivdleGame().state, activeSkill: null, trainingStartedAt: 1_000_000 });
+      expect(game.state.trainingStartedAt).toBeNull();
+    });
   });
 });
 
@@ -493,7 +498,8 @@ describe("startTraining with a recipe", () => {
   });
 
   it("keeps the selected recipe when none is given", () => {
-    game.selectRecipe("crafting", "cordage");
+    game.startTraining("crafting", "cordage");
+    game.stopTraining();
     game.startTraining("crafting");
     expect(game.state.skills.crafting.selectedRecipeId).toBe("cordage");
   });

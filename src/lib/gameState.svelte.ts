@@ -591,7 +591,7 @@ export class CivdleGame {
     if (recipeId !== undefined) {
       const recipe = SKILLS[skillId].recipes.find((r) => r.id === recipeId);
       if (!recipe || recipe.requiredLevel > this.levels[skillId]) return false;
-      this.selectRecipe(skillId, recipe.id);
+      this.#selectRecipe(skillId, recipe.id);
     }
     const unchanged =
       wasSkill === skillId &&
@@ -613,7 +613,7 @@ export class CivdleGame {
     this.#clearProgressLoop();
   }
 
-  selectRecipe(skillId: SkillId, recipeId: string): void {
+  #selectRecipe(skillId: SkillId, recipeId: string): void {
     this.state = {
       ...this.state,
       skills: {
