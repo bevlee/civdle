@@ -6,6 +6,9 @@
   import { LEGENDARY_PACK_COST, LEGENDARY_SINGLE_COST, TRIBUTE_LEGENDARY_PACK_COST } from "$lib/gameState.svelte";
   import type { BattleMode, BattleState, Fighter, Hit } from "$lib/combatEngine";
   import { isFrontRow, POSITIONS } from "$lib/position";
+  import { dragLabel, dragPlace, type DragState, type DropResult } from "$lib/dragPlace";
+  import { rarityColor } from "$lib/rarity";
+  import Sprite from "./Sprite.svelte";
   import type { CivdleGame } from "$lib/gameState.svelte";
   import { Button } from "$lib/components/ui/button";
   import BattleUnit from "./BattleUnit.svelte";
@@ -60,13 +63,11 @@
   let showLog = $state(false);
   let selectedCardId = $state<string | null>(null);
   let selectedCard = $derived(gacha.cards.find(c => c.id === selectedCardId) ?? null);
-  let selectedSlot = $state<number | null>(null);
   let resultReady = $state(false);
   let inspectedEnemy = $state<UnitCard | null>(null);
-  let draggingId = $state<string | null>(null);
-  let dragOverSlot = $state<number | null>(null);
-  let dragOverInventory = $state(false);
-  let draggingFromParty = $derived(draggingId !== null && partyIds.has(draggingId));
+  // The hero being dragged (from the army or the board) and where the pointer is.
+  let drag = $state<DragState | null>(null);
+  let draggingId = $derived(drag?.source.cardId ?? null);
   let draggedCard = $derived(gacha.cards.find(c => c.id === draggingId) ?? null);
   let logElement: HTMLDivElement;
 
@@ -157,10 +158,7 @@
   });
 
   $effect(() => {
-    if (formationLocked) {
-      selectedSlot = null;
-      endDrag();
-    }
+    if (formationLocked) drag = null;
   });
 
   function fighterClass(f?: Fighter): string {
@@ -174,44 +172,12 @@
     return hitIds.has(f.id) ? "hit" : "idle";
   }
 
-  function startDrag(e: DragEvent, cardId: string) {
-    if (formationLocked || !e.dataTransfer) { e.preventDefault(); return; }
-    e.dataTransfer.setData("text/plain", cardId);
-    e.dataTransfer.effectAllowed = "move";
-    draggingId = cardId;
-    selectedSlot = null;
+  function applyDrop(result: DropResult) {
+    if (formationLocked) return;
+    if ("assign" in result) game.assignCardToParty(...result.assign);
+    else game.removeFromParty(result.remove);
   }
-
-  function endDrag() { draggingId = null; dragOverSlot = null; dragOverInventory = false; }
-  function slotDragOver(e: DragEvent, slot: number) {
-    if (!draggingId || formationLocked) return;
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-    dragOverSlot = slot;
-  }
-  function slotDragLeave(e: DragEvent, slot: number) {
-    if (e.relatedTarget instanceof Node && (e.currentTarget as HTMLElement).contains(e.relatedTarget)) return;
-    if (dragOverSlot === slot) dragOverSlot = null;
-  }
-  function slotDrop(e: DragEvent, slot: number) {
-    e.preventDefault();
-    if (!formationLocked && draggingId) game.assignCardToParty(draggingId, slot);
-    endDrag();
-  }
-  function inventoryDrop(cardId: string) { game.removeCardFromParty(cardId); endDrag(); }
-  function selectSlot(slot: number, card: UnitCard | null) {
-    if (card) {
-      selectedCardId = card.id;
-    } else if (!formationLocked) {
-      selectedSlot = selectedSlot === slot ? null : slot;
-    }
-  }
-  function selectInventoryCard(cardId: string) {
-    if (selectedSlot !== null && !formationLocked) {
-      game.assignCardToParty(cardId, selectedSlot);
-      selectedSlot = null;
-    } else selectedCardId = cardId;
-  }
+  const setDrag = (state: DragState | null) => { drag = state; };
   function handlePromote() {
     if (!selectedCardId) return;
     game.promoteCard(selectedCardId);
@@ -229,8 +195,6 @@
     return () => game.battleAudio.setMusicPlaying(false);
   });
 </script>
-
-<svelte:window onkeydown={(event) => { if (event.key === "Escape") { selectedSlot = null; endDrag(); } }} />
 
 {#snippet effects(fighter: Fighter | undefined)}
   {#if fighter}
@@ -310,7 +274,7 @@
     {/if}
     {#if otherBattleActive}<p class="notice">A battle is running in {gacha.battleMode === "story" ? "Campaign" : "The Depths"}. Your formation is locked until it finishes.</p>{/if}
 
-    <section class="battlefield" aria-label="Battlefield" class:placing={draggingId !== null}>
+    <section class="battlefield" aria-label="Battlefield" class:placing={drag !== null}>
       <div class="army-headings">
         <div>
           <h3>Your army</h3>
@@ -326,31 +290,27 @@
         </div>
       </div>
 
-      <div class="battle-stage" bind:this={stage} use:syncBattleAnimations={{ speed: game.battleSpeed, paused: game.battlePaused }}>
+      <div class="battle-stage" bind:this={stage} data-drag-board use:syncBattleAnimations={{ speed: game.battleSpeed, paused: game.battlePaused }}>
         <div class="formation player-formation" aria-label="Your battlefield positions">
           {#each POSITIONS as position (position)}
+            {@const slot = position - 1}
             {@const fighter = playerFighters.find(f => f.position === position)}
-            {@const card = battle ? fighter ?? null : partySlots[position - 1]}
-            {@const over = dragOverSlot === position - 1 && draggingId !== card?.id}
-            <div class="field-position" class:acting={actingId === fighter?.id} data-fighter-id={fighter?.id} class:targeted={pendingImpact && battle?.lastAction?.hits.some(hit => hit.targetId === fighter?.id)} class:front={isFrontRow(position)} style:--position={position}
-              role="group" aria-label={`Your position ${position}, ${isFrontRow(position) ? "front" : "back"} row`}
-              ondragover={e => slotDragOver(e, position - 1)} ondragenter={e => slotDragOver(e, position - 1)}
-              ondragleave={e => slotDragLeave(e, position - 1)} ondrop={e => slotDrop(e, position - 1)}>
+            {@const card = battle ? fighter ?? null : partySlots[slot]}
+            {@const row = isFrontRow(position) ? "Front" : "Back"}
+            <div class="field-position" class:acting={actingId === fighter?.id} data-fighter-id={fighter?.id} data-party-slot={slot} class:targeted={pendingImpact && battle?.lastAction?.hits.some(hit => hit.targetId === fighter?.id)} class:front={isFrontRow(position)} style:--position={position}
+              role="group" aria-label={`Your position ${position}, ${row.toLowerCase()} row`}>
               <button
-                class="position-button" class:occupied={card !== null} class:drop-hover={over} class:selected={selectedSlot === position - 1}
-                class:drag-source={draggingId === card?.id} class:available={card !== null || !formationLocked}
-                disabled={formationLocked && card === null} draggable={card !== null && !formationLocked}
-                aria-label={`Position ${position}, ${isFrontRow(position) ? "front" : "back"} row${card ? `: ${UNITS[card.unitId].name}, ${card.stars} stars` : ": empty"}`}
-                title={`Position ${position} · ${isFrontRow(position) ? "Front row — targeted first" : "Back row"}${card ? formationLocked ? " · Click for live stats" : " · Click for details, drag to move" : " · Drop a unit or click to select"}`}
-                ondragstart={e => card && startDrag(e, card.id)} ondragend={endDrag}
-                onclick={() => selectSlot(position - 1, card)}>
-                {#if over && draggedCard}
-                  <div class="drop-circle"><BattleUnit card={draggedCard} ghost /></div><span class="drop-caption">{card ? "Swap / replace" : "Drop here"}</span>
-                {:else if card}
+                class="position-button" class:occupied={card !== null} class:drop-hover={drag?.over === slot}
+                class:drag-source={drag?.source.type === "slot" && drag.source.slot === slot} class:draggable={card !== null && !formationLocked}
+                disabled={card === null}
+                aria-label={`Position ${position}, ${row.toLowerCase()} row${card ? `: ${UNITS[card.unitId].name}, ${card.stars} stars` : ": empty"}`}
+                title={`Position ${position} · ${isFrontRow(position) ? "Front row — targeted first" : "Back row"}${card ? formationLocked ? " · Tap for live stats" : " · Tap for details, drag to move" : " · Drag a hero here"}`}
+                use:dragPlace={{ source: card ? { type: "slot", slot, cardId: card.id } : null, locked: formationLocked, onTap: () => { if (card) selectedCardId = card.id; }, onDrop: applyDrop, onDragState: setDrag }}>
+                {#if card}
                   <div class={fighterClass(fighter)} use:attackMotion={{ active: actingId !== null && actingId === fighter?.id, key: animationKey, ultimate: actingKind === "ultimate", distance: movement * (fighter?.isEnemy ? -1 : 1) }}><BattleUnit {card} {fighter} ultEvery={battle?.playerMods.ultEvery ?? 3} castingUltimate={actingId === fighter?.id && actingKind === "ultimate"} pose={fighterPose(fighter)} animate={isPlaying} /></div>
                 {:else}
                   <span class="empty-circle"><span>+</span></span>
-                  <span class="position-caption">{selectedSlot === position - 1 ? "Choose a card" : `${isFrontRow(position) ? "Front" : "Back"} · ${position}`}</span>
+                  <span class="position-caption">{row} · {position}</span>
                 {/if}
               </button>
               {@render effects(fighter)}
@@ -392,7 +352,7 @@
               {:else}
                 <span class="result-detail">Adjust your formation and try again.</span>
               {/if}
-              <Button size="sm" onclick={continueBattle}>Continue <span aria-hidden="true">→</span></Button>
+              <Button size="sm" class="max-md:mt-1 max-md:h-11 max-md:rounded-xl max-md:px-5 max-md:text-[15px] max-md:font-semibold" onclick={continueBattle}>Continue <span aria-hidden="true">→</span></Button>
               {#if mode === "depths" && gacha.depths.auto}
                 <button class="stop-auto" onclick={() => game.setDepthsAuto(false)}>Auto continuing · Stop auto</button>
               {/if}
@@ -400,22 +360,19 @@
           </div>
         {/if}
       </div>
-      <footer class="battlefield-footer" aria-live="polite">
+      <footer class="battlefield-footer" class:idle-hint={!formationLocked} aria-live="polite">
         {#if battleDone && resultReady}
           <span>{mode === "depths" && gacha.depths.auto ? "Auto continuing…" : game.battlePaused ? "Paused" : "Continuing…"}</span>
         {:else if isPlaying}<span>{game.battlePaused ? "Battle paused" : "Battle in progress"} · Turn {battle?.turn}</span><span>Formation locked</span>
-        {:else if selectedSlot !== null}
-          <span>{`Choose a card from your army for position ${selectedSlot! + 1}.`}</span>
-          <button onclick={() => { selectedSlot = null; }}>Cancel</button>
+        {:else if !formationLocked}<span>Drag heroes onto a slot · tap one for details</span>
         {/if}
       </footer>
     </section>
 
     <div class="army-dock">
       <ArmyInventory cards={gacha.cards} {partyIds} gold={gacha.gold} rollCost={GACHA_COST} packCost={PACK_COST}
-        maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.legendarySummonsUnlocked} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} hasHallOfLegends={game.hasHallOfLegends} tributeLegendaryPackCost={TRIBUTE_LEGENDARY_PACK_COST} locked={formationLocked} {draggingId} dropActive={draggingFromParty} dragOver={dragOverInventory}
-        onDragStart={startDrag} onDragEnd={endDrag} onDragOverChange={over => dragOverInventory = over} onDrop={inventoryDrop}
-        onSelect={selectInventoryCard} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} onOpenTributeLegendaryPack={() => game.rollTributeLegendaryPack()} />
+        maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.legendarySummonsUnlocked} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} hasHallOfLegends={game.hasHallOfLegends} tributeLegendaryPackCost={TRIBUTE_LEGENDARY_PACK_COST} locked={formationLocked} {draggingId}
+        onTap={cardId => selectedCardId = cardId} onDrop={applyDrop} onDragState={setDrag} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} onOpenTributeLegendaryPack={() => game.rollTributeLegendaryPack()} />
     </div>
   </div>
 
@@ -434,6 +391,13 @@
   </aside>
 </div>
 
+
+{#if drag && draggedCard}
+  <div class="drag-ghost" style:left={`${drag.x}px`} style:top={`${drag.y}px`} aria-hidden="true">
+    <div class="ghost-portrait" style:border-color={rarityColor(UNITS[draggedCard.unitId].baseStars)}><Sprite unitId={draggedCard.unitId} class="h-full" /></div>
+    <span class="ghost-label">{dragLabel(drag.source, drag.over)}</span>
+  </div>
+{/if}
 
 {#if selectedCard}
   <CardDetailModal card={selectedCard} inParty={partyIds.has(selectedCard.id)} partyFull={partyIds.size >= PARTY_SIZE}
@@ -490,24 +454,26 @@
   .enemy-formation .front { left: 25%; }
   .field-position.acting { z-index: 6; }
   .field-position.targeted::after { content: ""; position: absolute; width: 56px; height: 14px; border: 1px solid #edc779aa; border-radius: 50%; left: 50%; top: 53px; transform: translateX(-50%); pointer-events: none; box-shadow: 0 0 12px #edc77933; }
-  .position-button { position: relative; width: 100%; min-height: 94px; display: flex; flex-direction: column; align-items: center; justify-content: center; outline-offset: 3px; border-radius: 50%; }
-  .position-button.available { cursor: pointer; }
-  .position-button.occupied.available { cursor: grab; }
-  .position-button.occupied.available:active { cursor: grabbing; }
-  .position-button.occupied.available:hover { background: radial-gradient(ellipse, #ffffff09, transparent 70%); }
+  .position-button { position: relative; width: 100%; min-height: 94px; display: flex; flex-direction: column; align-items: center; justify-content: center; outline-offset: 3px; border-radius: 14px; transition: background-color .15s, box-shadow .15s; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .position-button.occupied { cursor: pointer; }
+  .position-button.draggable { cursor: grab; touch-action: none; }
+  .position-button.draggable:active { cursor: grabbing; }
+  .position-button.draggable:hover { background: radial-gradient(ellipse, #ffffff09, transparent 70%); }
   .drag-source { opacity: .3; }
-  .empty-circle, .drop-circle { width: 74px; height: 74px; display: flex; align-items: center; justify-content: center; border: 1px dashed #ffffff27; border-radius: 50%; color: #6c6c6c; }
+  .empty-circle { width: 74px; height: 74px; display: flex; align-items: center; justify-content: center; border: 1px dashed color-mix(in oklch, var(--foreground) 18%, transparent); border-radius: 50%; color: var(--muted-foreground); transition: border-color .15s; }
   .empty-circle > span { font-size: 31px; font-weight: 300; }
-  .position-caption { margin-top: 5px; font-size: 17px; color: #656565; }
-  .drop-circle { border: 1px solid #ddd; background: #ffffff12; box-shadow: 0 0 0 2px #ffffff30; }
-  .drop-caption { margin-top: 6px; font-size: 18px; color: #ddd; }
-  .placing .empty-circle, .selected .empty-circle { border-color: #ffffff66; background: #ffffff04; }
-  .selected .empty-circle { border-style: solid; box-shadow: 0 0 0 2px #ffffff20; }
+  .position-caption { margin-top: 5px; font-size: 17px; color: var(--muted-foreground); }
+  /* While dragging every slot shows a stronger ring; the one under the pointer lights up. */
+  .placing .empty-circle { border-color: color-mix(in oklch, var(--foreground) 45%, transparent); }
+  .position-button.drop-hover { background: color-mix(in oklch, var(--foreground) 10%, transparent); box-shadow: inset 0 0 0 2px var(--primary); }
+  .drop-hover .empty-circle { border-color: var(--primary); }
+  .drag-ghost { position: fixed; z-index: 100; transform: translate(-50%, -75%); pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .ghost-portrait { width: 60px; height: 60px; display: flex; align-items: flex-end; justify-content: center; padding: 6px 8px 4px; border: 2px solid; border-radius: 50%; overflow: hidden; background: color-mix(in oklch, var(--card) 94%, transparent); box-shadow: 0 14px 30px #0009; }
+  .ghost-label { padding: 3px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--foreground); background: color-mix(in oklch, var(--background) 80%, transparent); }
   .versus { align-self: center; text-align: center; margin-top: -12px; font-size: 37px; letter-spacing: 3px; font-weight: 800; color: #ffffff22; }
   .boss-label { position: absolute; z-index: 2; top: -8px; left: 50%; transform: translateX(-50%); font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: #edaaa1; background: #50251f; border-radius: 3px; padding: 1px 5px; }
   .story-complete { font-size: 17px; line-height: 1.7; color: var(--muted-foreground); padding-top: 130px; text-align: center; }
   .battlefield-footer { min-height: 30px; display: flex; justify-content: space-between; gap: 8px; font-size: 15px; align-items: center; color: var(--muted-foreground); border-top: 1px solid #ffffff05; }
-  .battlefield-footer button { text-decoration: underline; cursor: pointer; }
   .win { color: #9fca98; }
   .battle-result-overlay { position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: #00000088; backdrop-filter: blur(2px); border-radius: 8px; animation: result-fade-in 0.3s ease-out; }
   .battle-result-content { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 32px; border-radius: 12px; background: #1a1a1aee; border: 1px solid #ffffff18; }
@@ -537,7 +503,7 @@
   .report-heading { display: none; }
   @media (min-width: 768px) { .phone-header { display: none; } }
   @keyframes sheet-up { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
-  @media (max-width: 640px) { .battle-sidebar { grid-template-columns: 1fr; } .battlefield { padding: 12px 8px 0; } .field-position { width: 76px; } .battle-stage { height: 400px; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); } .army-headings { gap: 10px; } .empty-circle, .drop-circle { width: 56px; height: 56px; } .versus { font-size: 24px; } .position-button { min-height: 92px; } }
+  @media (max-width: 640px) { .battle-sidebar { grid-template-columns: 1fr; } .battlefield { padding: 12px 8px 0; } .field-position { width: 76px; } .battle-stage { height: 400px; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); } .army-headings { gap: 10px; } .empty-circle { width: 56px; height: 56px; } .versus { font-size: 24px; } .position-button { min-height: 92px; } }
   /* Phones: the combat view fills the screen without page scrolling. The battlefield
      takes the spare height and only the army list scrolls. */
   @media (max-width: 767px) {
@@ -555,18 +521,26 @@
     .formation { --unit-h: 108px; }
     .field-position { top: calc((var(--position) - 1) * (100% - var(--unit-h)) / 4); }
     .battlefield-footer { display: none; }
+    .battlefield-footer.idle-hint { display: flex; justify-content: center; min-height: 0; padding: 2px 0 4px; border-top: 0; font-size: 12px; }
     .army-dock { flex: 0 1 auto; min-height: 118px; display: flex; flex-direction: column; }
     .army-dock > :global(*) { flex: 1; }
     .battle-sidebar { display: none; }
     .battle-sidebar.open { display: flex; position: fixed; inset: auto 0 0; z-index: 40; max-height: 70dvh; overflow-y: auto; padding: 0 8px calc(8px + env(safe-area-inset-bottom)); background: var(--background); border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -12px 32px #000c; animation: sheet-up .2s ease-out; }
     .open .report-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 12px 4px 4px; background: var(--background); }
     .report-heading button { padding: 4px 8px; font-size: 12px; color: var(--muted-foreground); text-decoration: underline; }
+    /* A compact result card that fits a short board. */
+    .battle-result-content { gap: 4px; padding: 16px 24px; max-width: calc(100% - 16px); text-align: center; }
+    .result-emblem { font-size: 28px; }
+    .result-eyebrow { font-size: 11px; letter-spacing: .12em; }
+    .result-label { font-size: 28px; }
+    .result-detail { font-size: 14px; }
+    .stop-auto { font-size: 13px; min-height: 36px; }
   }
   /* Short stages (small phones): shrink units so the five slots don't overlap. */
   @container (max-height: 330px) {
     .formation { --unit-h: 88px; }
     .position-button { min-height: 76px; }
-    .empty-circle, .drop-circle { width: 44px; height: 44px; }
+    .empty-circle { width: 44px; height: 44px; }
     .field-position :global(.unit-sprite) { height: 44px; }
     .field-position :global(.unit-name) { font-size: 9px; line-height: 12px; }
     .field-position.targeted::after { top: 36px; }
@@ -574,7 +548,7 @@
   @container (max-height: 260px) {
     .formation { --unit-h: 72px; }
     .position-button { min-height: 64px; }
-    .empty-circle, .drop-circle { width: 36px; height: 36px; }
+    .empty-circle { width: 36px; height: 36px; }
     .field-position :global(.unit-sprite) { height: 34px; }
     .position-caption { display: none; }
     .field-position.targeted::after { top: 28px; }
