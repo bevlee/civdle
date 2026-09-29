@@ -3,8 +3,9 @@
   import { Button } from "$lib/components/ui/button";
   import FloatingText from "./FloatingText.svelte";
   import Hint from "./Hint.svelte";
-  import { AGES, RESOURCES, type ResourceId, SKILLS, type SkillId } from "$lib/gameData";
-  import { describeAgeBonus, describeAgeReward, type AgeAdvanceStatus, type AgeBonus } from "$lib/gameEngine";
+  import { AGES, type ResourceId, type SkillId } from "$lib/gameData";
+  import { describeAgeBonus, type AgeAdvanceStatus, type AgeBonus } from "$lib/gameEngine";
+  import { ageChecklist, ageRewards } from "$lib/view/ageChecklist";
   import type { AgeAdvanceEventData } from "$lib/gameState.svelte";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
   import { cn } from "$lib/utils";
@@ -37,11 +38,7 @@
 
   let age = $derived(AGES[ageIndex]);
   let bonusText = $derived(describeAgeBonus(ageBonus));
-  let nextReward = $derived(ageAdvanceStatus.nextAge ? describeAgeReward(ageAdvanceStatus.nextAge, { conceal: true }) : []);
-  let nextBonusText = $derived.by(() => {
-    const next = ageAdvanceStatus.nextAge;
-    return next ? describeAgeBonus({ flatTimeReduction: next.bonus.flatTime, outputMult: next.bonus.outputMult }) : "";
-  });
+  let nextRewards = $derived(ageAdvanceStatus.nextAge ? ageRewards(ageAdvanceStatus.nextAge) : []);
 
   let skillPointEvents = $derived(
     events.filter(
@@ -62,36 +59,7 @@
     ),
   );
 
-  let checklist = $derived.by(() => {
-    const { nextAge, cost } = ageAdvanceStatus;
-    if (!nextAge) return [];
-    // A condition on a still-locked skill (e.g. Smithing) can't be trained
-    // yet, so list the unmet prereqs that unlock it right before it.
-    const items: { label: string; current: number; required: number; met: boolean }[] = [];
-    const seen = new Set<string>();
-    const addSkill = (skill: SkillId, level: number, unlocks?: SkillId) => {
-      if (!unlocked(skill)) {
-        for (const p of SKILLS[skill].prereqs) {
-          if ((levels[p.skill] ?? 0) < p.level) addSkill(p.skill, p.level, skill);
-        }
-      }
-      const label = `${unlocked(skill) ? "" : "🔒 "}${SKILLS[skill].name} Lv ${level}${unlocks ? ` → unlocks ${SKILLS[unlocks].name}` : ""}`;
-      if (seen.has(label)) return;
-      seen.add(label);
-      const current = levels[skill] ?? 0;
-      items.push({ label, current, required: level, met: current >= level });
-    };
-    for (const c of nextAge.condition) addSkill(c.skill, c.level);
-    return [
-      ...items,
-      ...cost.map((c) => ({
-        label: RESOURCES[c.resource].name,
-        current: Math.floor(resources[c.resource] ?? 0),
-        required: c.amount,
-        met: (resources[c.resource] ?? 0) >= c.amount,
-      })),
-    ];
-  });
+  let checklist = $derived(ageChecklist({ ageAdvanceStatus, levels, unlocked, resources }));
 
   const statClass =
     "cursor-help items-center gap-2 px-1.5 py-1 -mx-1.5 -my-1 transition-colors hover:bg-muted/60";
@@ -167,7 +135,7 @@
               <div class="flex flex-col gap-1.5">
                 <span class="text-xs font-semibold text-amber-300">Reward</span>
                 <div class="flex flex-wrap gap-1.5 text-xs">
-                  {#each [nextBonusText, ...nextReward].filter(Boolean) as reward (reward)}
+                  {#each nextRewards as reward (reward)}
                     <span class="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-300">
                       {reward}
                     </span>
