@@ -10,8 +10,10 @@ export interface OddsRow {
   lockedUntil?: string;
 }
 
+// Rounded per row; rows may not sum to exactly 100, which is fine since no total is shown.
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
+// maxStars is the age cap for normal banners. Legendary banners (guaranteed 5★) pass maxStars = 5.
 export function displayOdds(
   rates: RollRate[],
   maxStars: number,

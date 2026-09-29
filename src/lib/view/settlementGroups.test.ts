@@ -30,6 +30,7 @@ function giveCost(state: GameState, id: SettlementUpgradeId, fraction = 1): void
 const ids = (views: { id: SettlementUpgradeId }[]) => views.map((v) => v.id);
 
 // No shipped building uses `requires` or skill prereqs yet, so tests add them temporarily.
+// Mutates shared SETTLEMENT_UPGRADES; safe because vitest isolates each file, and afterEach restores it.
 const saved = new Map<SettlementUpgradeId, Pick<SettlementUpgradeDef, "requires" | "prereqs">>();
 function patch(id: SettlementUpgradeId, change: Partial<SettlementUpgradeDef>): void {
   const def = SETTLEMENT_UPGRADES[id];

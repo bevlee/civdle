@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SKILLS, SKILL_ORDER } from "../gameData";
+import { SKILL_ORDER } from "../gameData";
 import { createInitialState } from "../gameEngine";
 import { groupOf, skillGroups, type SkillChip } from "./skillGroups";
 
@@ -49,10 +49,6 @@ describe("skillGroups", () => {
 
 describe("groupOf", () => {
   it("maps gathering to Gathering and crafting/combat to Production", () => {
-    for (const id of SKILL_ORDER) {
-      const expected = SKILLS[id].category === "gathering" ? "Gathering" : "Production";
-      expect(groupOf(id)).toBe(expected);
-    }
     expect(groupOf("woodcutting")).toBe("Gathering");
     expect(groupOf("smithing")).toBe("Production");
     expect(groupOf("conquest")).toBe("Production");

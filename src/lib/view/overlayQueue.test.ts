@@ -4,7 +4,7 @@ import type { QueuedEvent } from "../eventQueue.svelte";
 import type { SkillId } from "../gameData";
 import { OverlayQueue } from "./overlayQueue.svelte";
 
-const IDS = ["skills.allTen", "skills.allFifty", "skills.nice", "resources.first"];
+const IDS = ["skills.allTen", "skills.best10", "skills.nice", "resources.first"];
 const nameOf = (id: string) => ACHIEVEMENTS_BY_ID[id].name;
 
 // Stand-in for game.events / game.pendingUnlocks that the page would feed in.
@@ -20,8 +20,10 @@ function harness() {
       events = [...events, { id: `achievement-${++n}`, type: "achievement", data: { achievementId } }];
       sync();
     },
-    advanceAge() {
+    advanceAge(unlocking?: SkillId) {
+      // Like #applyAgeAdvance: the event and any skill it unlocks land in the same tick.
       events = [...events, { id: `ageAdvance-${++n}`, type: "ageAdvance", data: { ageId: "bronzeAge", ageName: "Bronze Age", bonusText: "" } }];
+      if (unlocking) unlocks = [...unlocks, unlocking];
       sync();
     },
     unlock(skillId: SkillId) {
@@ -103,24 +105,38 @@ describe("OverlayQueue", () => {
     expect(h.q.current).toMatchObject({ kind: "achievements", count: 1, names: [nameOf(IDS[2])] });
   });
 
-  it("ranks skill unlock over age advance over achievements", () => {
+  it("ranks age advance over skill unlock over achievements", () => {
     const h = harness();
     h.achieve(IDS[0]);
     h.advanceAge();
     h.unlock("mining");
     h.unlock("smithing");
     vi.advanceTimersByTime(1000);
+    const age = h.q.current;
+    expect(age).toMatchObject({ kind: "ageAdvance", event: { id: "ageAdvance-2", data: { ageName: "Bronze Age" } } });
+
+    h.dismissEvent(age?.kind === "ageAdvance" ? age.event.id : "");
     expect(h.q.current).toEqual({ kind: "skillUnlock", skillId: "mining" });
 
     h.dismissUnlock();
     expect(h.q.current).toEqual({ kind: "skillUnlock", skillId: "smithing" });
 
     h.dismissUnlock();
+    expect(h.q.current).toMatchObject({ kind: "achievements", count: 1 });
+  });
+
+  it("shows an age advance before the skill it unlocked in the same tick", () => {
+    const h = harness();
+    h.achieve(IDS[0]);
+    h.advanceAge("mining");
     const age = h.q.current;
-    expect(age).toMatchObject({ kind: "ageAdvance", event: { id: "ageAdvance-2", data: { ageName: "Bronze Age" } } });
+    expect(age).toMatchObject({ kind: "ageAdvance", event: { id: "ageAdvance-2" } });
 
     h.dismissEvent(age?.kind === "ageAdvance" ? age.event.id : "");
-    expect(h.q.current).toMatchObject({ kind: "achievements", count: 1 });
+    expect(h.q.current).toEqual({ kind: "skillUnlock", skillId: "mining" });
+
+    h.dismissUnlock();
+    expect(h.q.current).toMatchObject({ kind: "achievements", count: 1, achievementIds: [IDS[0]] });
   });
 
   it("hides a visible toast under a new sheet and brings it back merged", () => {
@@ -166,6 +182,31 @@ describe("OverlayQueue", () => {
     expect(h.q.current).toMatchObject({ kind: "achievements", count: 1, eventIds: ["achievement-2"] });
     h.dismissEvent("achievement-2");
     expect(h.q.current).toBeNull();
+  });
+
+  it("shows the toast as soon as a sheet that opened mid-window closes, without a late timer", () => {
+    const h = harness();
+    h.achieve(IDS[0]);
+    vi.advanceTimersByTime(200);
+    h.unlock("mining");
+    vi.advanceTimersByTime(400);
+    expect(h.q.current).toEqual({ kind: "skillUnlock", skillId: "mining" });
+
+    h.dismissUnlock();
+    const toast = h.q.current;
+    expect(toast).toMatchObject({ kind: "achievements", count: 1, eventIds: ["achievement-1"] });
+    expect(vi.getTimerCount()).toBe(0);
+    vi.advanceTimersByTime(1000);
+    expect(h.q.current).toBe(toast);
+  });
+
+  it("never fires the grouping timer after destroy", () => {
+    const h = harness();
+    h.achieve(IDS[0]);
+    h.q.destroy();
+    vi.advanceTimersByTime(1000);
+    expect(h.q.current).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("keeps the same object when nothing it shows has changed", () => {

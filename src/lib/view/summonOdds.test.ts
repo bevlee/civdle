@@ -20,9 +20,10 @@ describe("displayOdds", () => {
     expect(rows.map((r) => r.stars)).toEqual([5, 4, 3, 2, 1]);
     expect(rows[0]).toEqual({ stars: 5, pct: 0, lockedUntil: "Medieval" });
     expect(rows[1]).toEqual({ stars: 4, pct: 0, lockedUntil: "Iron Age" });
-    expect(rows[2]).toEqual({ stars: 3, pct: Math.round((0.15 / 0.94) * 1000) / 10 });
-    expect(rows[3]).toEqual({ stars: 2, pct: Math.round((0.3 / 0.94) * 1000) / 10 });
-    expect(rows[4]).toEqual({ stars: 1, pct: Math.round((0.49 / 0.94) * 1000) / 10 });
+    // 0.15, 0.30, 0.49 out of the uncapped 0.94.
+    expect(rows[2]).toEqual({ stars: 3, pct: 16.0 });
+    expect(rows[3]).toEqual({ stars: 2, pct: 31.9 });
+    expect(rows[4]).toEqual({ stars: 1, pct: 52.1 });
     const sum = rows.reduce((s, r) => s + r.pct, 0);
     expect(sum).toBeCloseTo(100, 0);
   });

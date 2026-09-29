@@ -27,6 +27,22 @@ describe("achievementList", () => {
     expect(result.filters.find((f) => f.id === "resources")?.done).toBe(1);
   });
 
+  it("labels chips short and sections long", () => {
+    const result = list(createInitialState());
+    expect(result.filters.map((f) => f.label)).toEqual([
+      "All",
+      "Skills",
+      "Resources",
+      "Ages",
+      "Army",
+      "Combat",
+      "Depths",
+      "Misc",
+    ]);
+    expect(result.sections.find((s) => s.category === "skills")?.label).toBe("Skill Milestones");
+    expect(result.sections.find((s) => s.category === "misc")?.label).toBe("Miscellaneous");
+  });
+
   it("lists every achievement in its section, best-skill tiers included", () => {
     const sections = list(createInitialState()).sections;
     expect(sections.flatMap((s) => s.items).length).toBe(ACHIEVEMENTS.length);
@@ -96,6 +112,7 @@ describe("achievementList", () => {
   });
 
   it("omits progress when the target is 1", () => {
+    // Mutates shared ACHIEVEMENTS data; safe because vitest isolates each file, and the finally restores it.
     const def = ACHIEVEMENTS_BY_ID["resources.first"];
     def.progress = () => ({ current: 0, target: 1 });
     try {

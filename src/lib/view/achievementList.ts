@@ -44,6 +44,17 @@ export interface AchievementListView {
   sections: AchievementSection[];
 }
 
+// Short chip labels; section headers keep the longer CATEGORY_LABELS.
+export const FILTER_LABELS: Record<AchievementCategory, string> = {
+  skills: "Skills",
+  resources: "Resources",
+  ages: "Ages",
+  army: "Army",
+  combat: "Combat",
+  depths: "Depths",
+  misc: "Misc",
+};
+
 const SECRET_NAME = "???";
 const SECRET_DESCRIPTION = "Hidden achievement. Keep playing to find out.";
 const SECRET_ICON = "❓";
@@ -90,7 +101,7 @@ export function achievementList(
 
   const filters: AchievementFilterChip[] = [
     { id: "all", label: "All", ...count(ACHIEVEMENTS) },
-    ...CATEGORY_ORDER.map((c) => ({ id: c, label: CATEGORY_LABELS[c], ...count(byCategory.get(c)!) })),
+    ...CATEGORY_ORDER.map((c) => ({ id: c, label: FILTER_LABELS[c], ...count(byCategory.get(c)!) })),
   ];
 
   const sections = CATEGORY_ORDER.filter((c) => filter === "all" || filter === c).map((category) => ({

@@ -4,6 +4,7 @@ import { actionBarState, stillTrainingLine } from "./actionBar";
 const base = {
   viewedSkill: "crafting" as const,
   viewedRecipeId: "tools",
+  viewedLevel: 5,
   activeSkill: null,
   activeRecipeId: null,
   resources: { wood: 5, stone: 5, plantFibres: 5 },
@@ -18,6 +19,29 @@ describe("actionBarState", () => {
       kind: "stop",
       label: "Stop · 1.2s",
     });
+  });
+
+  it("reports the level a locked recipe needs", () => {
+    expect(actionBarState({ ...base, viewedRecipeId: "baskets" })).toEqual({
+      kind: "locked",
+      label: "Unlocks at Lv 15",
+    });
+  });
+
+  it("prefers locked over short and switch", () => {
+    const state = actionBarState({
+      ...base,
+      viewedRecipeId: "baskets",
+      resources: {},
+      activeSkill: "foraging",
+      activeRecipeId: "forage",
+    });
+    expect(state).toEqual({ kind: "locked", label: "Unlocks at Lv 15" });
+  });
+
+  it("prefers stop over locked", () => {
+    const state = actionBarState({ ...base, viewedRecipeId: "baskets", activeSkill: "crafting", activeRecipeId: "baskets" });
+    expect(state.kind).toBe("stop");
   });
 
   it("reports the first missing input", () => {
