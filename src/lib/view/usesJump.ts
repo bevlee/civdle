@@ -12,7 +12,8 @@ export interface UsesJump {
 }
 
 export interface UsesJumpArgs {
-  viewedSkill: SkillId;
+  /** The skill on screen, if any: its own recipes are named rather than the skill. */
+  viewedSkill?: SkillId;
   levels: Record<SkillId, number>;
   unlocked: (id: SkillId) => boolean;
 }

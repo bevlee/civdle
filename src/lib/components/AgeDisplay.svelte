@@ -21,6 +21,7 @@
     events,
     ageEvent,
     onDismissEvent,
+    onOpenShop,
   }: {
     ageIndex: number;
     ageBonus: AgeBonus;
@@ -34,6 +35,8 @@
     /** The age advance being celebrated right now; the overlay owns dismissing it. */
     ageEvent: QueuedEvent<AgeAdvanceEventData> | null;
     onDismissEvent: (id: string) => void;
+    /** Open the Town's Shop, where skill points are spent. */
+    onOpenShop?: () => void;
   } = $props();
 
   let age = $derived(AGES[ageIndex]);
@@ -176,9 +179,15 @@
         {/each}
       </div>
       <div class="relative flex items-center">
-        <Hint side="bottom" class={statClass} title="Skill Points" text="Earned each time a skill levels up. Spend them in the Shop on permanent upgrades.">
-          <span class="text-sm text-muted-foreground"><span class="sm:hidden">SP</span><span class="hidden sm:inline">Skill Points</span></span>
-          <Badge class="text-sm tabular-nums">{skillPoints}</Badge>
+        <Hint side="bottom" title="Skill Points" text="Earned each time a skill levels up. Spend them in the Town's Shop on permanent upgrades.">
+          <button
+            class={cn(statClass, "flex cursor-pointer rounded-sm")}
+            aria-label={`${skillPoints} skill points. Open the Shop`}
+            onclick={onOpenShop}
+          >
+            <span class="text-sm text-muted-foreground"><span class="sm:hidden">SP</span><span class="hidden sm:inline">Skill Points</span></span>
+            <Badge class="text-sm tabular-nums">{skillPoints}</Badge>
+          </button>
         </Hint>
         {#each skillPointEvents as event (event.id)}
           <FloatingText
