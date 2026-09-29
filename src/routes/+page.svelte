@@ -1,8 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { CivdleGame } from "$lib/gameState.svelte";
-  import { SKILL_ORDER, SKILLS, type SkillId } from "$lib/gameData";
+  import { AGES, SKILL_ORDER, SKILLS, type SkillId } from "$lib/gameData";
   import AgeDisplay from "$lib/components/AgeDisplay.svelte";
+  import PhoneHeader from "$lib/components/mobile/PhoneHeader.svelte";
+  import AgeSheet from "$lib/components/mobile/AgeSheet.svelte";
+  import { ageChecklist, checklistProgress } from "$lib/view/ageChecklist";
   import SkillPanel from "$lib/components/SkillPanel.svelte";
   import TrainingView from "$lib/components/TrainingView.svelte";
   import Inventory from "$lib/components/Inventory.svelte";
@@ -91,6 +94,24 @@
     game.stopTraining();
   }
 
+  // Phone header and age sheet.
+  let ageSheetOpen = $state(false);
+  let ageItems = $derived(
+    ageChecklist({
+      ageAdvanceStatus: game.ageAdvanceStatus,
+      levels: game.levels,
+      unlocked: (id) => game.state.skills[id].unlocked,
+      resources: game.state.resources,
+    }),
+  );
+  let ageProgress = $derived(checklistProgress(ageItems));
+
+  function openTraining() {
+    const active = game.state.activeSkill;
+    if (active) selectedSkill = active;
+    centerTab = "train";
+  }
+
   let highlightedResources = $derived.by(() => {
     if (!selectedSkill) return undefined;
     const def = SKILLS[selectedSkill];
@@ -157,19 +178,35 @@
   </div>
 {:else}
   <div class="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-    <AgeDisplay
-      ageIndex={game.ageIndex}
-      ageBonus={game.ageBonus}
-      skillPoints={game.state.skillPoints}
-      warSpoils={game.state.gacha.gold}
-      levels={game.levels}
-      unlocked={(id) => game.state.skills[id].unlocked}
-      resources={game.state.resources}
-      ageAdvanceStatus={game.ageAdvanceStatus}
-      onAdvance={() => game.advanceAgeAction()}
-      events={game.events}
-      onDismissEvent={(id) => game.dismissEvent(id)}
+    <PhoneHeader
+      class="md:hidden"
+      ageName={AGES[game.ageIndex].name}
+      nextAgeName={game.ageAdvanceStatus.nextAge?.name ?? null}
+      met={ageProgress.met}
+      total={ageProgress.total}
+      activeSkill={game.state.activeSkill}
+      level={game.state.activeSkill ? game.levels[game.state.activeSkill] : 0}
+      xp={game.state.activeSkill ? game.state.skills[game.state.activeSkill].xp : 0}
+      onOpenAge={() => (ageSheetOpen = true)}
+      onOpenTrain={openTraining}
+      onStop={handleStopTraining}
     />
+    <!-- Hidden rather than removed on phones: its floating texts dismiss their queued events. -->
+    <div class="hidden md:contents">
+      <AgeDisplay
+        ageIndex={game.ageIndex}
+        ageBonus={game.ageBonus}
+        skillPoints={game.state.skillPoints}
+        warSpoils={game.state.gacha.gold}
+        levels={game.levels}
+        unlocked={(id) => game.state.skills[id].unlocked}
+        resources={game.state.resources}
+        ageAdvanceStatus={game.ageAdvanceStatus}
+        onAdvance={() => game.advanceAgeAction()}
+        events={game.events}
+        onDismissEvent={(id) => game.dismissEvent(id)}
+      />
+    </div>
 
     {#if game.message}
       <div
@@ -356,6 +393,15 @@
       />
     {/key}
   {/if}
+
+  <AgeSheet
+    open={ageSheetOpen}
+    onClose={() => (ageSheetOpen = false)}
+    nextAge={game.ageAdvanceStatus.nextAge}
+    checklist={ageItems}
+    canAdvance={game.ageAdvanceStatus.canAdvance}
+    onAdvance={() => game.advanceAgeAction()}
+  />
 
   <GainToastStack
     events={game.events}
