@@ -1,6 +1,7 @@
 <script lang="ts">
   import { UNITS, ATTACK_TYPES, type Trait, type UnitCard as UnitCardT } from "$lib/combatData";
   import { Button } from "$lib/components/ui/button";
+  import { tick } from "svelte";
   import { MediaQuery } from "svelte/reactivity";
   import Hint from "./Hint.svelte";
   import UnitCard from "./UnitCard.svelte";
@@ -36,6 +37,7 @@
     onDrop,
     onDragState,
     onOpenSummon,
+    covering = $bindable(false),
   }: {
     cards: UnitCardT[];
     partyIds: Set<string>;
@@ -49,6 +51,8 @@
     onDragState: (state: DragState | null) => void;
     /** Opens the summon panel. */
     onOpenSummon: () => void;
+    /** Phone: the expanded view is showing over the board (the rest should be inert). */
+    covering?: boolean;
   } = $props();
 
   // Phones get a slim dock with an expandable filter view; wider screens keep the panel.
@@ -82,13 +86,45 @@
   const setType = (type: TypeFilter) => (filter = { ...filter, type });
   const toggleTrait = (trait: Trait) => (filter = { ...filter, trait: filter.trait === trait ? null : trait });
 
+  let toggleButton = $state<HTMLElement | null>(null);
+  let doneButton = $state<HTMLElement | null>(null);
+  let expandedView = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    covering = expanded && !gridDrag;
+  });
+
+  async function openExpanded() {
+    expanded = true;
+    await tick();
+    doneButton?.focus();
+  }
+
+  async function closeExpanded() {
+    // Hand focus back to the toggle unless it already moved somewhere else on purpose.
+    const active = document.activeElement;
+    const hadFocus = !active || active === document.body || !!expandedView?.contains(active);
+    expanded = false;
+    await tick();
+    if (hadFocus) toggleButton?.focus();
+  }
+
   // Dragging from the expanded grid hides it so the board is free to drop on. It stays
-  // mounted (the card holds the pointer capture) and closes once the drag ends.
+  // mounted (the card holds the pointer capture). A hero placed closes it; a cancelled
+  // drag (Esc, a lost pointer, a drop that placed nothing) comes back to the grid.
+  let gridPlaced = false;
+  function gridDrop(result: DropResult) {
+    gridPlaced = true;
+    onDrop(result);
+  }
   function gridDragState(state: DragState | null) {
-    if (state && !gridDrag) gridDrag = true;
+    if (state && !gridDrag) {
+      gridDrag = true;
+      gridPlaced = false;
+    }
     if (!state && gridDrag) {
       gridDrag = false;
-      expanded = false;
+      if (gridPlaced) void closeExpanded();
     }
     onDragState(state);
   }
@@ -100,7 +136,7 @@
   function handleKeydown(e: KeyboardEvent) {
     // An Esc meant for a sheet or dialog on top (hero details) leaves the army open.
     const inDialog = e.target instanceof Element && e.target.closest("[role='dialog']");
-    if (e.key === "Escape" && expanded && !gridDrag && !inDialog) expanded = false;
+    if (e.key === "Escape" && expanded && !gridDrag && !inDialog) void closeExpanded();
   }
 </script>
 
@@ -123,7 +159,7 @@
       source: { type: "card", cardId: card.id },
       locked,
       onTap: () => onTap(card.id),
-      onDrop,
+      onDrop: variant === "grid" ? gridDrop : onDrop,
       onDragState: variant === "grid" ? gridDragState : onDragState,
     }}
     aria-label={`${name}, ${card.stars} stars${inParty ? ", deployed" : ""}`}
@@ -237,7 +273,7 @@
       </div>
     {/if}
 
-    <div class="max-h-[26rem] overflow-y-auto px-3 pb-1" data-drag-scroll>
+    <div class="max-h-[26rem] overflow-y-auto px-3 pb-1" data-drag-scroll="y">
       {#if cards.length > 0 && shown.length === 0}
         {@render emptyFiltered("flex flex-col items-center gap-2 py-6 text-center text-[17px] text-muted-foreground")}
       {:else if shown.length === 0}
@@ -255,14 +291,15 @@
 {:else}
   <!-- Phone dock: one header row and one strip of cards that scrolls sideways; a vertical
        drag lifts a card onto the board. Filters and sorting live in the expanded view. -->
-  <div role="group" aria-label="Army" class="flex flex-col">
+  <div role="group" aria-label="Army" class="flex flex-col" inert={covering}>
     <div class="flex min-w-0 items-center gap-2">
       <button
+        bind:this={toggleButton}
         class="flex h-9 shrink-0 items-center gap-1.5"
         aria-expanded={expanded}
         aria-controls="army-expanded"
         aria-label={expanded ? "Collapse army" : `Expand army, ${countLabel} heroes`}
-        onclick={() => (expanded = !expanded)}
+        onclick={() => (expanded ? closeExpanded() : openExpanded())}
       >
         <span class="text-[15px] font-bold whitespace-nowrap tabular-nums">Army · {countLabel}</span>
         <span class="flex size-6 items-center justify-center rounded-[7px] bg-accent text-[13px] text-muted-foreground" aria-hidden="true">{expanded ? "▾" : "▴"}</span>
@@ -285,7 +322,7 @@
         Summon ›
       </button>
     </div>
-    <div class="flex min-h-[84px] gap-2 overflow-x-auto overscroll-x-contain px-1.5 pt-1.5 pb-1.5 [scrollbar-width:none]" data-drag-scroll>
+    <div class="flex min-h-[84px] gap-2 overflow-x-auto overscroll-x-contain px-1.5 pt-1.5 pb-1.5 [scrollbar-width:none]" data-drag-scroll="x">
       {#if cards.length === 0}
         <p class="self-center text-[13px] text-muted-foreground">No heroes yet — summon some with Tribute.</p>
       {:else if shown.length === 0}
@@ -302,16 +339,21 @@
 
   {#if expanded || gridDrag}
     <!-- Covers the battle area above the nav; hidden (but mounted) while a card from it is dragged. -->
-    <button class={cn("absolute inset-0 z-30 bg-black/50", gridDrag && "invisible")} aria-label="Close army" tabindex="-1" onclick={() => (expanded = false)}></button>
-    <div
-      id="army-expanded"
-      role="region"
-      aria-label="Army"
-      class={cn(
-        "absolute inset-x-0 bottom-0 z-30 flex h-[88%] flex-col gap-2.5 rounded-t-[18px] border-t border-foreground/10 bg-background pt-3 shadow-[0_-12px_32px_rgb(0_0_0/0.55)]",
-        gridDrag && "invisible",
-      )}
-    >
+    <button class={cn("absolute inset-0 z-30 bg-black/50", gridDrag && "invisible")} aria-label="Close army" tabindex="-1" onclick={closeExpanded}></button>
+  {/if}
+  <!-- Always in the DOM (empty and hidden when closed) so the toggle's aria-controls resolves. -->
+  <div
+    bind:this={expandedView}
+    id="army-expanded"
+    role="region"
+    aria-label="Army"
+    hidden={!expanded && !gridDrag}
+    class={cn(
+      "absolute inset-x-0 bottom-0 z-30 flex h-[88%] flex-col gap-2.5 rounded-t-[18px] border-t border-foreground/10 bg-background pt-3 shadow-[0_-12px_32px_rgb(0_0_0/0.55)]",
+      gridDrag && "invisible",
+    )}
+  >
+    {#if expanded || gridDrag}
       <div class="flex shrink-0 items-center gap-2 px-3">
         <span class="text-[17px] font-bold whitespace-nowrap tabular-nums">Army · {countLabel}</span>
         {#if filtered}
@@ -326,7 +368,7 @@
         </select>
         <button class="h-9 w-9 rounded-[10px] border border-border text-[12px] text-muted-foreground" aria-label={sortDesc ? "Sorted descending" : "Sorted ascending"}
           onclick={() => (sortDesc = !sortDesc)}>{sortDesc ? "▼" : "▲"}</button>
-        <button class="h-9 rounded-[10px] border border-border px-3.5 text-sm font-semibold" onclick={() => (expanded = false)}>Done</button>
+        <button bind:this={doneButton} class="h-9 rounded-[10px] border border-border px-3.5 text-sm font-semibold" onclick={closeExpanded}>Done</button>
       </div>
 
       <div class="mx-3 flex shrink-0 gap-0.5 rounded-[11px] bg-card p-[3px]" role="group" aria-label="Filter by attack type">
@@ -373,7 +415,7 @@
         </div>
       {/if}
 
-      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-2 pb-3" data-drag-scroll>
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-2 pb-3" data-drag-scroll="y">
         {#if cards.length > 0 && shown.length === 0}
           {@render emptyFiltered("flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground")}
         {:else if cards.length === 0}
@@ -393,6 +435,6 @@
           {locked ? "Formation locked until the battle ends · tap for details" : "Drag a hero sideways to lift it · tap for details"}
         </p>
       </div>
-    </div>
-  {/if}
+    {/if}
+  </div>
 {/if}
