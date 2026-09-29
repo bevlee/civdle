@@ -3,8 +3,7 @@
   import { syncBattleAnimations, type BattleSpeed } from "$lib/battlePlayback";
   import { tick, untrack } from "svelte";
   import { attackMotion, blinkDistance, projectilePath, timeline } from "$lib/combatAnimation";
-  import { DEPTHS_SPOILS_PER_TIER, DEPTHS_TIER_SIZE, GACHA_COST, MAX_ENEMY_LEVEL, PACK_COST, PARTY_SIZE, ULTIMATES, UNITS, isBossLevel, regionForLevel, storyTribute, strongestEnemy, type AttackType, type UnitCard } from "$lib/combatData";
-  import { LEGENDARY_PACK_COST, LEGENDARY_SINGLE_COST, TRIBUTE_LEGENDARY_PACK_COST } from "$lib/gameState.svelte";
+  import { DEPTHS_SPOILS_PER_TIER, DEPTHS_TIER_SIZE, MAX_ENEMY_LEVEL, PARTY_SIZE, ULTIMATES, UNITS, isBossLevel, regionForLevel, storyTribute, strongestEnemy, type AttackType, type UnitCard } from "$lib/combatData";
   import type { BattleMode, BattleState, Fighter, Hit } from "$lib/combatEngine";
   import { isFrontRow, POSITIONS } from "$lib/position";
   import { dragLabel, dragPlace, type DragState, type DropResult } from "$lib/dragPlace";
@@ -21,8 +20,18 @@
   import ArmyInventory from "./ArmyInventory.svelte";
   import CardDetailModal from "./CardDetailModal.svelte";
   import CombatStatsPanel from "./CombatStatsPanel.svelte";
+  import SummonPanel from "./SummonPanel.svelte";
 
-  let { game, mode }: { game: CivdleGame; mode: BattleMode } = $props();
+  let {
+    game,
+    mode,
+    onOpenSettlement,
+  }: {
+    game: CivdleGame;
+    mode: BattleMode;
+    /** Jump to the Settlement tab (summon unlocks and odds are built there). */
+    onOpenSettlement?: () => void;
+  } = $props();
   let gacha = $derived(game.state.gacha);
   let battle = $derived(gacha.battleMode === mode ? gacha.battle : null);
   let otherBattleActive = $derived(gacha.battle !== null && gacha.battleMode !== mode);
@@ -62,6 +71,7 @@
   let showHelp = $state(false);
   // Phones show the battle log and stats as a sheet over the battlefield.
   let showLog = $state(false);
+  let summonOpen = $state(false);
   let selectedCardId = $state<string | null>(null);
   let selectedCard = $derived(gacha.cards.find(c => c.id === selectedCardId) ?? null);
   let resultReady = $state(false);
@@ -371,9 +381,8 @@
     </section>
 
     <div class="army-dock">
-      <ArmyInventory cards={gacha.cards} {partyIds} gold={gacha.gold} rollCost={GACHA_COST} packCost={PACK_COST}
-        maxStars={game.maxSummonStars} rollRates={game.rollRates} hasCelestialAltar={game.legendarySummonsUnlocked} glory={game.glory} legendaryPackCost={LEGENDARY_PACK_COST} legendarySingleCost={LEGENDARY_SINGLE_COST} hasHallOfLegends={game.hasHallOfLegends} tributeLegendaryPackCost={TRIBUTE_LEGENDARY_PACK_COST} locked={formationLocked} {draggingId}
-        onTap={cardId => selectedCardId = cardId} onDrop={applyDrop} onDragState={setDrag} onSummon={() => game.rollCard()} onOpenPack={() => game.rollPack()} onOpenLegendaryPack={() => game.rollLegendaryPack()} onLegendarySummon={() => game.rollLegendarySingle()} onOpenTributeLegendaryPack={() => game.rollTributeLegendaryPack()} />
+      <ArmyInventory cards={gacha.cards} {partyIds} locked={formationLocked} {draggingId}
+        onTap={cardId => selectedCardId = cardId} onDrop={applyDrop} onDragState={setDrag} onOpenSummon={() => (summonOpen = true)} />
     </div>
   </div>
 
@@ -409,6 +418,8 @@
     onAddToParty={() => game.addCardToFirstEmptySlot(selectedCard!.id)} onRemoveFromParty={() => game.removeCardFromParty(selectedCard!.id)}
     {partyCards} onPromote={handlePromote} onClose={() => selectedCardId = null} />
 {/if}
+
+<SummonPanel {game} open={summonOpen} locked={formationLocked} onClose={() => (summonOpen = false)} {onOpenSettlement} />
 
 {#if inspectedEnemy}
   <CardDetailModal

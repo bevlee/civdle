@@ -15,6 +15,8 @@
     hideTitle = false,
     onOpenAutoFocus,
     class: className,
+    header,
+    footer,
     children,
   }: {
     open: boolean;
@@ -25,6 +27,10 @@
     /** Call `preventDefault()` and focus something else to skip the first-tabbable default. */
     onOpenAutoFocus?: (event: Event) => void;
     class?: string;
+    /** Pinned above the scrolling body. */
+    header?: Snippet;
+    /** Pinned below the scrolling body (and takes the safe-area padding). */
+    footer?: Snippet;
     children: Snippet;
   } = $props();
 </script>
@@ -57,9 +63,13 @@
           {title}
         </Dialog.Title>
       {/if}
-      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      {@render header?.()}
+      <div class={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-4", footer ? "pb-4" : "pb-[max(1rem,env(safe-area-inset-bottom))]")}>
         {@render children()}
       </div>
+      {#if footer}
+        <div class="shrink-0 pb-[env(safe-area-inset-bottom)]">{@render footer()}</div>
+      {/if}
     </Dialog.Content>
   </Dialog.Portal>
 </Dialog.Root>

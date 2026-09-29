@@ -5,7 +5,7 @@
   import Hint from "./Hint.svelte";
   import UnitCard from "./UnitCard.svelte";
   import { cn } from "$lib/utils";
-  import { rarityColor } from "$lib/rarity";
+  import { RARITY_NAMES } from "$lib/rarity";
   import { dragPlace, type DragState, type DropResult } from "$lib/dragPlace";
   import {
     NO_FILTER,
@@ -26,48 +26,19 @@
     type StarFilter,
     type TypeFilter,
   } from "$lib/view/armyFilter";
-  import { BASE_RATES, FEAST_HALL_RATES, GRAND_FEAST_RATES, ROYAL_FEAST_RATES, EMPERORS_BANQUET_RATES, HEROIC_TRIBUTE_RATES, DIVINE_SUMMONS_RATES, type RollRate } from "$lib/settlementData";
-  import { RARITY_NAMES } from "$lib/rarity";
 
   let {
     cards,
     partyIds,
-    gold,
-    rollCost,
-    packCost,
     locked = false,
     draggingId = null,
     onTap,
     onDrop,
     onDragState,
     onOpenSummon,
-    maxStars = 5,
-    rollRates = BASE_RATES,
-    hasCelestialAltar = false,
-    glory = 0,
-    legendaryPackCost = 100,
-    legendarySingleCost = 10,
-    hasHallOfLegends = false,
-    tributeLegendaryPackCost = 1000,
-    onSummon,
-    onOpenPack,
-    onOpenLegendaryPack,
-    onLegendarySummon,
-    onOpenTributeLegendaryPack,
   }: {
     cards: UnitCardT[];
     partyIds: Set<string>;
-    gold: number;
-    rollCost: number;
-    packCost: number;
-    maxStars?: number;
-    rollRates?: RollRate[];
-    hasCelestialAltar?: boolean;
-    glory?: number;
-    legendaryPackCost?: number;
-    legendarySingleCost?: number;
-    hasHallOfLegends?: boolean;
-    tributeLegendaryPackCost?: number;
     locked?: boolean;
     /** Card currently being dragged anywhere on the screen. */
     draggingId?: string | null;
@@ -77,12 +48,7 @@
     onDrop: (result: DropResult) => void;
     onDragState: (state: DragState | null) => void;
     /** Opens the summon panel. */
-    onOpenSummon?: () => void;
-    onSummon: () => void;
-    onOpenPack: () => void;
-    onOpenLegendaryPack?: () => void;
-    onLegendarySummon?: () => void;
-    onOpenTributeLegendaryPack?: () => void;
+    onOpenSummon: () => void;
   } = $props();
 
   // Phones get a slim dock with an expandable filter view; wider screens keep the panel.
@@ -91,7 +57,6 @@
   let sortKey = $state<SortKey>("stars");
   let sortDesc = $state(true);
   let filter = $state<ArmyFilter>({ ...NO_FILTER });
-  let showRates = $state(false);
 
   // Phone: the filter view over the board, and whether a drag started from its grid.
   let expanded = $state(false);
@@ -137,17 +102,6 @@
     const inDialog = e.target instanceof Element && e.target.closest("[role='dialog']");
     if (e.key === "Escape" && expanded && !gridDrag && !inDialog) expanded = false;
   }
-
-  const RATE_TIERS = [
-    { label: "Base", rates: BASE_RATES },
-    { label: "Feast Hall", rates: FEAST_HALL_RATES },
-    { label: "Grand Feast", rates: GRAND_FEAST_RATES },
-    { label: "Royal Feast", rates: ROYAL_FEAST_RATES },
-    { label: "Emperor's Banquet", rates: EMPERORS_BANQUET_RATES },
-    { label: "Heroic Tribute", rates: HEROIC_TRIBUTE_RATES },
-    { label: "Divine Summons", rates: DIVINE_SUMMONS_RATES },
-  ] as const;
-  let activeTierLabel = $derived(RATE_TIERS.find(t => t.rates === rollRates)?.label ?? "Base");
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -221,30 +175,7 @@
           </Hint>
         {/if}
       </div>
-      <div class="flex flex-wrap items-center gap-1.5">
-        <Button size="sm" disabled={locked || gold < rollCost} onclick={onSummon} class="h-8 px-2.5 text-[15px]">
-          Summon {rollCost} ⚔
-        </Button>
-        <Hint text="Open 10 cards at once">
-          <Button size="sm" variant="outline" disabled={locked || gold < packCost} onclick={onOpenPack} class="h-8 px-2.5 text-[15px]">
-            Open 10 · {packCost} ⚔
-          </Button>
-        </Hint>
-        {#if hasCelestialAltar && onLegendarySummon}
-          <Button size="sm" variant="outline" disabled={locked || glory < legendarySingleCost} onclick={onLegendarySummon}
-            class="h-8 border-yellow-500/40 px-2 text-[15px] text-yellow-300 hover:bg-yellow-500/10">5★ · {legendarySingleCost} Glory</Button>
-        {/if}
-        {#if hasCelestialAltar && onOpenLegendaryPack}
-          <Button size="sm" variant="outline" disabled={locked || glory < legendaryPackCost} onclick={onOpenLegendaryPack}
-            class="h-8 border-yellow-500/40 px-2 text-[15px] text-yellow-300 hover:bg-yellow-500/10">10× 5★ · {legendaryPackCost} Glory</Button>
-        {/if}
-        {#if hasHallOfLegends && onOpenTributeLegendaryPack}
-          <Button size="sm" variant="outline" disabled={locked || gold < tributeLegendaryPackCost} onclick={onOpenTributeLegendaryPack}
-            class="h-8 border-yellow-500/40 px-2 text-[15px] text-yellow-300 hover:bg-yellow-500/10">10× 5★ · {tributeLegendaryPackCost} ⚔</Button>
-        {/if}
-        <button class="rounded border border-border bg-muted px-1.5 py-0.5 text-[15px] text-muted-foreground hover:bg-accent hover:text-foreground"
-          onclick={() => (showRates = !showRates)} aria-expanded={showRates}>Rates</button>
-      </div>
+      <Button size="sm" class="h-8 px-3 text-[15px]" aria-haspopup="dialog" onclick={onOpenSummon}>Summon</Button>
     </div>
 
     {#if cards.length > 0}
@@ -306,41 +237,6 @@
       </div>
     {/if}
 
-    {#if showRates}
-      <div class="mx-3 rounded-lg border border-border bg-muted/40 p-3">
-        <div class="mb-2 flex items-center justify-between">
-          <span class="text-[17px] font-semibold tracking-wider text-muted-foreground uppercase">Summon Rates</span>
-          <button class="text-[15px] text-muted-foreground hover:text-foreground" onclick={() => (showRates = false)}>Close</button>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-[16px]">
-            <thead>
-              <tr class="text-left text-muted-foreground">
-                <th class="pr-3 pb-1 font-medium">Rarity</th>
-                {#each RATE_TIERS as tier}
-                  <th class="pr-3 pb-1 font-medium" class:text-foreground={tier.label === activeTierLabel}>{tier.label}{tier.label === activeTierLabel ? " ✓" : ""}</th>
-                {/each}
-              </tr>
-            </thead>
-            <tbody>
-              {#each [5, 4, 3, 2, 1] as stars}
-                <tr>
-                  <td class="py-0.5 pr-3 font-medium" style:color={rarityColor(stars)}>{"★".repeat(stars)} {RARITY_NAMES[stars]}</td>
-                  {#each RATE_TIERS as tier}
-                    {@const rate = tier.rates.find(r => r.stars === stars)?.rate ?? 0}
-                    <td class="py-0.5 pr-3 tabular-nums" class:font-semibold={tier.label === activeTierLabel}>{(rate * 100).toFixed(0)}%</td>
-                  {/each}
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-        {#if maxStars < 5}
-          <p class="mt-2 text-[15px] text-muted-foreground">Rates above max star are redistributed to lower tiers.</p>
-        {/if}
-      </div>
-    {/if}
-
     <div class="max-h-[26rem] overflow-y-auto px-3 pb-1" data-drag-scroll>
       {#if cards.length > 0 && shown.length === 0}
         {@render emptyFiltered("flex flex-col items-center gap-2 py-6 text-center text-[17px] text-muted-foreground")}
@@ -385,11 +281,9 @@
         </span>
       {/if}
       <span class="flex-1"></span>
-      {#if onOpenSummon}
-        <button class="h-9 shrink-0 rounded-[10px] bg-primary px-3 text-sm font-semibold whitespace-nowrap text-primary-foreground" aria-haspopup="dialog" onclick={onOpenSummon}>
-          Summon ›
-        </button>
-      {/if}
+      <button class="h-9 shrink-0 rounded-[10px] bg-primary px-3 text-sm font-semibold whitespace-nowrap text-primary-foreground" aria-haspopup="dialog" onclick={onOpenSummon}>
+        Summon ›
+      </button>
     </div>
     <div class="flex min-h-[84px] gap-2 overflow-x-auto overscroll-x-contain px-1.5 pt-1.5 pb-1.5 [scrollbar-width:none]" data-drag-scroll>
       {#if cards.length === 0}
