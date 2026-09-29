@@ -71,15 +71,18 @@
   );
 
   // Gain events are short-lived (the desktop toasts dismiss them), so remember the
-  // newest one rather than reading it from the queue each time.
-  let lastGain = $state<{ id: string; skillId: SkillId; recipeId: string; text: string } | null>(null);
+  // newest one rather than reading it from the queue each time. The seen id is plain,
+  // so the effect only reruns when the events change.
+  let lastGain = $state<{ skillId: SkillId; recipeId: string; text: string } | null>(null);
+  let lastGainId: string | null = null;
   $effect(() => {
     const latest = events.findLast(
       (e): e is QueuedEvent<ActionGainEventData> => e.type === "actionGain",
     );
-    if (!latest || latest.id === lastGain?.id) return;
+    if (!latest || latest.id === lastGainId) return;
+    lastGainId = latest.id;
     const { skillId, recipeId, gains, spent } = latest.data;
-    lastGain = { id: latest.id, skillId, recipeId, text: gainLine(gains, spent) };
+    lastGain = { skillId, recipeId, text: gainLine(gains, spent) };
   });
 
   let sub = $derived.by(() => {
@@ -111,7 +114,7 @@
 >
   {#if activeSkill && activeRecipeId && !viewingActive}
     <button
-      class="flex h-10 items-center gap-2 rounded-[10px] border border-green-500/30 bg-green-500/8 px-3 text-left"
+      class="flex min-h-11 items-center gap-2 rounded-[10px] border border-green-500/30 bg-green-500/8 px-3 text-left"
       onclick={onBack}
     >
       <span class="size-[7px] shrink-0 rounded-full bg-green-500" aria-hidden="true"></span>
@@ -129,9 +132,10 @@
 
   <div class="flex items-center gap-3">
     <div class="flex min-w-0 flex-1 flex-col leading-tight">
-      <span class="truncate text-[15px] font-semibold">{recipe.name}</span>
+      <!-- A recipe above the skill's level stays a mystery, as in the recipe chips. -->
+      <span class="truncate text-[15px] font-semibold">{bar.kind === "locked" ? "???" : recipe.name}</span>
       {#if sub.text}
-        <span class={cn("truncate text-xs tabular-nums", sub.tone)} aria-live="polite">{sub.text}</span>
+        <span class={cn("truncate text-xs tabular-nums", sub.tone)}>{sub.text}</span>
       {/if}
     </div>
     <button

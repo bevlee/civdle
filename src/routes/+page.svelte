@@ -48,15 +48,17 @@
   let rightTab = $state<"inventory" | "shop">("inventory");
   let isCombatTab = $derived(centerTab === "battle");
 
-  // Campaign and The Abyss share the Battle tab. The tab follows whichever mode
-  // has a battle on the field, so it opens on the fight that is running.
+  // Campaign and The Abyss share the Battle tab. It turns to a mode when a battle
+  // starts there, so it opens on the fight that is running, but either mode can
+  // still be viewed (the other one says a battle is running elsewhere).
   let battleMode = $state<BattleMode>("story");
-  // Any battle on the field (running or showing its result) locks the formation,
-  // so the mode can't be switched until it is cleared.
   let battleActive = $derived(game.state.gacha.battle !== null);
+  // Plain, not state: only a change of the running mode should move the tab.
+  let lastRunningMode: BattleMode | null = null;
   $effect(() => {
     const running = game.state.gacha.battleMode;
-    if (running) battleMode = running;
+    if (running && running !== lastRunningMode) battleMode = running;
+    lastRunningMode = running;
   });
 
   const BATTLE_MODES: { id: BattleMode; label: string }[] = [
@@ -111,15 +113,16 @@
     viewedRecipe = { ...viewedRecipe, [id]: recipeId };
   }
 
-  // Jump chips and "Back" open a skill on a given recipe (the phone picker follows).
-  function openRecipe(id: SkillId, recipeId: string) {
-    viewRecipe(id, recipeId);
+  // Jump chips and "Back" open a skill, on a given recipe when there is one (the
+  // phone picker follows).
+  function openRecipe(id: SkillId, recipeId: string | null) {
+    if (recipeId) viewRecipe(id, recipeId);
     handleSelectSkill(id);
   }
 
   function handleStartTraining() {
-    if (!selectedSkill) return;
-    game.startTraining(selectedSkill, viewedRecipeOf(selectedSkill));
+    if (!selectedSkill || !viewedRecipeId) return;
+    game.startTraining(selectedSkill, viewedRecipeId);
   }
 
   function handleStopTraining() {
@@ -209,7 +212,11 @@
     <p class="text-muted-foreground">Loading…</p>
   </div>
 {:else}
-  <div class="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+  <!-- Side insets for notched phones in landscape (which get the md layout); the
+       phone nav pads the bottom itself, so only md and up pad it here. -->
+  <div
+    class="flex h-dvh flex-col overflow-hidden bg-background pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] text-foreground md:pb-[env(safe-area-inset-bottom)]"
+  >
     <PhoneHeader
       class="md:hidden"
       ageName={AGES[game.ageIndex].name}
@@ -300,16 +307,19 @@
               onSelect={handleSelectSkill}
             />
           {/if}
-          {#if centerTab === "train" && selectedSkill}
+          {#if centerTab === "train" && selectedSkill && viewedRecipeId}
             <TrainingView
               skillId={selectedSkill}
-              viewedRecipeId={viewedRecipeOf(selectedSkill)}
+              {viewedRecipeId}
               state={game.state}
+              levels={game.levels}
               level={game.levels[selectedSkill]}
               ageIndex={game.ageIndex}
               progress={game.displayProgress}
+              events={game.events}
               onStart={handleStartTraining}
               onStop={handleStopTraining}
+              onBack={openTraining}
               onViewRecipe={(recipeId) => viewRecipe(selectedSkill!, recipeId)}
               onJump={openRecipe}
             />
@@ -334,16 +344,14 @@
                 role="group"
                 aria-label="Battle mode"
                 class="grid shrink-0 grid-cols-2 gap-1 self-center rounded-full border border-border bg-card p-1"
-                title={battleActive ? "Finish the current battle to switch" : undefined}
               >
                 {#each BATTLE_MODES as m (m.id)}
                   <button
-                    class="min-h-9 rounded-full px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed {battleMode ===
+                    class="min-h-9 rounded-full px-4 text-sm font-medium transition-colors {battleMode ===
                     m.id
                       ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground enabled:hover:text-foreground disabled:opacity-50'}"
+                      : 'text-muted-foreground hover:text-foreground'}"
                     aria-pressed={battleMode === m.id}
-                    disabled={battleActive && battleMode !== m.id}
                     onclick={() => (battleMode = m.id)}
                   >
                     {m.label}
