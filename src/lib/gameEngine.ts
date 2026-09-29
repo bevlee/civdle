@@ -104,6 +104,8 @@ export interface GameState {
   resources: Partial<Record<ResourceId, number>>;
   skillPoints: number;
   activeSkill: SkillId | null;
+  /** When the current skill and recipe started training (ms); null while idle. */
+  trainingStartedAt: number | null;
   lastSavedAt: number;
   globalUpgrades: string[];
   gacha: GachaState;
@@ -134,6 +136,7 @@ export function createInitialState(): GameState {
     resources: {},
     skillPoints: 0,
     activeSkill: null,
+    trainingStartedAt: null,
     lastSavedAt: Date.now(),
     globalUpgrades: [],
     gacha: createInitialGachaState(),

@@ -239,6 +239,90 @@ describe("save lifecycle", () => {
   });
 });
 
+describe("training clock", () => {
+  beforeEach(() => {
+    vi.setSystemTime(1_000_000);
+    game.state.skills.crafting.xp = xpForLevel(5);
+    game.state.resources = { ...game.state.resources, wood: 100, stone: 100, plantFibres: 100 };
+  });
+
+  it("starts idle and records when training begins", () => {
+    expect(game.state.trainingStartedAt).toBeNull();
+    game.startTraining("crafting", "tools");
+    expect(game.state.trainingStartedAt).toBe(1_000_000);
+  });
+
+  it("keeps the start when the same skill and recipe are started again", () => {
+    game.startTraining("crafting", "tools");
+    vi.advanceTimersByTime(5_000);
+    game.startTraining("crafting", "tools");
+    game.startTraining("crafting");
+    expect(game.state.trainingStartedAt).toBe(1_000_000);
+  });
+
+  it("restarts the clock when the recipe or skill changes", () => {
+    game.startTraining("crafting", "tools");
+    vi.advanceTimersByTime(5_000);
+    game.startTraining("crafting", "cordage");
+    expect(game.state.trainingStartedAt).toBe(1_005_000);
+    vi.advanceTimersByTime(5_000);
+    game.startTraining("foraging");
+    expect(game.state.trainingStartedAt).toBe(1_010_000);
+  });
+
+  it("does not move the clock when a start is refused", () => {
+    game.startTraining("crafting", "tools");
+    vi.advanceTimersByTime(5_000);
+    expect(game.startTraining("crafting", "baskets")).toBe(false);
+    expect(game.state.trainingStartedAt).toBe(1_000_000);
+  });
+
+  it("clears on stop and when materials run out", () => {
+    game.startTraining("crafting", "tools");
+    game.stopTraining();
+    expect(game.state.trainingStartedAt).toBeNull();
+
+    game.state.resources = { wood: 1, stone: 1 };
+    game.startTraining("crafting", "tools");
+    expect(game.state.trainingStartedAt).not.toBeNull();
+    for (let i = 0; i < 100 && game.state.activeSkill; i++) vi.advanceTimersToNextTimer();
+    expect(game.state.activeSkill).toBeNull();
+    expect(game.state.trainingStartedAt).toBeNull();
+  });
+
+  describe("loading an older save", () => {
+    function loadSave(save: Record<string, unknown>) {
+      const storage = new Map<string, string>([["civdle-save", JSON.stringify(save)]]);
+      vi.stubGlobal("window", {
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+          removeItem: (key: string) => storage.delete(key),
+        },
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      });
+      cleanup = game.init();
+    }
+
+    function oldSave(activeSkill: string | null) {
+      const { trainingStartedAt: _, ...rest } = new CivdleGame().state;
+      return { ...rest, activeSkill, lastSavedAt: 1_000_000 };
+    }
+
+    it("treats training as running since the last save", () => {
+      loadSave(oldSave("foraging"));
+      expect(game.state.activeSkill).toBe("foraging");
+      expect(game.state.trainingStartedAt).toBe(1_000_000);
+    });
+
+    it("stays idle when nothing was training", () => {
+      loadSave(oldSave(null));
+      expect(game.state.trainingStartedAt).toBeNull();
+    });
+  });
+});
+
 describe("battle playback controls", () => {
   it.each(["story", "depths"] as const)("pauses %s combat and resumes without skipping a turn", mode => {
     equipWinner();

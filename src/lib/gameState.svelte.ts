@@ -135,6 +135,9 @@ function loadFromStorage(): GameState {
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
     if (!parsed.achievements || typeof parsed.achievements !== "object") parsed.achievements = {};
     if (!Array.isArray(parsed.settlementUpgrades)) parsed.settlementUpgrades = [];
+    // Older saves never recorded a start; training has run at least since the last save.
+    if (!parsed.activeSkill) parsed.trainingStartedAt = null;
+    else if (typeof parsed.trainingStartedAt !== "number") parsed.trainingStartedAt = parsed.lastSavedAt ?? Date.now();
     parsed.stats = { ...createInitialStats(), ...(parsed.stats ?? {}) };
 
     const oldGacha = parsed.gacha as (Partial<GachaState> & { heroes?: unknown }) | undefined;
@@ -421,7 +424,7 @@ export class CivdleGame {
 
     if (!result) {
       if (this.state.activeSkill === skillId) {
-        this.state = { ...this.state, activeSkill: null };
+        this.state = { ...this.state, activeSkill: null, trainingStartedAt: null };
       }
       return;
     }
@@ -462,6 +465,7 @@ export class CivdleGame {
         nextState = {
           ...nextState,
           activeSkill: null,
+          trainingStartedAt: null,
           stats: { ...nextState.stats, outOfMaterials: nextState.stats.outOfMaterials + 1 },
         };
       }
@@ -579,21 +583,32 @@ export class CivdleGame {
   // ----- Training methods -----
 
   // A recipeId the skill doesn't have, or hasn't reached the level for, leaves training untouched
-  // and returns false. Restarting the loops below always begins the action from zero.
+  // and returns false. Restarting the loops below always begins the action from zero, but the
+  // training clock only restarts when the skill or recipe actually changes.
   startTraining(skillId: SkillId, recipeId?: string): boolean {
+    const wasSkill = this.state.activeSkill;
+    const wasRecipe = wasSkill ? this.state.skills[wasSkill].selectedRecipeId : null;
     if (recipeId !== undefined) {
       const recipe = SKILLS[skillId].recipes.find((r) => r.id === recipeId);
       if (!recipe || recipe.requiredLevel > this.levels[skillId]) return false;
       this.selectRecipe(skillId, recipe.id);
     }
-    this.state = { ...this.state, activeSkill: skillId };
+    const unchanged =
+      wasSkill === skillId &&
+      wasRecipe === this.state.skills[skillId].selectedRecipeId &&
+      this.state.trainingStartedAt !== null;
+    this.state = {
+      ...this.state,
+      activeSkill: skillId,
+      trainingStartedAt: unchanged ? this.state.trainingStartedAt : Date.now(),
+    };
     this.#startActionLoop();
     this.#startProgressLoop();
     return true;
   }
 
   stopTraining(): void {
-    this.state = { ...this.state, activeSkill: null };
+    this.state = { ...this.state, activeSkill: null, trainingStartedAt: null };
     this.#clearActionLoop();
     this.#clearProgressLoop();
   }
