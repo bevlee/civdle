@@ -2,8 +2,8 @@
 // with a mouse, a pen or a finger (HTML5 drag and drop never fires on touch).
 //
 // Mark each board slot with `data-party-slot="<0-based index>"` inside an element
-// with `data-drag-board`, and a scrolling army list with `data-drag-scroll`.
-// (Not `data-slot`: the shadcn components already use that attribute.)
+// with `data-drag-board`, and a scrolling army list with `data-drag-scroll="x"` or
+// `"y"` (the way it scrolls). (Not `data-slot`: shadcn already uses that attribute.)
 
 import type { Action } from "svelte/action";
 import { indexToPosition, isFrontRow } from "./position";
@@ -16,23 +16,29 @@ export type DragSource =
 /** What a drop does to the party. A swap is left to `movePartyCard`. */
 export type DropResult = { assign: [cardId: string, slot: number] } | { remove: number };
 
+/** Where the pointer is: a slot, a gap on the board ("board"), or off the board (null). */
+export type DropTarget = number | "board" | null;
+
+/** The way a list scrolls, from its `data-drag-scroll`. */
+export type ScrollAxis = "x" | "y" | null;
+
 export interface DragState {
   source: DragSource;
   /** Pointer position in viewport pixels. */
   x: number;
   y: number;
-  /** The slot under the pointer, or null when it is off the board. */
-  over: number | null;
+  over: DropTarget;
 }
 
 /** Pixels the pointer must travel before a press becomes a drag rather than a tap. */
 export const DRAG_THRESHOLD = 6;
 
 /**
- * The party change for dropping `src` on `overSlot` (null = off the board).
- * A card from the army needs a slot; a hero dragged off the board leaves the party.
+ * The party change for dropping `src` on `overSlot`. A card from the army needs a
+ * slot; a hero dragged off the board leaves the party; a gap on the board does nothing.
  */
-export function resolveDrop(src: DragSource, overSlot: number | null): DropResult | null {
+export function resolveDrop(src: DragSource, overSlot: DropTarget): DropResult | null {
+  if (overSlot === "board") return null;
   if (overSlot === null) return src.type === "slot" ? { remove: src.slot } : null;
   if (src.type === "slot" && src.slot === overSlot) return null;
   return { assign: [src.cardId, overSlot] };
@@ -45,17 +51,19 @@ export function slotName(slot: number): string {
 }
 
 /** The caption under the drag ghost. */
-export function dragLabel(src: DragSource, overSlot: number | null): string {
-  if (overSlot !== null) return `Place · ${slotName(overSlot)}`;
-  return src.type === "slot" ? "Release to remove" : "Drop on a slot";
+export function dragLabel(src: DragSource, overSlot: DropTarget): string {
+  if (typeof overSlot === "number") return `Place · ${slotName(overSlot)}`;
+  return src.type === "slot" && overSlot === null ? "Release to remove" : "Drop on a slot";
 }
 
 /**
- * What the first real movement of a press means. In a list that scrolls along
- * `scrollAxis`, movement mostly along that axis scrolls it; anything else drags.
+ * What the first real movement of a press means. A finger in a list that scrolls
+ * along `scrollAxis` scrolls it when it moves mostly that way; anything else drags.
+ * A mouse or pen always drags (the wheel scrolls).
  */
-export function gestureIntent(dx: number, dy: number, scrollAxis: "x" | "y" | null): "wait" | "scroll" | "drag" {
+export function gestureIntent(dx: number, dy: number, scrollAxis: ScrollAxis, pointerType: string): "wait" | "scroll" | "drag" {
   if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return "wait";
+  if (pointerType !== "touch") return "drag";
   if (scrollAxis === "x" && Math.abs(dx) > Math.abs(dy)) return "scroll";
   if (scrollAxis === "y" && Math.abs(dy) > Math.abs(dx)) return "scroll";
   return "drag";
@@ -69,41 +77,45 @@ export interface DragPlaceOptions {
   onDrop?: (result: DropResult) => void;
   /** Formation locked (a battle is on): taps still work, drags don't. */
   locked?: boolean;
-  /** Ghost updates while dragging; null when the drag ends. */
+  /**
+   * Ghost updates while dragging; null when the drag ends. On a release that places
+   * the hero, `onDrop` runs first, so a null right after it means the drop landed.
+   */
   onDragState?: (state: DragState | null) => void;
 }
 
-/** The board slot under a viewport point, if any. */
-function slotAt(x: number, y: number): number | null {
-  const slot = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-party-slot]");
-  if (!slot?.closest("[data-drag-board]")) return null;
-  const index = Number(slot.dataset.partySlot);
-  return Number.isInteger(index) ? index : null;
+/** What is under a viewport point: a board slot, a gap on the board, or nothing. */
+function dropTargetAt(x: number, y: number): DropTarget {
+  const hit = document.elementFromPoint(x, y);
+  const board = hit?.closest("[data-drag-board]");
+  if (!hit || !board) return null;
+  const slot = hit.closest<HTMLElement>("[data-party-slot]");
+  const index = Number(slot?.dataset.partySlot);
+  return slot && board.contains(slot) && Number.isInteger(index) ? index : "board";
 }
 
-/** Which way a list scrolls right now, or null when it has nothing to scroll. */
-function scrollAxisOf(scroller: HTMLElement): "x" | "y" | null {
-  const style = getComputedStyle(scroller);
-  if (style.overflowX !== "hidden" && scroller.scrollWidth > scroller.clientWidth) return "x";
-  if (style.overflowY !== "hidden" && scroller.scrollHeight > scroller.clientHeight) return "y";
-  return null;
+/** The axis the list around `node` declares it scrolls along. */
+function scrollAxisOf(node: HTMLElement): ScrollAxis {
+  const axis = node.closest<HTMLElement>("[data-drag-scroll]")?.dataset.dragScroll;
+  return axis === "x" || axis === "y" ? axis : null;
 }
 
 interface Gesture {
   pointerId: number;
+  pointerType: string;
   x0: number;
   y0: number;
-  scroller: HTMLElement | null;
-  axis: "x" | "y" | null;
-  left0: number;
-  top0: number;
+  axis: ScrollAxis;
   mode: "wait" | "scroll" | "drag" | "ignore";
 }
+
+// One gesture at a time across every element (a second finger does nothing).
+let activeGesture: Gesture | null = null;
 
 /**
  * `use:dragPlace={{ source, onTap, onDrop, locked, onDragState }}`.
  * Give the element `touch-action: none` on the board, or `pan-x` / `pan-y` in a
- * list that scrolls that way, so the browser keeps native scrolling there.
+ * list that scrolls that way, so the browser keeps native touch scrolling there.
  */
 export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) => {
   let options = initial;
@@ -113,6 +125,7 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
     const g = gesture;
     gesture = null;
     if (!g) return;
+    if (activeGesture === g) activeGesture = null;
     if (node.hasPointerCapture?.(g.pointerId)) node.releasePointerCapture(g.pointerId);
     window.removeEventListener("keydown", onKey);
     if (notify && g.mode === "drag") options.onDragState?.(null);
@@ -123,12 +136,10 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
   }
 
   function down(e: PointerEvent) {
-    if (!options.source || e.button > 0 || gesture) return;
-    const scroller = options.source.type === "card" ? node.closest<HTMLElement>("[data-drag-scroll]") : null;
-    gesture = {
-      pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, scroller,
-      axis: scroller ? scrollAxisOf(scroller) : null,
-      left0: scroller?.scrollLeft ?? 0, top0: scroller?.scrollTop ?? 0, mode: "wait",
+    if (!options.source || e.button > 0 || gesture || activeGesture) return;
+    gesture = activeGesture = {
+      pointerId: e.pointerId, pointerType: e.pointerType, x0: e.clientX, y0: e.clientY,
+      axis: options.source.type === "card" ? scrollAxisOf(node) : null, mode: "wait",
     };
     try { node.setPointerCapture(e.pointerId); } catch { /* the pointer is already gone */ }
   }
@@ -138,33 +149,26 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
     if (!g || e.pointerId !== g.pointerId) return;
     const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
     if (g.mode === "wait") {
-      const intent = gestureIntent(dx, dy, g.axis);
+      const intent = gestureIntent(dx, dy, g.axis, g.pointerType);
       if (intent === "wait") return;
       g.mode = intent === "drag" && (options.locked || !options.source) ? "ignore" : intent;
       if (g.mode === "drag") window.addEventListener("keydown", onKey);
     }
-    if (g.mode === "scroll") {
-      // Touch scrolls natively (touch-action); a mouse or pen scrolls the list by hand.
-      if (e.pointerType !== "touch" && g.scroller) {
-        if (g.axis === "y") g.scroller.scrollTop = g.top0 - dy;
-        else g.scroller.scrollLeft = g.left0 - dx;
-      }
-      return;
-    }
+    // "scroll": the finger scrolls the list natively (touch-action) and cancels the pointer.
     if (g.mode !== "drag" || !options.source) return;
     e.preventDefault();
-    options.onDragState?.({ source: options.source, x: e.clientX, y: e.clientY, over: slotAt(e.clientX, e.clientY) });
+    options.onDragState?.({ source: options.source, x: e.clientX, y: e.clientY, over: dropTargetAt(e.clientX, e.clientY) });
   }
 
   function up(e: PointerEvent) {
     const g = gesture;
     if (!g || e.pointerId !== g.pointerId) return;
+    const result = g.mode === "drag" && options.source && !options.locked
+      ? resolveDrop(options.source, dropTargetAt(e.clientX, e.clientY))
+      : null;
+    if (result) options.onDrop?.(result);
     end(true);
     if (g.mode === "wait") options.onTap?.();
-    else if (g.mode === "drag" && options.source && !options.locked) {
-      const result = resolveDrop(options.source, slotAt(e.clientX, e.clientY));
-      if (result) options.onDrop?.(result);
-    }
   }
 
   function cancel(e: PointerEvent) {

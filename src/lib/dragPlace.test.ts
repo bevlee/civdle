@@ -24,6 +24,11 @@ describe("resolveDrop", () => {
   it("does nothing when a card is dropped off the board", () => {
     expect(resolveDrop(card, null)).toBeNull();
   });
+
+  it("does nothing when either is dropped in a gap on the board", () => {
+    expect(resolveDrop(card, "board")).toBeNull();
+    expect(resolveDrop(slot1, "board")).toBeNull();
+  });
 });
 
 describe("slotName", () => {
@@ -45,26 +50,37 @@ describe("dragLabel", () => {
     expect(dragLabel(card, null)).toBe("Drop on a slot");
     expect(dragLabel(slot1, null)).toBe("Release to remove");
   });
+
+  it("asks for a slot over a gap on the board", () => {
+    expect(dragLabel(card, "board")).toBe("Drop on a slot");
+    expect(dragLabel(slot1, "board")).toBe("Drop on a slot");
+  });
 });
 
 describe("gestureIntent", () => {
   it("waits until the pointer has moved 6px", () => {
-    expect(gestureIntent(3, 4, null)).toBe("wait");
-    expect(gestureIntent(5, 0, "x")).toBe("wait");
+    expect(gestureIntent(3, 4, null, "mouse")).toBe("wait");
+    expect(gestureIntent(5, 0, "x", "touch")).toBe("wait");
   });
 
   it("drags on the board whatever the direction", () => {
-    expect(gestureIntent(10, 0, null)).toBe("drag");
-    expect(gestureIntent(0, -10, null)).toBe("drag");
+    expect(gestureIntent(10, 0, null, "touch")).toBe("drag");
+    expect(gestureIntent(0, -10, null, "mouse")).toBe("drag");
   });
 
-  it("scrolls a horizontal strip on a mostly horizontal move and drags on a vertical one", () => {
-    expect(gestureIntent(-12, 4, "x")).toBe("scroll");
-    expect(gestureIntent(3, -12, "x")).toBe("drag");
+  it("scrolls a horizontal strip on a mostly horizontal touch and drags on a vertical one", () => {
+    expect(gestureIntent(-12, 4, "x", "touch")).toBe("scroll");
+    expect(gestureIntent(3, -12, "x", "touch")).toBe("drag");
   });
 
-  it("scrolls a vertical list on a mostly vertical move and drags on a horizontal one", () => {
-    expect(gestureIntent(2, 10, "y")).toBe("scroll");
-    expect(gestureIntent(10, 2, "y")).toBe("drag");
+  it("scrolls a vertical list on a mostly vertical touch and drags on a horizontal one", () => {
+    expect(gestureIntent(2, 10, "y", "touch")).toBe("scroll");
+    expect(gestureIntent(10, 2, "y", "touch")).toBe("drag");
+  });
+
+  it("always drags with a mouse or pen (the wheel scrolls)", () => {
+    expect(gestureIntent(2, 10, "y", "mouse")).toBe("drag");
+    expect(gestureIntent(0, -30, "y", "pen")).toBe("drag");
+    expect(gestureIntent(-12, 4, "x", "mouse")).toBe("drag");
   });
 });

@@ -71,6 +71,8 @@
   // Phones show the battle log and stats as a sheet over the battlefield.
   let showLog = $state(false);
   let summonOpen = $state(false);
+  // Phone: the army's expanded view covers the header and the board.
+  let armyCovering = $state(false);
   let selectedCardId = $state<string | null>(null);
   let selectedCard = $derived(gacha.cards.find(c => c.id === selectedCardId) ?? null);
   let resultReady = $state(false);
@@ -217,7 +219,7 @@
 <div class="combat-layout">
   <div class="combat-main">
     <!-- Phone: title and Fight, then one row of playback controls. -->
-    <div class="phone-header flex flex-col gap-2">
+    <div class="phone-header flex flex-col gap-2" inert={armyCovering}>
       <div class="flex items-center gap-3">
         <div class="flex min-w-0 flex-1 flex-col gap-0.5">
           <h2 class="truncate text-lg leading-tight font-bold tracking-tight">{levelTitle}</h2>
@@ -284,7 +286,7 @@
     {/if}
     {#if otherBattleActive}<p class="notice">A battle is running in {gacha.battleMode === "story" ? "Campaign" : "The Depths"}. Your formation is locked until it finishes.</p>{/if}
 
-    <section class="battlefield" aria-label="Battlefield" class:placing={drag !== null}>
+    <section class="battlefield" aria-label="Battlefield" class:placing={drag !== null} inert={armyCovering}>
       <div class="army-headings">
         <div>
           <h3>Your army</h3>
@@ -313,7 +315,7 @@
                 class="position-button" class:occupied={card !== null} class:drop-hover={drag?.over === slot}
                 class:drag-source={drag?.source.type === "slot" && drag.source.slot === slot} class:draggable={card !== null && !formationLocked}
                 disabled={card === null}
-                aria-label={`Position ${position}, ${row.toLowerCase()} row${card ? `: ${UNITS[card.unitId].name}, ${card.stars} stars` : ": empty"}`}
+                aria-label={`Position ${position}, ${row.toLowerCase()} row${card ? `: ${UNITS[card.unitId].name}, ${card.stars} stars` : ": empty — open a hero's details to place it here"}`}
                 title={`Position ${position} · ${isFrontRow(position) ? "Front row — targeted first" : "Back row"}${card ? formationLocked ? " · Tap for live stats" : " · Tap for details, drag to move" : " · Drag a hero here"}`}
                 use:dragPlace={{ source: card ? { type: "slot", slot, cardId: card.id } : null, locked: formationLocked, onTap: () => { if (card) selectedCardId = card.id; }, onDrop: applyDrop, onDragState: setDrag }}>
                 {#if card}
@@ -380,7 +382,7 @@
     </section>
 
     <div class="army-dock">
-      <ArmyInventory cards={gacha.cards} {partyIds} locked={formationLocked} {draggingId}
+      <ArmyInventory cards={gacha.cards} {partyIds} locked={formationLocked} {draggingId} bind:covering={armyCovering}
         onTap={cardId => selectedCardId = cardId} onDrop={applyDrop} onDragState={setDrag} onOpenSummon={() => (summonOpen = true)} />
     </div>
   </div>
@@ -415,6 +417,7 @@
     resources={game.state.resources} locked={formationLocked} readOnly={formationLocked}
     fighter={playerFighters.find(f => f.id === selectedCard.id)}
     onAddToParty={() => game.addCardToFirstEmptySlot(selectedCard!.id)} onRemoveFromParty={() => game.removeCardFromParty(selectedCard!.id)}
+    onPlace={(to) => game.assignCardToParty(selectedCard!.id, to)} slotCards={partySlots}
     {partyCards} onPromote={handlePromote} onClose={() => selectedCardId = null} />
 {/if}
 

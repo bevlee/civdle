@@ -3,6 +3,7 @@
     ATTACK_TYPES,
     FACTIONS,
     MAX_STARS,
+    PARTY_SIZE,
     UNITS,
     ULTIMATES,
     computeCardStats,
@@ -13,6 +14,7 @@
   import { activeTraitsForCard, countTraits, tierFor } from "$lib/traits";
   import { RARITY_NAMES, rarityColor } from "$lib/rarity";
   import { slotName } from "$lib/dragPlace";
+  import { Dialog } from "bits-ui";
   import { MediaQuery } from "svelte/reactivity";
   import { Button } from "$lib/components/ui/button";
   import Hint from "./Hint.svelte";
@@ -36,6 +38,8 @@
     fighter,
     onAddToParty,
     onRemoveFromParty,
+    onPlace,
+    slotCards = [],
     partyCards = [],
     onPromote,
     onClose,
@@ -56,6 +60,10 @@
     fighter?: Fighter;
     onAddToParty?: () => void;
     onRemoveFromParty?: () => void;
+    /** Put the hero in a party slot (0-based); the game swaps out whoever is there. */
+    onPlace?: (slot: number) => void;
+    /** Who is in each party slot, to name what a placement swaps with. */
+    slotCards?: (UnitCardT | null)[];
     partyCards?: UnitCardT[];
     onPromote?: () => void;
     onClose: () => void;
@@ -88,16 +96,25 @@
   let showRemove = $derived(inParty && onRemoveFromParty !== undefined);
   let showAdd = $derived(!inParty && !readOnly && onAddToParty !== undefined);
 
-  // Open the sheet on Done rather than the first trait chip, whose tooltip would pop open.
-  let doneButton = $state<HTMLElement | null>(null);
+  let showSlotPicker = $derived(showPlacement && onPlace !== undefined);
+  const slots = Array.from({ length: PARTY_SIZE }, (_, i) => i);
 
-  function handleKeydown(e: KeyboardEvent) {
-    // The sheet handles Esc itself.
-    if (e.key === "Escape" && wide.current) onClose();
+  function slotLabel(i: number): string {
+    const name = slotName(i);
+    if (i === slot) return `${name}, current slot`;
+    const other = slotCards[i];
+    if (!other) return `${name}, empty`;
+    // In the party the two trade places; from the army the hero there goes back to the army.
+    return `${name}, ${inParty ? "swap with" : "replaces"} ${UNITS[other.unitId].name}`;
+  }
+
+  // Open on Done rather than the first trait chip, whose tooltip would pop open.
+  let doneButton = $state<HTMLElement | null>(null);
+  function focusDone(e: Event) {
+    e.preventDefault();
+    doneButton?.focus({ preventScroll: true });
   }
 </script>
-
-<svelte:window onkeydown={handleKeydown} />
 
 {#snippet body()}
   <div class="unit-details flex flex-col gap-4 pb-1 text-sm">
@@ -195,9 +212,39 @@
     {/if}
 
     {#if showPlacement}
-      <p class="flex min-h-11 items-center rounded-xl bg-background px-3.5 text-sm {inParty ? 'text-green-400' : 'text-muted-foreground'}">
-        {inParty && slot !== null && slot !== undefined ? `In party · ${slotName(slot)}` : "Not in party — drag onto the board to place"}
-      </p>
+      <div class="flex flex-col gap-2 rounded-xl bg-background px-3.5 py-2.5">
+        <p class="text-sm {inParty ? 'text-green-400' : 'text-muted-foreground'}" aria-live="polite">
+          {#if inParty && slot !== null && slot !== undefined}
+            In party · {slotName(slot)}
+          {:else if locked}
+            Place heroes after the battle
+          {:else}
+            Not in party — pick a slot, or drag it onto the board
+          {/if}
+        </p>
+        {#if showSlotPicker}
+          <div class="flex flex-col gap-1.5" role="group" aria-labelledby="place-in-label">
+            <span id="place-in-label" class="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Place in</span>
+            <div class="grid grid-cols-5 gap-1.5">
+              {#each slots as i (i)}
+                {@const current = i === slot}
+                <button
+                  class="flex h-11 min-w-0 items-center justify-center rounded-lg border px-1 text-[12px] md:h-9 font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 {current
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-foreground enabled:hover:bg-accent'}"
+                  aria-pressed={current}
+                  aria-label={slotLabel(i)}
+                  title={slotLabel(i)}
+                  disabled={locked}
+                  onclick={() => { if (!current) onPlace?.(i); }}
+                >
+                  {slotName(i)}
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
     {/if}
 
     <div class="flex gap-2">
@@ -215,22 +262,27 @@
 {/snippet}
 
 {#if wide.current}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4" onclick={onClose}>
-    <div
-      class="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-popover p-5 shadow-2xl"
-      onclick={(e) => e.stopPropagation()}
-      role="dialog"
-      tabindex="-1"
-      aria-label={`${def.name} details`}
-    >
-      {@render body()}
-    </div>
-  </div>
+  <!-- A centred dialog on the bits-ui Dialog (like the summon panel's): it traps focus,
+       closes on Esc or a backdrop click, and hands focus back to the opener. -->
+  <Dialog.Root
+    open
+    onOpenChange={(next) => {
+      if (!next) onClose();
+    }}
+  >
+    <Dialog.Portal>
+      <Dialog.Overlay class="fixed inset-0 z-[90] bg-black/60" />
+      <Dialog.Content
+        onOpenAutoFocus={focusDone}
+        class="fixed top-1/2 left-1/2 z-[90] max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-popover p-5 text-popover-foreground shadow-2xl outline-none"
+      >
+        <Dialog.Title class="sr-only">{def.name} details</Dialog.Title>
+        {@render body()}
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>
 {:else}
-  <BottomSheet open {onClose} title={`${def.name} details`} hideTitle
-    onOpenAutoFocus={(e) => { e.preventDefault(); doneButton?.focus({ preventScroll: true }); }}>
+  <BottomSheet open {onClose} title={`${def.name} details`} hideTitle onOpenAutoFocus={focusDone}>
     {@render body()}
   </BottomSheet>
 {/if}
