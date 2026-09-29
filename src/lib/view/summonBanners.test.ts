@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UnitCard, UnitId } from "../combatData";
 import { AGES } from "../gameData";
+import { CivdleGame } from "../gameState.svelte";
+import type { SettlementUpgradeId } from "../settlementData";
 import { getEffectiveRollRates, BASE_RATES, GRAND_FEAST_RATES, rollRateUpgrade } from "../settlementData";
 import { bestPull, oddsSource, pulledCards, summonBanners, theAge, type BannerInput } from "./summonBanners";
 
@@ -99,5 +101,40 @@ describe("pulledCards", () => {
   it("is empty when nothing was added", () => {
     expect(pulledCards(before, before)).toEqual([]);
     expect(bestPull([])).toBeNull();
+  });
+});
+
+describe("summonBanners against the game", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  const finalAge = AGES.length - 1;
+  const states: { ageIndex: number; built: SettlementUpgradeId[] }[] = [
+    { ageIndex: 0, built: [] },
+    { ageIndex: finalAge, built: [] },
+    { ageIndex: finalAge - 1, built: ["celestialAltar"] },
+    { ageIndex: finalAge, built: ["celestialAltar"] },
+    { ageIndex: 2, built: ["hallOfLegends"] },
+    { ageIndex: finalAge, built: ["celestialAltar", "hallOfLegends"] },
+  ];
+
+  it.each(states)("locks the banners exactly when the game refuses them (age $ageIndex, built $built)", ({ ageIndex, built }) => {
+    const game = new CivdleGame();
+    game.state.ageIndex = ageIndex;
+    game.state.settlementUpgrades = built;
+    const [standard, legendary, pack] = summonBanners({
+      tribute: 0,
+      glory: 0,
+      maxStars: game.maxSummonStars,
+      ageIndex: game.state.ageIndex,
+      hasCelestialAltar: game.hasCelestialAltar,
+      hasHallOfLegends: game.hasHallOfLegends,
+    });
+    expect(standard.locked).toBe(false);
+    expect(legendary.locked).toBe(!game.legendarySummonsUnlocked);
+    expect(pack.locked).toBe(!game.hasHallOfLegends);
   });
 });

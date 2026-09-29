@@ -60,7 +60,8 @@
 
   let sortKey = $state<SortKey>("stars");
   let sortDesc = $state(true);
-  let filter = $state<ArmyFilter>({ ...NO_FILTER });
+  // What the player picked; `filter` drops a trait whose last card was promoted away.
+  let picked = $state<ArmyFilter>({ ...NO_FILTER });
 
   // Phone: the filter view over the board, and whether a drag started from its grid.
   let expanded = $state(false);
@@ -68,10 +69,7 @@
 
   // Only offer traits the player actually owns.
   let traits = $derived(ownedTraits(cards));
-  // Drop a trait filter whose last card was promoted away.
-  $effect(() => {
-    if (filter.trait !== null && !traits.includes(filter.trait)) filter = { ...filter, trait: null };
-  });
+  let filter = $derived(picked.trait !== null && !traits.includes(picked.trait) ? { ...picked, trait: null } : picked);
 
   let filtered = $derived(isFiltered(filter));
   let shown = $derived(sortArmy(filterArmy(cards, filter), sortKey, sortDesc));
@@ -81,10 +79,11 @@
   let countLabel = $derived(filtered ? `${shown.length}/${cards.length}` : `${cards.length}`);
   let promotable = $derived(promotableIds(cards));
 
-  const clearFilters = () => (filter = { ...NO_FILTER });
-  const setStars = (stars: StarFilter) => (filter = { ...filter, stars });
-  const setType = (type: TypeFilter) => (filter = { ...filter, type });
-  const toggleTrait = (trait: Trait) => (filter = { ...filter, trait: filter.trait === trait ? null : trait });
+  const clearFilters = () => (picked = { ...NO_FILTER });
+  const setStars = (stars: StarFilter) => (picked = { ...filter, stars });
+  const setType = (type: TypeFilter) => (picked = { ...filter, type });
+  const setTrait = (trait: Trait | null) => (picked = { ...filter, trait });
+  const toggleTrait = (trait: Trait) => setTrait(filter.trait === trait ? null : trait);
 
   let toggleButton = $state<HTMLElement | null>(null);
   let doneButton = $state<HTMLElement | null>(null);
@@ -163,7 +162,7 @@
       onDragState: variant === "grid" ? gridDragState : onDragState,
     }}
     aria-label={`${name}, ${card.stars} stars${inParty ? ", deployed" : ""}`}
-    title={`${name} — drag onto the battlefield, or tap for details`}
+    title={`${name} — drag onto the battlefield, or click for details`}
   >
     <UnitCard
       unitId={card.unitId}
@@ -250,7 +249,7 @@
           class={cn("rounded border bg-muted px-1.5 py-0.5 text-[16px]", filter.trait === null ? "border-border" : "border-primary")}
           aria-label="Filter by trait"
           value={filter.trait ?? "all"}
-          onchange={(e) => (filter = { ...filter, trait: e.currentTarget.value === "all" ? null : (e.currentTarget.value as Trait) })}
+          onchange={(e) => setTrait(e.currentTarget.value === "all" ? null : (e.currentTarget.value as Trait))}
         >
           <option value="all">All traits</option>
           {#each traits as t (t)}
@@ -286,7 +285,7 @@
         </div>
       {/if}
     </div>
-    <p class="px-3 pb-2 text-[15px] text-muted-foreground">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or tap it for details."}</p>
+    <p class="px-3 pb-2 text-[15px] text-muted-foreground">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or click it for details."}</p>
   </div>
 {:else}
   <!-- Phone dock: one header row and one strip of cards that scrolls sideways; a vertical

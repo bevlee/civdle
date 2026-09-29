@@ -234,7 +234,7 @@
       </div>
       <div class="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Battle playback">
         <button class="h-9 w-10 shrink-0 rounded-[10px] border border-border text-[13px] transition-colors disabled:opacity-40 {game.battlePaused ? 'text-foreground' : 'text-muted-foreground'}"
-          disabled={!battle} aria-pressed={game.battlePaused} aria-label={game.battlePaused ? "Resume battle" : "Pause battle"}
+          disabled={!battle} aria-pressed={game.battlePaused} aria-label="Pause battle"
           onclick={() => game.setBattlePaused(!game.battlePaused)}>{game.battlePaused ? "▶" : "Ⅱ"}</button>
         <div class="flex shrink-0 overflow-hidden rounded-[10px] border border-border" role="group" aria-label="Battle speed">
           {#each [0.5, 1, 2] as speed}
@@ -271,7 +271,7 @@
     </header>
 
     <div class="playback-controls" role="group" aria-label="Battle playback">
-      <button disabled={!battle} aria-pressed={game.battlePaused} onclick={() => game.setBattlePaused(!game.battlePaused)}>{game.battlePaused ? "▶ Resume" : "Ⅱ Pause"}</button>
+      <button disabled={!battle} class:paused={game.battlePaused} onclick={() => game.setBattlePaused(!game.battlePaused)}>{game.battlePaused ? "▶ Resume" : "Ⅱ Pause"}</button>
       <div role="group" aria-label="Battle speed">
         {#each [0.5, 1, 2] as speed}
           <button aria-label={`${speed}× battle speed`} aria-pressed={game.battleSpeed === speed} onclick={() => game.setBattleSpeed(speed as BattleSpeed)}>{speed === 0.5 ? "½" : speed}×</button>
@@ -316,7 +316,7 @@
                 class:drag-source={drag?.source.type === "slot" && drag.source.slot === slot} class:draggable={card !== null && !formationLocked}
                 disabled={card === null}
                 aria-label={`Position ${position}, ${row.toLowerCase()} row${card ? `: ${UNITS[card.unitId].name}, ${card.stars} stars` : ": empty — open a hero's details to place it here"}`}
-                title={`Position ${position} · ${isFrontRow(position) ? "Front row — targeted first" : "Back row"}${card ? formationLocked ? " · Tap for live stats" : " · Tap for details, drag to move" : " · Drag a hero here"}`}
+                title={`Position ${position} · ${isFrontRow(position) ? "Front row — targeted first" : "Back row"}${card ? formationLocked ? " · Click for live stats" : " · Click for details, drag to move" : " · Drag a hero here"}`}
                 use:dragPlace={{ source: card ? { type: "slot", slot, cardId: card.id } : null, locked: formationLocked, onTap: () => { if (card) selectedCardId = card.id; }, onDrop: applyDrop, onDragState: setDrag }}>
                 {#if card}
                   <div class={fighterClass(fighter)} use:attackMotion={{ active: actingId !== null && actingId === fighter?.id, key: animationKey, ultimate: actingKind === "ultimate", distance: movement * (fighter?.isEnemy ? -1 : 1) }}><BattleUnit {card} {fighter} ultEvery={battle?.playerMods.ultEvery ?? 3} castingUltimate={actingId === fighter?.id && actingKind === "ultimate"} pose={fighterPose(fighter)} animate={isPlaying} /></div>
@@ -376,7 +376,7 @@
         {#if battleDone && resultReady}
           <span>{mode === "depths" && gacha.depths.auto ? "Auto continuing…" : game.battlePaused ? "Paused" : "Continuing…"}</span>
         {:else if isPlaying}<span>{game.battlePaused ? "Battle paused" : "Battle in progress"} · Turn {battle?.turn}</span><span>Formation locked</span>
-        {:else if !formationLocked}<span>Drag heroes onto a slot · tap one for details</span>
+        {:else if !formationLocked}<span><span class="md:hidden">Drag heroes onto a slot · tap one for details</span><span class="max-md:hidden">Drag heroes onto a slot · click one for details</span></span>
         {/if}
       </footer>
     </section>
@@ -442,7 +442,7 @@
   .playback-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 15px; color: var(--muted-foreground); }
   .playback-controls > div { display: flex; gap: 2px; }
   .playback-controls button { border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; cursor: pointer; }
-  .playback-controls button[aria-pressed="true"] { color: #eee; background: #ffffff18; border-color: #ffffff40; }
+  .playback-controls button[aria-pressed="true"], .playback-controls button.paused { color: #eee; background: #ffffff18; border-color: #ffffff40; }
   .playback-controls button:disabled { opacity: .4; cursor: default; }
   .sound-toggle { margin-left: auto; }
   .combat-main { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
