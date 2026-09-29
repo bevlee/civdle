@@ -17,28 +17,44 @@
   import { ACHIEVEMENTS, unlockedCount } from "$lib/achievements";
   import DebugPanel from "$lib/components/DebugPanel.svelte";
   import { page } from "$app/state";
+  import type { BattleMode } from "$lib/combatEngine";
 
   const game = new CivdleGame();
 
   let isDebug = $derived(page.url.searchParams.has("debug"));
 
-  type CenterTab = "train" | "story" | "depths" | "settlement" | "items" | "achievements";
+  type CenterTab = "train" | "battle" | "settlement" | "items" | "achievements";
 
   let selectedSkill = $state<SkillId | null>(null);
   let centerTab = $state<CenterTab>("train");
   let achievementCount = $derived(unlockedCount(game.state));
   let rightTab = $state<"inventory" | "shop">("inventory");
-  let isCombatTab = $derived(centerTab === "story" || centerTab === "depths");
+  let isCombatTab = $derived(centerTab === "battle");
+
+  // Campaign and The Abyss share the Battle tab. The tab follows whichever mode
+  // has a battle on the field, so it opens on the fight that is running.
+  let battleMode = $state<BattleMode>("story");
+  // Any battle on the field (running or showing its result) locks the formation,
+  // so the mode can't be switched until it is cleared.
+  let battleActive = $derived(game.state.gacha.battle !== null);
+  $effect(() => {
+    const running = game.state.gacha.battleMode;
+    if (running) battleMode = running;
+  });
+
+  const BATTLE_MODES: { id: BattleMode; label: string }[] = [
+    { id: "story", label: "Campaign" },
+    { id: "depths", label: "The Abyss" },
+  ];
 
   // "items" is the Inventory/Shop sidebar folded into a tab for narrow screens,
   // so it is hidden where the sidebar is shown (lg and up).
-  const TABS: { id: CenterTab; label: string; short: string; icon: string; combat?: boolean; narrowOnly?: boolean }[] = [
-    { id: "train", label: "Train", short: "Train", icon: "⚒" },
-    { id: "story", label: "Campaign", short: "Campaign", icon: "⚔", combat: true },
-    { id: "depths", label: "The Abyss", short: "Abyss", icon: "🌀", combat: true },
-    { id: "settlement", label: "Settlement", short: "Town", icon: "🏘" },
-    { id: "items", label: "Items", short: "Items", icon: "🎒", narrowOnly: true },
-    { id: "achievements", label: "Achievements", short: "Awards", icon: "🏆" },
+  const TABS: { id: CenterTab; label: string; icon: string; combat?: boolean; narrowOnly?: boolean }[] = [
+    { id: "train", label: "Train", icon: "⚒" },
+    { id: "battle", label: "Battle", icon: "⚔", combat: true },
+    { id: "settlement", label: "Town", icon: "🏘" },
+    { id: "items", label: "Items", icon: "🎒", narrowOnly: true },
+    { id: "achievements", label: "Achievements", icon: "🏆" },
   ];
 
   onMount(() => {
@@ -244,13 +260,29 @@
                 and The Abyss, and a 4★ hero joins your cause.
               </p>
             </div>
-          {:else if centerTab === "story"}
-            <div class="flex min-h-0 flex-1 flex-col p-2 sm:p-3">
-              <CombatView {game} mode="story" />
-            </div>
-          {:else if centerTab === "depths"}
-            <div class="flex min-h-0 flex-1 flex-col p-2 sm:p-3">
-              <CombatView {game} mode="depths" />
+          {:else if centerTab === "battle"}
+            <div class="flex min-h-0 flex-1 flex-col gap-2 p-2 sm:p-3">
+              <div
+                role="group"
+                aria-label="Battle mode"
+                class="grid shrink-0 grid-cols-2 gap-1 self-center rounded-full border border-border bg-card p-1"
+                title={battleActive ? "Finish the current battle to switch" : undefined}
+              >
+                {#each BATTLE_MODES as m (m.id)}
+                  <button
+                    class="min-h-9 rounded-full px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed {battleMode ===
+                    m.id
+                      ? 'bg-accent text-foreground'
+                      : 'text-muted-foreground enabled:hover:text-foreground disabled:opacity-50'}"
+                    aria-pressed={battleMode === m.id}
+                    disabled={battleActive && battleMode !== m.id}
+                    onclick={() => (battleMode = m.id)}
+                  >
+                    {m.label}
+                  </button>
+                {/each}
+              </div>
+              <CombatView {game} mode={battleMode} />
             </div>
           {:else if centerTab === "settlement"}
             <SettlementView
@@ -278,27 +310,38 @@
     <!-- Phone navigation: thumb-reachable tabs along the bottom edge -->
     <nav
       aria-label="Sections"
-      class="grid shrink-0 grid-cols-6 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+      class="grid shrink-0 grid-cols-5 border-t border-border bg-background pt-1.5 pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       {#each TABS as tab (tab.id)}
         {@const active = centerTab === tab.id}
+        {@const dot =
+          tab.id === "train" && game.state.activeSkill
+            ? { color: "bg-green-500", label: "training" }
+            : tab.id === "battle" && battleActive
+              ? { color: "bg-amber-400", label: "battle running" }
+              : null}
         <button
-          class="relative flex flex-col items-center gap-0.5 px-0.5 pt-2 pb-1.5 text-[10px] font-medium transition-colors {active
+          class="flex min-h-13 min-w-0 flex-col items-center gap-1 px-0.5 pt-0.5 pb-1 text-[11px] font-semibold tracking-[-0.01em] transition-colors {active
             ? 'text-foreground'
             : 'text-muted-foreground'}"
           aria-current={active ? "page" : undefined}
           onclick={() => (centerTab = tab.id)}
         >
-          {#if active}<span class="absolute inset-x-3 top-0 h-0.5 rounded-full bg-primary"></span>{/if}
-          <span class="text-base leading-none {active ? '' : 'opacity-70 grayscale'}" aria-hidden="true">
-            {tab.combat && !game.combatUnlocked ? "🔒" : tab.icon}
+          <span
+            class="relative flex h-7 w-11 items-center justify-center rounded-full text-lg leading-none transition-colors duration-200 {active
+              ? 'bg-accent'
+              : ''}"
+            aria-hidden="true"
+          >
+            <span class={active ? "" : "opacity-70 grayscale"}>
+              {tab.combat && !game.combatUnlocked ? "🔒" : tab.icon}
+            </span>
+            {#if dot}
+              <span class="absolute -top-0.5 -right-0.5 size-2 rounded-full border-2 border-background box-content {dot.color}"></span>
+            {/if}
           </span>
-          <span class="truncate">{tab.short}</span>
-          {#if game.state.gacha.battle && game.state.gacha.battleMode === tab.id}
-            <span class="absolute top-1.5 right-1/4 size-1.5 rounded-full bg-amber-400" aria-label="Battle running"></span>
-          {:else if tab.id === "train" && game.state.activeSkill}
-            <span class="absolute top-1.5 right-1/4 size-1.5 rounded-full bg-green-500" aria-label="Training"></span>
-          {/if}
+          <span class="max-w-full truncate">{tab.label}</span>
+          {#if dot}<span class="sr-only">({dot.label})</span>{/if}
         </button>
       {/each}
     </nav>
