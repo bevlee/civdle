@@ -132,7 +132,7 @@
 
 {#snippet body()}
   <div class="flex flex-col gap-4 pt-3 pb-1">
-    <div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Banner">
+    <div class="grid grid-cols-3 gap-2" role="group" aria-label="Banner">
       {#each banners as b (b.id)}
         {@const on = b.id === banner.id}
         <button
@@ -140,8 +140,7 @@
             "flex min-h-[74px] min-w-0 flex-col items-start justify-between gap-1.5 rounded-xl border p-2.5 text-left transition-colors",
             on ? "border-primary bg-accent" : "border-border bg-card hover:bg-accent/50",
           )}
-          role="radio"
-          aria-checked={on}
+          aria-pressed={on}
           onclick={() => pick(b.id)}
         >
           <span class={cn("text-[11px] leading-none tracking-[-1px]", b.locked ? "text-muted-foreground/50" : "text-yellow-400")} aria-label={`${b.stars} stars`}>
