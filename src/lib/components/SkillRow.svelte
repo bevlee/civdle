@@ -15,7 +15,6 @@
     onSelect,
     events,
     onDismissEvent,
-    class: className,
   }: {
     id: SkillId;
     level: number;
@@ -25,7 +24,6 @@
     onSelect: (id: SkillId) => void;
     events: QueuedEvent[];
     onDismissEvent: (id: string) => void;
-    class?: string;
   } = $props();
 
   let levelUpEvent = $derived(
@@ -55,7 +53,6 @@
     "relative flex flex-col gap-1 overflow-hidden rounded-md px-3 py-2 text-left transition-colors hover:bg-accent",
     isSelected && "bg-accent",
     unlockEvent && "animate-slide-in-right",
-    className,
   )}
 >
   {#if levelUpEvent}

@@ -141,10 +141,15 @@
   );
   let ageProgress = $derived(checklistProgress(ageItems));
 
+  // Bumped when the header opens the training skill, so the phone picker reopens
+  // its group even when that skill was already selected.
+  let revealNonce = $state(0);
+
   function openTraining() {
     const active = game.state.activeSkill;
     if (active) openRecipe(active, game.state.skills[active].selectedRecipeId);
     centerTab = "train";
+    revealNonce += 1;
   }
 
   let highlightedResources = $derived.by(() => {
@@ -237,9 +242,7 @@
         ageBonus={game.ageBonus}
         skillPoints={game.state.skillPoints}
         warSpoils={game.state.gacha.gold}
-        levels={game.levels}
-        unlocked={(id) => game.state.skills[id].unlocked}
-        resources={game.state.resources}
+        checklist={ageItems}
         ageAdvanceStatus={game.ageAdvanceStatus}
         onAdvance={() => game.advanceAgeAction()}
         events={game.events}
@@ -304,6 +307,7 @@
               state={game.state}
               levels={game.levels}
               {selectedSkill}
+              {revealNonce}
               onSelect={handleSelectSkill}
             />
           {/if}
@@ -446,7 +450,8 @@
               <span class="absolute -top-0.5 -right-0.5 size-2 rounded-full border-2 border-background box-content {dot.color}"></span>
             {/if}
           </span>
-          <span class="max-w-full truncate">{tab.label}</span>
+          <!-- "Achievements" is the longest label; a touch smaller, it fits a 375px-wide phone. -->
+          <span class="max-w-full truncate {tab.id === 'achievements' ? 'text-[10.5px] tracking-tight' : ''}">{tab.label}</span>
           {#if dot}<span class="sr-only">({dot.label})</span>{/if}
         </button>
       {/each}

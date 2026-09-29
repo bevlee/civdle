@@ -46,8 +46,10 @@
   const recipeLine = (r: Recipe) =>
     r.inputs.length > 0 ? `${resourceNames(r.inputs)} → ${resourceNames(r.outputs)}` : resourceNames(r.outputs);
 
-  // The desktop card slides out before closing.
+  // The desktop card and the phone sheet slide out before closing.
   let visible = $state(false);
+  let closing = $state(false);
+  let pending: (() => void) | null = null;
   let closeTimeout: ReturnType<typeof setTimeout> | null = null;
 
   onMount(() => {
@@ -55,14 +57,24 @@
     return () => cancelAnimationFrame(frame);
   });
 
+  // Removed mid-slide (another popup took over): still carry out the choice.
   onDestroy(() => {
     if (closeTimeout !== null) clearTimeout(closeTimeout);
+    finishClose();
   });
 
+  function finishClose() {
+    const then = pending;
+    pending = null;
+    then?.();
+  }
+
   function closeCard(then: () => void) {
-    if (closeTimeout !== null) return;
+    if (closing) return;
+    closing = true;
     visible = false;
-    closeTimeout = setTimeout(then, 200);
+    pending = then;
+    closeTimeout = setTimeout(finishClose, wide.current ? 200 : 220);
   }
 </script>
 
@@ -123,7 +135,7 @@
     </div>
   </div>
 {:else}
-  <BottomSheet open onClose={onLater} title={`New skill discovered: ${def.name}`} hideTitle>
+  <BottomSheet open={!closing} onClose={() => closeCard(onLater)} title={`New skill discovered: ${def.name}`} hideTitle>
     <div class="flex flex-col gap-4 pt-1">
       <div class="flex flex-col gap-1">
         <span class="text-xs font-semibold tracking-[0.08em] text-emerald-400 uppercase">New skill discovered</span>
@@ -141,14 +153,14 @@
       <div class="flex gap-2">
         <button
           class="h-[50px] shrink-0 rounded-xl border border-border px-[18px] text-[15px] font-semibold text-muted-foreground transition-colors active:bg-accent"
-          onclick={onLater}
+          onclick={() => closeCard(onLater)}
         >
           Later
         </button>
         {#if first}
           <button
             class="h-[50px] min-w-0 flex-1 truncate rounded-xl bg-primary px-3 text-base font-semibold text-primary-foreground transition-opacity active:opacity-80"
-            onclick={() => onStart(first.id)}
+            onclick={() => closeCard(() => onStart(first.id))}
           >
             Start {first.name}
           </button>

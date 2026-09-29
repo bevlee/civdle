@@ -13,12 +13,15 @@
     state: game,
     levels,
     selectedSkill,
+    revealNonce = 0,
     onSelect,
     class: className,
   }: {
     state: GameState;
     levels: Record<SkillId, number>;
     selectedSkill: SkillId | null;
+    /** Bump to reopen the selected skill's group even when the selection is unchanged. */
+    revealNonce?: number;
     onSelect: (id: SkillId) => void;
     class?: string;
   } = $props();
@@ -28,8 +31,12 @@
   let groups = $derived(skillGroups(game));
 
   // Follows the selected skill's group, so a selection made elsewhere (the header,
-  // an unlock) opens its group; the buttons override it until the selection changes.
-  let openGroup = $derived<SkillGroupLabel | null>(selectedSkill ? groupOf(selectedSkill) : null);
+  // an unlock) opens its group; the buttons override it until the selection changes
+  // or the page asks to reveal it again.
+  let openGroup = $derived.by<SkillGroupLabel | null>(() => {
+    void revealNonce;
+    return selectedSkill ? groupOf(selectedSkill) : null;
+  });
 
   let open = $derived(groups.find((g) => g.label === openGroup) ?? null);
 </script>
