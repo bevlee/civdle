@@ -474,3 +474,40 @@ narrow-only Shop tab. Remove the `design-preview` entry from `.claude/launch.jso
 
 - Mark skills that are short on inputs in the chip grid.
 - Long-press a chip to preview it without leaving the current skill.
+
+---
+
+## Outcome (2026-09-29)
+
+**Shipped** on `feat/mobile-3a`: everything in "What 3a changes" and the six desktop decisions. Phones get the
+five-tab bottom nav, the new header and age sheet, the Gathering/Production picker, the Train detail with Uses/Makes
+and jump chips, the sticky action bar, the now-playing bar and bottom sheets. Both layouts share the viewed-vs-active
+recipe, one Battle tab with pointer drag and hero details, the Summon panel (sheet or dialog), Town = Shop | Settlement,
+Items as inventory only, filtered Achievements, and the one-overlay-at-a-time queue with a grouped achievements toast.
+Phone controls have 44px hit areas (a `tap-target` utility enlarges small ones without changing their look). Final
+check: 357 tests, `npm run check` clean, no horizontal scroll at 360px.
+
+**Deliberate deviations from the design**
+
+- An age advance outranks a skill unlock in the overlay queue (the age celebration shows first, then the new-skill sheet).
+- Settlement odds bars use the real age cap and the engine's renormalised odds, not the mockup's numbers.
+- Settlement has a fourth group, "Locked", for buildings whose prereqs aren't met.
+- The army star filter matches base rarity (the card's stars), not promoted stars.
+- The expanded army grid hint reads "Drag a hero sideways to lift it" (vertical drags scroll the grid).
+- The Campaign/Abyss switch stays enabled mid-battle; the other mode says a battle is running there.
+- Desktop shares the new Train detail layout (Uses/Makes card, stat tiles) above its in-page Train button.
+- The achievements skills section is named "Skill combos"; milestones have their own grid.
+- Hero details have a "Place in" slot picker, so placement works by keyboard and without dragging.
+- On small phones the expanded army's Clear button sits in the filter chip row, since the header has no room for it.
+
+**Known gaps**
+
+- Touch was tested only with emulation, not on a real device.
+- Landscape notches are only partly handled (side safe-area insets; landscape phones get the `md` layout).
+- The board's small synergy chips stay 22px tall (they're hover hints and a larger hit area would cover the top slot).
+- `ui/tabs` and `EncounterPanel.svelte` were already unused on `main`; they were left alone.
+
+**Follow-ups** (from the design's "Try next")
+
+- Mark skills that are short on inputs in the chip grid.
+- Long-press a chip to preview it without leaving the current skill.
