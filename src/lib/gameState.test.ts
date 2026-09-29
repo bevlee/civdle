@@ -406,3 +406,48 @@ describe("debug ages", () => {
     expect(game.maxSummonStars).toBe(4);
   });
 });
+
+describe("startTraining with a recipe", () => {
+  beforeEach(() => {
+    game.state.skills.crafting.xp = xpForLevel(5);
+    game.state.resources = { ...game.state.resources, wood: 10, stone: 10, plantFibres: 10 };
+  });
+
+  it("commits the recipe and starts training the skill", () => {
+    game.startTraining("crafting", "cordage");
+    expect(game.state.activeSkill).toBe("crafting");
+    expect(game.state.skills.crafting.selectedRecipeId).toBe("cordage");
+  });
+
+  it("keeps the selected recipe when none is given", () => {
+    game.selectRecipe("crafting", "cordage");
+    game.startTraining("crafting");
+    expect(game.state.skills.crafting.selectedRecipeId).toBe("cordage");
+  });
+
+  it("restarts the action from zero when switching recipe on the active skill", () => {
+    const toolsTime = computeActionResult("crafting", 5, [], 0, "tools", [])!.time * 1000;
+    game.startTraining("crafting");
+    vi.advanceTimersByTime(toolsTime / 2);
+    expect(game.displayProgress).toBeGreaterThan(0);
+
+    game.startTraining("crafting", "cordage");
+    expect(game.displayProgress).toBe(0);
+    // The half-finished Tools action never completes; the next one makes Cordage.
+    vi.advanceTimersByTime(toolsTime / 2 + 1);
+    expect(game.state.resources.tools ?? 0).toBe(0);
+    while (game.state.stats.actions === 0) vi.advanceTimersToNextTimer();
+    expect(game.state.resources.cordage).toBeGreaterThan(0);
+    expect(game.state.resources.tools ?? 0).toBe(0);
+  });
+
+  it("ignores a recipe that is locked or belongs to another skill", () => {
+    game.startTraining("crafting", "baskets"); // needs level 15
+    expect(game.state.skills.crafting.selectedRecipeId).toBe("tools");
+    expect(game.state.activeSkill).toBe("crafting");
+
+    game.startTraining("crafting", "forage");
+    expect(game.state.skills.crafting.selectedRecipeId).toBe("tools");
+    expect(game.state.activeSkill).toBe("crafting");
+  });
+});

@@ -577,7 +577,11 @@ export class CivdleGame {
 
   // ----- Training methods -----
 
-  startTraining(skillId: SkillId): void {
+  // A recipeId the skill doesn't have, or hasn't reached the level for, is ignored.
+  // Restarting the loops below always begins the action from zero.
+  startTraining(skillId: SkillId, recipeId?: string): void {
+    const recipe = SKILLS[skillId].recipes.find((r) => r.id === recipeId);
+    if (recipe && recipe.requiredLevel <= this.levels[skillId]) this.selectRecipe(skillId, recipe.id);
     this.state = { ...this.state, activeSkill: skillId };
     this.#startActionLoop();
     this.#startProgressLoop();
