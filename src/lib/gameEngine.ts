@@ -679,6 +679,8 @@ export interface ApplyActionOutcome {
   newlyUnlockedSkills: SkillId[];
   outOfMaterials: boolean;
   gains: RolledOutput[];
+  // Inputs actually consumed this action (empty when the refund roll kept them).
+  spent: ResourceAmount[];
 }
 
 export function applyAction(state: GameState, skillId: SkillId, rng: () => number = Math.random): ApplyActionOutcome {
@@ -689,11 +691,11 @@ export function applyAction(state: GameState, skillId: SkillId, rng: () => numbe
 
   const result = computeActionResult(skillId, level, skillState.upgrades, ageIndex, skillState.selectedRecipeId, state.globalUpgrades);
   if (!result) {
-    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: false, gains: [] };
+    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: false, gains: [], spent: [] };
   }
 
   if (!canAffordInputs(state.resources, result.inputs)) {
-    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: true, gains: [] };
+    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: true, gains: [], spent: [] };
   }
 
   const gains = rollOutputs(result, rng);
@@ -729,7 +731,8 @@ export function applyAction(state: GameState, skillId: SkillId, rng: () => numbe
     newlyUnlockedSkills = unlockResult.newlyUnlocked;
   }
 
-  return { state: nextState, leveledUp: levelsGained > 0, newlyUnlockedSkills, outOfMaterials: false, gains };
+  const spent = refunded ? [] : result.inputs;
+  return { state: nextState, leveledUp: levelsGained > 0, newlyUnlockedSkills, outOfMaterials: false, gains, spent };
 }
 
 // ---------- Offline catch-up ----------

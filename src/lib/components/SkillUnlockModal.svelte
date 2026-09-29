@@ -42,7 +42,7 @@
 </script>
 
 <div
-  class="pointer-events-none fixed inset-0 z-50 flex items-end justify-center p-6 sm:items-start sm:justify-end sm:p-8"
+  class="pointer-events-none fixed inset-0 z-50 flex items-end justify-center p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:items-start sm:justify-end sm:p-8"
 >
   <div
     class={cn(

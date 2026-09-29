@@ -5,6 +5,7 @@ import {
   DEBUG_GLOBAL_UPGRADES,
   GLOBAL_UPGRADES,
   type AgeId,
+  type ResourceAmount,
   type ResourceId,
   SKILLS,
   SKILL_ORDER,
@@ -115,7 +116,9 @@ export interface SpoilsGainEventData {
 
 export interface ActionGainEventData {
   skillId: SkillId;
+  recipeId: string;
   gains: RolledOutput[];
+  spent: ResourceAmount[];
 }
 
 export interface AchievementEventData {
@@ -447,7 +450,12 @@ export class CivdleGame {
       }
 
       if (outcome.gains.length > 0) {
-        this.eventQueue.emit("actionGain", { skillId, gains: outcome.gains } satisfies ActionGainEventData);
+        this.eventQueue.emit("actionGain", {
+          skillId,
+          recipeId: prev.skills[skillId].selectedRecipeId,
+          gains: outcome.gains,
+          spent: outcome.spent,
+        } satisfies ActionGainEventData);
       }
 
       if (outcome.outOfMaterials) {

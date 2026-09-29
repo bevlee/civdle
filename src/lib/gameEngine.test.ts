@@ -188,12 +188,17 @@ describe("applyAction dice", () => {
     const out = applyAction(crafting(), "crafting", () => 0);
     expect(out.state.resources.wood).toBe(10);
     expect(out.state.resources.tools).toBe(1);
+    expect(out.spent).toEqual([]);
   });
 
   it("consumes inputs when the refund roll fails", () => {
     const out = applyAction(crafting(), "crafting", () => 0.99);
     expect(out.state.resources.wood).toBe(9);
     expect(out.state.resources.stone).toBe(9);
+    expect(out.spent).toEqual([
+      { resource: "wood", amount: 1 },
+      { resource: "stone", amount: 1 },
+    ]);
   });
 
   it("doubles outputs when the double roll succeeds", () => {
