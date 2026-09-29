@@ -14,7 +14,8 @@
   import Inventory from "$lib/components/Inventory.svelte";
   import Shop from "$lib/components/Shop.svelte";
   import CombatView from "$lib/components/CombatView.svelte";
-  import SettlementView from "$lib/components/SettlementView.svelte";
+  import TownView from "$lib/components/TownView.svelte";
+  import type { TownSegment } from "$lib/view/townView";
   import SkillUnlockModal from "$lib/components/SkillUnlockModal.svelte";
   import AnimationOverlay from "$lib/components/AnimationOverlay.svelte";
   import GainToastStack from "$lib/components/GainToastStack.svelte";
@@ -48,6 +49,13 @@
   let rightTab = $state<"inventory" | "shop">("inventory");
   let isCombatTab = $derived(centerTab === "battle");
 
+  // Each tab opens at its top, so a jump from far down Town lands on the skill picker.
+  let centerScroll = $state<HTMLDivElement>();
+  $effect(() => {
+    void centerTab;
+    if (centerScroll) centerScroll.scrollTop = 0;
+  });
+
   // Campaign and The Abyss share the Battle tab. It turns to a mode when a battle
   // starts there, so it opens on the fight that is running, but either mode can
   // still be viewed (the other one says a battle is running elsewhere).
@@ -62,6 +70,32 @@
   });
 
   let tributeHintOpen = $state(false);
+
+  // Town opens on the segment last used this session.
+  const TOWN_SEGMENT_KEY = "civdle.townSegment";
+  function savedTownSegment(): TownSegment {
+    try {
+      return sessionStorage.getItem(TOWN_SEGMENT_KEY) === "settlement" ? "settlement" : "shop";
+    } catch {
+      return "shop"; // No session storage (or no window during SSR).
+    }
+  }
+  let townSegment = $state<TownSegment>(savedTownSegment());
+  let shopHintOpen = $state(false);
+  $effect(() => {
+    try {
+      sessionStorage.setItem(TOWN_SEGMENT_KEY, townSegment);
+    } catch {
+      // Storage may be unavailable; the choice then lasts until the page reloads.
+    }
+  });
+
+  /** Open the Town tab on a segment; the skill-point link also explains skill points. */
+  function openTown(segment: TownSegment, explainSkillPoints = false) {
+    townSegment = segment;
+    shopHintOpen = segment === "shop" && explainSkillPoints;
+    centerTab = "settlement";
+  }
 
   const BATTLE_MODES: { id: BattleMode; label: string }[] = [
     { id: "story", label: "Campaign" },
@@ -206,6 +240,7 @@
     {:else}
       <Shop
         state={game.state}
+        levels={game.levels}
         onBuy={(skillId, upgradeId) =>
           game.buyUpgrade(skillId, upgradeId)}
         onBuyGlobal={(upgradeId) => game.buyGlobalUpgrade(upgradeId)}
@@ -250,6 +285,7 @@
         events={game.events}
         ageEvent={ageOverlayEvent}
         onDismissEvent={(id) => game.dismissEvent(id)}
+        onOpenShop={() => openTown("shop", true)}
       />
     </div>
 
@@ -302,7 +338,7 @@
           {/each}
         </div>
 
-        <div class="flex flex-1 flex-col overflow-y-auto {isCombatTab ? 'max-md:overflow-hidden' : ''}">
+        <div bind:this={centerScroll} class="flex flex-1 flex-col overflow-y-auto {isCombatTab ? 'max-md:overflow-hidden' : ''}">
           {#if centerTab === "train"}
             <SkillPicker
               class="md:hidden"
@@ -408,13 +444,10 @@
                   </span>
                 </button>
               </div>
-              <CombatView {game} mode={battleMode} onOpenSettlement={() => (centerTab = "settlement")} />
+              <CombatView {game} mode={battleMode} onOpenSettlement={() => openTown("settlement")} />
             </div>
           {:else if centerTab === "settlement"}
-            <SettlementView
-              state={game.state}
-              onBuy={(upgradeId) => game.buySettlementUpgradeAction(upgradeId)}
-            />
+            <TownView {game} bind:segment={townSegment} bind:shopHintOpen onJump={openRecipe} />
           {:else if centerTab === "items"}
             <div class="flex min-h-0 flex-1 flex-col">
               {@render itemsPanel()}
