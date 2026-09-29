@@ -93,6 +93,8 @@
   function openTown(segment: TownSegment, explainSkillPoints = false) {
     townSegment = segment;
     shopHintOpen = segment === "shop" && explainSkillPoints;
+    // Switching tabs scrolls to the top on its own; staying on Town doesn't.
+    if (centerTab === "settlement" && centerScroll) centerScroll.scrollTop = 0;
     centerTab = "settlement";
   }
 
@@ -364,7 +366,7 @@
                   the Abyss. Spend it on summons, and on Legendary Packs once the Hall of Legends is built.
                 </p>
                 <button
-                  class="-my-1 flex size-7 shrink-0 items-center justify-center text-base text-muted-foreground"
+                  class="tap-target -my-1 flex size-7 shrink-0 items-center justify-center text-base text-muted-foreground"
                   aria-label="Dismiss"
                   onclick={() => {
                     tributeHintOpen = false;
@@ -382,7 +384,7 @@
                 >
                   {#each BATTLE_MODES as m (m.id)}
                     <button
-                      class="min-h-9 rounded-full px-4 text-sm font-medium transition-colors max-md:rounded-lg max-md:px-2 max-md:font-semibold {battleMode ===
+                      class="tap-target min-h-9 rounded-full px-4 text-sm font-medium transition-colors max-md:rounded-lg max-md:px-2 max-md:font-semibold {battleMode ===
                       m.id
                         ? 'bg-accent text-foreground'
                         : 'text-muted-foreground hover:text-foreground'}"

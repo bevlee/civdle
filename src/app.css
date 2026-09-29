@@ -128,6 +128,23 @@
   }
 }
 
+/* Phones: stretch a small control's hit area to at least 44px square without
+   changing how it looks. Keep 44px free around it so neighbours don't overlap. */
+@utility tap-target {
+  @media (width < 48rem) {
+    position: relative;
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      translate: -50% -50%;
+    }
+  }
+}
+
 /* ---------- Punchy progress-event animations ---------- */
 
 @keyframes civdle-float-up {

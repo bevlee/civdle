@@ -1,4 +1,4 @@
-// Small formatting and linking rules for the Town tab (Shop and Settlement) and the achievement cards.
+// Small formatting and linking rules for the Town tab (Shop and Settlement).
 
 import type { ResourceId, SkillId } from "../gameData";
 import { resourceSource } from "./resourceSource";
@@ -32,14 +32,4 @@ export function costJump(
   unlocked: (id: SkillId) => boolean,
 ): UsesJump | null {
   return usesJump(resourceSource(resource), { levels, unlocked });
-}
-
-const MONTH_DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
-const MONTH_DAY_YEAR = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-/** When an achievement was unlocked: "Sep 14", with the year only when it isn't this year. */
-export function formatUnlockDate(timestamp: number, now: number = Date.now()): string {
-  const date = new Date(timestamp);
-  const sameYear = date.getFullYear() === new Date(now).getFullYear();
-  return (sameYear ? MONTH_DAY : MONTH_DAY_YEAR).format(date);
 }

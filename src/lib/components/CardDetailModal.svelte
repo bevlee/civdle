@@ -157,7 +157,8 @@
       <p class="-mt-2 text-[13px] font-semibold text-red-300">+{Math.round((statMult - 1) * 100)}% stat bonus applied</p>
     {/if}
 
-    <div class="flex flex-wrap gap-1.5">
+    <!-- Wrapped rows sit apart on phones so the chips' 44px hit areas don't overlap. -->
+    <div class="flex flex-wrap gap-1.5 max-md:gap-y-4">
       {#each def.traits as trait (trait)}
         {@const regularIndex = (def.traits.filter(t => t !== "ascendant") as string[]).indexOf(trait)}
         {@const gateLabel = trait === "ascendant" ? null : regularIndex === 1 ? "6★" : regularIndex === 2 ? "8★" : null}

@@ -37,7 +37,7 @@
   </header>
   <nav aria-label="Tutorial topics">
     {#each COMBAT_TOPICS as slide, index (slide.id)}
-      <button class:active={current.id === slide.id} aria-current={current.id === slide.id ? "step" : undefined}
+      <button class="tap-target" class:active={current.id === slide.id} aria-current={current.id === slide.id ? "step" : undefined}
         onclick={() => goTo(COMBAT_SLIDES.findIndex(page => page.id === slide.id))}>{index + 1}. {slide.label}</button>
     {/each}
   </nav>
@@ -91,4 +91,6 @@
   .primary { background: #d9b66d; color: #211c12; font-weight: 650; }
   .primary:hover { background: #edcf93; }
   @media (max-width: 520px) { .points { grid-template-columns: 1fr; } header, footer, section { padding: 16px; } nav { padding: 12px 16px 0; } }
+  /* Phones: 44px tap targets. */
+  @media (max-width: 767px) { footer button { min-height: 44px; } .close { min-width: 44px; min-height: 44px; margin-right: -8px; } nav { row-gap: 12px; } }
 </style>

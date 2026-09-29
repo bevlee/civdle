@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SkillId } from "../gameData";
+import { resourceSource } from "./resourceSource";
 import { usesJump } from "./usesJump";
 
 const cordage = { skillId: "crafting" as const, recipeId: "cordage", level: 5 };
@@ -49,5 +50,16 @@ describe("usesJump", () => {
       recipeId: null,
       label: "???",
     });
+  });
+
+  it("waits for the level the output needs, not just the recipe (Clay from Foraging at Lv 5)", () => {
+    const clay = resourceSource("clay");
+    const at = (foraging: number) => ({
+      viewedSkill: "pottery" as SkillId,
+      levels: { foraging } as Record<SkillId, number>,
+      unlocked: () => true,
+    });
+    expect(usesJump(clay, at(4))).toEqual({ skillId: "foraging", recipeId: null, label: "Foraging" });
+    expect(usesJump(clay, at(5))).toEqual({ skillId: "foraging", recipeId: "forage", label: "Foraging" });
   });
 });

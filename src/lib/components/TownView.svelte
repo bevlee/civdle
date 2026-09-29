@@ -32,7 +32,7 @@
       {#each SEGMENTS as s (s.id)}
         <button
           class={cn(
-            "h-9 flex-1 rounded-[9px] text-sm font-semibold transition-colors",
+            "tap-target h-9 flex-1 rounded-[9px] text-sm font-semibold transition-colors",
             segment === s.id ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
           aria-pressed={segment === s.id}

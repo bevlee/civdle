@@ -203,7 +203,7 @@
               <span class="text-xs text-muted-foreground">{req.sub}</span>
             </span>
             {#if req.settlement && !req.done && onOpenSettlement}
-              <button class="h-8 shrink-0 rounded-lg border border-border px-2.5 text-[13px] font-semibold whitespace-nowrap text-muted-foreground hover:text-foreground" onclick={goToSettlement}>
+              <button class="tap-target h-8 shrink-0 rounded-lg border border-border px-2.5 text-[13px] font-semibold whitespace-nowrap text-muted-foreground hover:text-foreground" onclick={goToSettlement}>
                 Settlement ›
               </button>
             {/if}
@@ -234,7 +234,7 @@
         </div>
       {/each}
       {#if banner.id === "standard" && onOpenSettlement}
-        <button class="h-7 self-start text-[13px] font-semibold whitespace-nowrap text-muted-foreground hover:text-foreground" onclick={goToSettlement}>
+        <button class="tap-target h-7 self-start text-[13px] font-semibold whitespace-nowrap text-muted-foreground hover:text-foreground" onclick={goToSettlement}>
           Improve odds in Settlement ›
         </button>
       {/if}

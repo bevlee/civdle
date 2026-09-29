@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SkillId } from "../gameData";
-import { costJump, formatUnlockDate, lockedOddsNote, missingLabel } from "./townView";
+import { costJump, lockedOddsNote, missingLabel } from "./townView";
 
 describe("missingLabel", () => {
   it("counts materials in the singular and plural", () => {
@@ -38,17 +38,5 @@ describe("costJump", () => {
 
   it("opens the skill without naming a recipe not yet reached", () => {
     expect(costJump("steelBar", levels(39), () => true)).toMatchObject({ skillId: "smithing", recipeId: null });
-  });
-});
-
-describe("formatUnlockDate", () => {
-  const now = new Date(2026, 8, 29).getTime();
-
-  it("shows month and day for this year", () => {
-    expect(formatUnlockDate(new Date(2026, 8, 14, 15).getTime(), now)).toBe("Sep 14");
-  });
-
-  it("adds the year for an earlier year", () => {
-    expect(formatUnlockDate(new Date(2025, 11, 3).getTime(), now)).toBe("Dec 3, 2025");
   });
 });

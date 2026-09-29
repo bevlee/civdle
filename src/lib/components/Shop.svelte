@@ -19,6 +19,8 @@
     onBuyGlobal: (upgradeId: string) => void;
   } = $props();
 
+  let infoButton: HTMLButtonElement | undefined; // Plain: only read when the hint is dismissed.
+
   interface Row {
     id: string;
     name: string;
@@ -77,36 +79,40 @@
 </script>
 
 <div class="flex flex-col gap-[18px]">
-  {#if hintOpen}
-    <div
-      id="sp-hint"
-      class="flex items-start gap-2.5 rounded-xl border border-primary/25 bg-card py-2.5 pr-2 pl-3"
+  <!-- Always in the DOM (hidden when closed) so the ⓘ button's aria-controls resolves. -->
+  <div
+    id="sp-hint"
+    hidden={!hintOpen}
+    class="flex items-start gap-2.5 rounded-xl border border-primary/25 bg-card py-2.5 pr-2 pl-3"
+  >
+    <span
+      class="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-xs font-bold text-primary-foreground italic"
+      aria-hidden="true">i</span
     >
-      <span
-        class="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-xs font-bold text-primary-foreground italic"
-        aria-hidden="true">i</span
-      >
-      <p class="flex-1 text-[13px] leading-snug text-pretty">
-        <b class="font-semibold">Skill points</b> are earned each time any skill levels up. Spend them here on
-        permanent upgrades for that skill.
-      </p>
-      <button
-        class="-my-1 flex size-7 shrink-0 items-center justify-center text-base text-muted-foreground hover:text-foreground"
-        aria-label="Dismiss"
-        onclick={() => (hintOpen = false)}
-      >
-        ×
-      </button>
-    </div>
-  {/if}
+    <p class="flex-1 text-[13px] leading-snug text-pretty">
+      <b class="font-semibold">Skill points</b> are earned each time any skill levels up. Spend them here on
+      permanent upgrades for that skill.
+    </p>
+    <button
+      class="tap-target -my-1 flex size-7 shrink-0 items-center justify-center text-base text-muted-foreground hover:text-foreground"
+      aria-label="Dismiss"
+      onclick={() => {
+        hintOpen = false;
+        infoButton?.focus();
+      }}
+    >
+      ×
+    </button>
+  </div>
 
   <div class="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-card p-3.5">
     <span class="flex min-w-0 flex-1 flex-col gap-0.5">
       <span class="flex items-center gap-1.5 text-[15px] font-semibold">
         Skill points
         <button
-          class="-m-2 flex size-8 items-center justify-center text-muted-foreground hover:text-foreground"
+          class="tap-target -m-2 flex size-8 items-center justify-center text-muted-foreground hover:text-foreground"
           aria-label="About skill points"
+          bind:this={infoButton}
           aria-expanded={hintOpen}
           aria-controls="sp-hint"
           onclick={() => (hintOpen = !hintOpen)}
@@ -156,7 +162,7 @@
             {:else}
               <button
                 class={cn(
-                  "h-10 min-w-19 shrink-0 rounded-[10px] border px-3 text-sm font-semibold tabular-nums transition-colors",
+                  "tap-target h-10 min-w-19 shrink-0 rounded-[10px] border px-3 text-sm font-semibold tabular-nums transition-colors",
                   row.canBuy
                     ? "border-primary bg-primary text-primary-foreground hover:bg-primary/85"
                     : "border-border text-muted-foreground",

@@ -2,8 +2,12 @@
   import type { SkillId } from "$lib/gameData";
   import type { GameState } from "$lib/gameEngine";
   import { cn } from "$lib/utils";
-  import { achievementList, type AchievementFilter, type AchievementItem } from "$lib/view/achievementList";
-  import { formatUnlockDate } from "$lib/view/townView";
+  import {
+    achievementList,
+    formatUnlockDate,
+    type AchievementFilter,
+    type AchievementItem,
+  } from "$lib/view/achievementList";
 
   let {
     state: gameState,
@@ -96,17 +100,18 @@
     </div>
   </header>
 
-  <!-- Phones scroll the chips sideways; wider screens wrap them. -->
+  <!-- Phones scroll the chips sideways; wider screens wrap them. The vertical
+       padding keeps the chips' 44px hit areas inside the scroller's clip. -->
   <div
     role="group"
     aria-label="Filter achievements"
-    class="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0"
+    class="-mx-4 -my-1 flex gap-1.5 overflow-x-auto px-4 py-1 [scrollbar-width:none] md:m-0 md:flex-wrap md:overflow-visible md:p-0"
   >
     {#each view.filters as f (f.id)}
       {@const on = filter === f.id}
       <button
         class={cn(
-          "flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold whitespace-nowrap transition-colors",
+          "tap-target flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold whitespace-nowrap transition-colors",
           on ? "border-primary bg-primary text-primary-foreground" : "border-border text-foreground hover:bg-accent/50",
         )}
         aria-pressed={on}
