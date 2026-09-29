@@ -511,12 +511,18 @@
   @media (max-width: 767px) {
     /* Stretch, not the desktop grid's "start": otherwise the column shrinks to fit the army list. */
     .combat-layout { display: flex; flex-direction: column; align-items: stretch; flex: 1; min-height: 0; }
-    .combat-main { flex: 1; min-height: 0; gap: 8px; }
+    /* position: the army's expanded view covers the battle area. */
+    .combat-main { position: relative; flex: 1; min-height: 0; gap: 8px; }
     /* Phones get their own title row and one-line controls (.phone-header). */
     .combat-header, .playback-controls { display: none; }
     .phone-header { flex-shrink: 0; }
     .battlefield { flex: 1 1 0; min-height: 250px; display: flex; flex-direction: column; padding: 8px 8px 4px; }
-    .army-headings { min-height: 0; }
+    .army-headings { min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    /* One row of synergy chips per side that scrolls sideways, so a full party doesn't squeeze the board. */
+    .army-headings :global(.synergies) { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-top: 4px; }
+    .army-headings :global(.synergies > *) { flex-shrink: 0; }
+    .army-headings :global(.synergies.enemy) { justify-content: flex-start; }
+    .army-headings :global(.synergies.enemy > :first-child) { margin-left: auto; }
     .battle-stage { flex: 1; min-height: 0; height: auto; margin-top: 4px; }
     /* Spread the five slots over the stage height so the last unit sits on the bottom edge. */
     .battle-stage { container-type: size; }
@@ -524,8 +530,7 @@
     .field-position { top: calc((var(--position) - 1) * (100% - var(--unit-h)) / 4); }
     .battlefield-footer { display: none; }
     .battlefield-footer.idle-hint { display: flex; justify-content: center; min-height: 0; padding: 2px 0 4px; border-top: 0; font-size: 12px; }
-    .army-dock { flex: 0 1 auto; min-height: 118px; display: flex; flex-direction: column; }
-    .army-dock > :global(*) { flex: 1; }
+    .army-dock { flex: none; }
     .battle-sidebar { display: none; }
     .battle-sidebar.open { display: flex; position: fixed; inset: auto 0 0; z-index: 40; max-height: 70dvh; overflow-y: auto; padding: 0 8px calc(8px + env(safe-area-inset-bottom)); background: var(--background); border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -12px 32px #000c; animation: sheet-up .2s ease-out; }
     .open .report-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 12px 4px 4px; background: var(--background); }
