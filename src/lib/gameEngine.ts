@@ -777,17 +777,36 @@ export function processOfflineProgress(state: GameState, elapsedSeconds: number)
 
 // ---------- Settlement upgrades ----------
 
+// Why a settlement upgrade can't be bought right now, or null if it can.
+// The single source of truth for the buy action and the Settlement screens.
+export interface SettlementBlock {
+  kind: "built" | "locked" | "short";
+  reason: string;
+}
+
+export function settlementPurchaseBlock(
+  state: GameState,
+  levels: Record<SkillId, number>,
+  upgradeId: SettlementUpgradeId,
+): SettlementBlock | null {
+  if (state.settlementUpgrades.includes(upgradeId)) return { kind: "built", reason: "Already built" };
+  const def = SETTLEMENT_UPGRADES[upgradeId];
+  if (!def) return { kind: "locked", reason: "Unknown building" };
+  if (def.requires && !state.settlementUpgrades.includes(def.requires)) {
+    return { kind: "locked", reason: `Build ${SETTLEMENT_UPGRADES[def.requires].name} first` };
+  }
+  const unmet = def.prereqs.find((p) => (levels[p.skill] ?? 0) < p.level);
+  if (unmet) return { kind: "locked", reason: `Needs ${SKILLS[unmet.skill].name} Lv ${unmet.level}` };
+  const missing = def.cost.find((c) => (state.resources[c.resource] ?? 0) < c.amount);
+  if (missing) return { kind: "short", reason: `Needs more ${RESOURCES[missing.resource].name}` };
+  return null;
+}
+
 export function canBuySettlementUpgrade(
   state: GameState,
   upgradeId: SettlementUpgradeId,
 ): boolean {
-  if (state.settlementUpgrades.includes(upgradeId)) return false;
-  const def = SETTLEMENT_UPGRADES[upgradeId];
-  if (!def) return false;
-  if (def.requires && !state.settlementUpgrades.includes(def.requires)) return false;
-  const levels = getSkillLevels(state);
-  if (!def.prereqs.every((p) => (levels[p.skill] ?? 0) >= p.level)) return false;
-  return canAffordInputs(state.resources, def.cost);
+  return settlementPurchaseBlock(state, getSkillLevels(state), upgradeId) === null;
 }
 
 export function buySettlementUpgrade(
