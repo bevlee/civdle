@@ -7,6 +7,7 @@
   import { cn } from "$lib/utils";
   import { BASE_RATES, FEAST_HALL_RATES, GRAND_FEAST_RATES, ROYAL_FEAST_RATES, EMPERORS_BANQUET_RATES, HEROIC_TRIBUTE_RATES, DIVINE_SUMMONS_RATES, type RollRate } from "$lib/settlementData";
   import { rarityColor, RARITY_NAMES } from "$lib/rarity";
+  import { dragPlace, type DragState, type DropResult } from "$lib/dragPlace";
 
   type SortKey = "stars" | "trait" | "name";
 
@@ -18,13 +19,9 @@
     packCost,
     locked = false,
     draggingId = null,
-    dropActive = false,
-    dragOver = false,
-    onDragStart,
-    onDragEnd,
-    onDragOverChange,
+    onTap,
     onDrop,
-    onSelect,
+    onDragState,
     maxStars = 5,
     rollRates = BASE_RATES,
     hasCelestialAltar = false,
@@ -57,42 +54,17 @@
     locked?: boolean;
     /** Card currently being dragged anywhere on the screen. */
     draggingId?: string | null;
-    /** True when the dragged card is in the party, so dropping here removes it. */
-    dropActive?: boolean;
-    /** True while a party card is hovering over this panel. */
-    dragOver?: boolean;
-    onDragStart: (e: DragEvent, cardId: string) => void;
-    onDragEnd: () => void;
-    onDragOverChange: (over: boolean) => void;
-    onDrop: (cardId: string) => void;
-    onSelect: (cardId: string) => void;
+    /** A card was tapped: show its details. */
+    onTap: (cardId: string) => void;
+    /** A card was dragged onto the board. */
+    onDrop: (result: DropResult) => void;
+    onDragState: (state: DragState | null) => void;
     onSummon: () => void;
     onOpenPack: () => void;
     onOpenLegendaryPack?: () => void;
     onLegendarySummon?: () => void;
     onOpenTributeLegendaryPack?: () => void;
   } = $props();
-
-  function handleDragOver(e: DragEvent) {
-    if (!dropActive || locked) return;
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-    onDragOverChange(true);
-  }
-
-  function handleDragLeave(e: DragEvent) {
-    // Ignore leave events fired when moving between children of the panel.
-    const next = e.relatedTarget as Node | null;
-    if (next && e.currentTarget instanceof Node && e.currentTarget.contains(next)) return;
-    onDragOverChange(false);
-  }
-
-  function handleDrop(e: DragEvent) {
-    if (!dropActive || locked) return;
-    e.preventDefault();
-    const id = draggingId ?? e.dataTransfer?.getData("text/plain");
-    if (id) onDrop(id);
-  }
 
   let sortKey = $state<SortKey>("stars");
   let sortDesc = $state(true);
@@ -175,25 +147,14 @@
 <div
   role="group"
   aria-label="Army inventory"
-  class={cn(
-    "flex flex-col gap-2 rounded-lg border bg-muted/20 transition-colors max-md:h-full max-md:min-h-0",
-    dropActive && dragOver ? "border-primary bg-primary/10" : "border-border",
-  )}
-  ondragover={handleDragOver}
-  ondragenter={handleDragOver}
-  ondragleave={handleDragLeave}
-  ondrop={handleDrop}
+  class="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 max-md:h-full max-md:min-h-0"
 >
   <div class="flex flex-wrap items-center justify-between gap-2 px-3 pt-2">
     <div class="flex items-center gap-2">
       <h3 class="text-[17px] font-semibold tracking-wider text-muted-foreground uppercase">
         Army ({isFiltered ? `${filtered.length}/${cards.length}` : cards.length})
       </h3>
-      {#if dropActive}
-        <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[15px] text-primary">
-          Drop here to remove from battlefield
-        </span>
-      {:else if promotable.size > 0}
+      {#if promotable.size > 0}
         <Hint text="Cards with enough copies to promote. Open one to promote it.">
           <span class="cursor-help rounded bg-green-500/20 px-1.5 py-0.5 text-[15px] text-green-300">
             <span class="font-black">+</span> {promotable.size} promotable
@@ -376,7 +337,8 @@
     </div>
   {/if}
 
-  <div class="max-h-[26rem] overflow-y-auto px-3 pb-1 max-md:max-h-none max-md:min-h-0 max-md:flex-1">
+  <!-- Phones: one row that scrolls sideways; a vertical drag lifts a card onto the board. -->
+  <div class="max-h-[26rem] overflow-y-auto px-3 pb-1 max-md:max-h-none max-md:overflow-x-auto max-md:overflow-y-hidden max-md:overscroll-x-contain" data-drag-scroll>
     {#if cards.length > 0 && sorted.length === 0}
       <p class="py-6 text-center text-[19px] text-muted-foreground">
         No units match these filters.
@@ -387,24 +349,21 @@
         No units yet — summon one with Tribute.{gold < rollCost ? " Win battles to earn more." : ""}
       </p>
     {:else}
-      <div class="flex flex-wrap gap-2 pt-1.5">
+      <div class="flex flex-wrap gap-2 pt-1.5 max-md:flex-nowrap max-md:pb-1.5">
         {#each sorted as card (card.id)}
           {@const inParty = partyIds.has(card.id)}
           <button
             class={cn(
-              "relative rounded-lg transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "relative shrink-0 touch-pan-x rounded-lg transition-transform select-none hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring md:touch-pan-y [-webkit-touch-callout:none]",
               !locked && "cursor-grab active:cursor-grabbing",
               inParty && "ring-2 ring-primary ring-offset-1 ring-offset-background",
               draggingId === card.id && "opacity-40",
             )}
-            draggable={!locked}
-            ondragstart={(e) => onDragStart(e, card.id)}
-            ondragend={onDragEnd}
-            onclick={() => onSelect(card.id)}
+            use:dragPlace={{ source: { type: "card", cardId: card.id }, locked, onTap: () => onTap(card.id), onDrop, onDragState }}
             aria-label={`${UNITS[card.unitId].name}, ${card.stars} stars${inParty ? ", deployed" : ""}`}
-            title={`${UNITS[card.unitId].name} — drag onto the battlefield, or click for details`}
+            title={`${UNITS[card.unitId].name} — drag onto the battlefield, or tap for details`}
           >
-            <UnitCard unitId={card.unitId} stars={card.stars} ascended={card.ascended} size="tile" class="h-24 w-24 rounded-md border" />
+            <UnitCard unitId={card.unitId} stars={card.stars} ascended={card.ascended} size="tile" class="h-24 w-24 rounded-md border max-md:h-20 max-md:w-20" />
             {#if inParty}
               <span class="absolute -top-1 -left-1 rounded bg-primary px-1 text-[14px] font-bold text-primary-foreground">P</span>
             {/if}
@@ -416,5 +375,5 @@
       </div>
     {/if}
   </div>
-  <p class="px-3 pb-2 text-[15px] text-muted-foreground max-md:hidden">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or tap an empty position and then a card."}</p>
+  <p class="px-3 pb-2 text-[15px] text-muted-foreground max-md:hidden">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or tap it for details."}</p>
 </div>
