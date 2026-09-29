@@ -1,6 +1,6 @@
 <script lang="ts">
   import { SKILLS, type SkillId } from "$lib/gameData";
-  import { xpForLevel } from "$lib/gameEngine";
+  import { xpProgressPct } from "$lib/view/xpProgress";
   import { shortAgeName } from "$lib/view/ageChecklist";
   import { cn } from "$lib/utils";
 
@@ -37,12 +37,7 @@
   } = $props();
 
   let agePct = $derived(total > 0 ? (met / total) * 100 : 0);
-  let xpPct = $derived.by(() => {
-    if (level >= 99) return 100;
-    const base = xpForLevel(level);
-    const span = Math.max(1, xpForLevel(level + 1) - base);
-    return Math.max(0, Math.min(100, ((xp - base) / span) * 100));
-  });
+  let xpPct = $derived(xpProgressPct(xp, level));
 </script>
 
 <header
