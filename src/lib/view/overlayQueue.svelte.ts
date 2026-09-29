@@ -1,4 +1,5 @@
-// One popup at a time: a new-skill sheet beats an age advance, which beats a grouped achievement toast.
+// One popup at a time: an age advance beats a new-skill sheet (the age is often what unlocked the skill),
+// which beats a grouped achievement toast.
 
 import { ACHIEVEMENTS_BY_ID } from "../achievements";
 import type { QueuedEvent } from "../eventQueue.svelte";
@@ -76,6 +77,11 @@ export class OverlayQueue {
     return ids;
   }
 
+  /** Stops the pending grouping timer; call when the owner unmounts. */
+  destroy(): void {
+    this.#clearTimer();
+  }
+
   #clearTimer(): void {
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = null;
@@ -89,8 +95,8 @@ export class OverlayQueue {
   }
 
   #pick(): Overlay | null {
-    if (this.#skill) return { kind: "skillUnlock", skillId: this.#skill };
     if (this.#age) return { kind: "ageAdvance", event: this.#age };
+    if (this.#skill) return { kind: "skillUnlock", skillId: this.#skill };
     if (!this.#toastOpen || this.#pending.length === 0) return null;
     const achievementIds = this.#pending.map((a) => a.achievementId);
     return {

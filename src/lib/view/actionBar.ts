@@ -4,6 +4,7 @@ import { RESOURCES, SKILLS, type Recipe, type ResourceId, type SkillId } from ".
 
 export type ActionBarState =
   | { kind: "stop"; label: string }
+  | { kind: "locked"; label: string }
   | { kind: "short"; label: string; sub: string }
   | { kind: "switch"; label: string; sub: string }
   | { kind: "train"; label: string; sub: string };
@@ -11,6 +12,7 @@ export type ActionBarState =
 export interface ActionBarArgs {
   viewedSkill: SkillId;
   viewedRecipeId: string;
+  viewedLevel: number;
   activeSkill: SkillId | null;
   activeRecipeId: string | null;
   resources: Partial<Record<ResourceId, number>>;
@@ -30,6 +32,10 @@ export function actionBarState(args: ActionBarArgs): ActionBarState {
   }
 
   const recipe = recipeOf(viewedSkill, viewedRecipeId);
+  if (recipe.requiredLevel > args.viewedLevel) {
+    return { kind: "locked", label: `Unlocks at Lv ${recipe.requiredLevel}` };
+  }
+
   const missing = recipe.inputs.find(({ resource, amount }) => (resources[resource] ?? 0) < amount);
   if (missing) {
     const name = RESOURCES[missing.resource].name;

@@ -403,7 +403,7 @@ describe("startTraining with a recipe", () => {
   });
 
   it("commits the recipe and starts training the skill", () => {
-    game.startTraining("crafting", "cordage");
+    expect(game.startTraining("crafting", "cordage")).toBe(true);
     expect(game.state.activeSkill).toBe("crafting");
     expect(game.state.skills.crafting.selectedRecipeId).toBe("cordage");
   });
@@ -425,18 +425,23 @@ describe("startTraining with a recipe", () => {
     // The half-finished Tools action never completes; the next one makes Cordage.
     vi.advanceTimersByTime(toolsTime / 2 + 1);
     expect(game.state.resources.tools ?? 0).toBe(0);
-    while (game.state.stats.actions === 0) vi.advanceTimersToNextTimer();
+    for (let i = 0; i < 1000 && game.state.stats.actions === 0; i++) vi.advanceTimersToNextTimer();
+    expect(game.state.stats.actions).toBeGreaterThan(0);
     expect(game.state.resources.cordage).toBeGreaterThan(0);
     expect(game.state.resources.tools ?? 0).toBe(0);
   });
 
-  it("ignores a recipe that is locked or belongs to another skill", () => {
-    game.startTraining("crafting", "baskets"); // needs level 15
+  it("refuses to start when the recipe is locked or belongs to another skill", () => {
+    expect(game.startTraining("crafting", "baskets")).toBe(false); // needs level 15
     expect(game.state.skills.crafting.selectedRecipeId).toBe("tools");
-    expect(game.state.activeSkill).toBe("crafting");
+    expect(game.state.activeSkill).toBeNull();
 
-    game.startTraining("crafting", "forage");
+    expect(game.startTraining("crafting", "forage")).toBe(false);
     expect(game.state.skills.crafting.selectedRecipeId).toBe("tools");
-    expect(game.state.activeSkill).toBe("crafting");
+    expect(game.state.activeSkill).toBeNull();
+
+    game.startTraining("foraging");
+    expect(game.startTraining("crafting", "baskets")).toBe(false);
+    expect(game.state.activeSkill).toBe("foraging");
   });
 });

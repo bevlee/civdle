@@ -5,25 +5,29 @@ import { SKILLS, SKILL_ORDER, type ResourceId, type SkillDef, type SkillId } fro
 export interface ResourceSource {
   skillId: SkillId;
   recipeId: string;
+  /** Skill level at which this recipe yields the resource, e.g. 5 for "Foraging Lv 5". */
+  level: number;
 }
 
-// Lowest requiredLevel wins; ties keep the first found (SKILL_ORDER, then recipe order).
+// Lowest effective level wins: the recipe's requiredLevel or the output's own levelRequired, whichever is
+// higher. ageRequired doesn't affect ranking. Ties keep the first found (SKILL_ORDER, then recipe order).
 export function buildResourceSources(
   skills: Record<SkillId, SkillDef>,
   order: SkillId[],
 ): Map<ResourceId, ResourceSource> {
-  const best = new Map<ResourceId, ResourceSource & { level: number }>();
+  const best = new Map<ResourceId, ResourceSource>();
   for (const skillId of order) {
     for (const recipe of skills[skillId].recipes) {
-      for (const { resource } of recipe.outputs) {
-        const current = best.get(resource);
-        if (!current || recipe.requiredLevel < current.level) {
-          best.set(resource, { skillId, recipeId: recipe.id, level: recipe.requiredLevel });
+      for (const output of recipe.outputs) {
+        const level = Math.max(recipe.requiredLevel, output.levelRequired ?? 0);
+        const current = best.get(output.resource);
+        if (!current || level < current.level) {
+          best.set(output.resource, { skillId, recipeId: recipe.id, level });
         }
       }
     }
   }
-  return new Map([...best].map(([resource, { skillId, recipeId }]) => [resource, { skillId, recipeId }]));
+  return best;
 }
 
 let sources: Map<ResourceId, ResourceSource> | null = null;

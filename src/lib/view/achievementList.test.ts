@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID, CATEGORY_ORDER, isSkillMilestone, skillMilestoneId } from "../achievements";
+import {
+  ACHIEVEMENTS,
+  ACHIEVEMENTS_BY_ID,
+  CATEGORY_ORDER,
+  SKILL_MILESTONE_LEVELS,
+  isSkillMilestone,
+  skillMilestoneId,
+} from "../achievements";
 import { createInitialState, getSkillLevels, xpForLevel, type GameState } from "../gameEngine";
 import { SKILL_ORDER } from "../gameData";
 import { achievementList } from "./achievementList";
@@ -28,6 +35,40 @@ describe("achievementList", () => {
     });
     expect(skills!.total).toBeGreaterThan(SKILL_ORDER.length * 4);
     expect(result.filters.find((f) => f.id === "resources")?.done).toBe(1);
+  });
+
+  it("labels chips short and sections long", () => {
+    const result = list(createInitialState());
+    expect(result.filters.map((f) => f.label)).toEqual(["All", "Skills", "Resources", "Ages", "Army", "Combat", "Misc"]);
+    expect(result.sections.find((s) => s.category === "skills")?.label).toBe("Skill Milestones");
+    expect(result.sections.find((s) => s.category === "misc")?.label).toBe("Miscellaneous");
+  });
+
+  it("builds a milestone grid row for every skill", () => {
+    const state = createInitialState();
+    state.achievements = { [skillMilestoneId("foraging", 10)]: 1, [skillMilestoneId("foraging", 50)]: 2 };
+    const { milestones } = list(state);
+    expect(milestones.map((m) => m.skillId)).toEqual(SKILL_ORDER);
+    expect(milestones.find((m) => m.skillId === "foraging")).toEqual({
+      skillId: "foraging",
+      discovered: true,
+      levels: [
+        { level: 10, done: true },
+        { level: 20, done: false },
+        { level: 50, done: true },
+        { level: 99, done: false },
+      ],
+    });
+    const conquest = milestones.find((m) => m.skillId === "conquest");
+    expect(conquest?.discovered).toBe(false);
+    expect(conquest?.levels).toEqual(SKILL_MILESTONE_LEVELS.map((level) => ({ level, done: false })));
+  });
+
+  it("only includes the milestone grid for all and skills", () => {
+    const state = createInitialState();
+    expect(list(state, "skills").milestones).toHaveLength(SKILL_ORDER.length);
+    expect(list(state, "resources").milestones).toEqual([]);
+    expect(list(state, "misc").milestones).toEqual([]);
   });
 
   it("leaves skill milestones out of section items", () => {
@@ -99,6 +140,7 @@ describe("achievementList", () => {
   });
 
   it("omits progress when the target is 1", () => {
+    // Mutates shared ACHIEVEMENTS data; safe because vitest isolates each file, and the finally restores it.
     const def = ACHIEVEMENTS_BY_ID["resources.first"];
     def.progress = () => ({ current: 0, target: 1 });
     try {

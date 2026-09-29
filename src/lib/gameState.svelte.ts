@@ -570,14 +570,18 @@ export class CivdleGame {
 
   // ----- Training methods -----
 
-  // A recipeId the skill doesn't have, or hasn't reached the level for, is ignored.
-  // Restarting the loops below always begins the action from zero.
-  startTraining(skillId: SkillId, recipeId?: string): void {
-    const recipe = SKILLS[skillId].recipes.find((r) => r.id === recipeId);
-    if (recipe && recipe.requiredLevel <= this.levels[skillId]) this.selectRecipe(skillId, recipe.id);
+  // A recipeId the skill doesn't have, or hasn't reached the level for, leaves training untouched
+  // and returns false. Restarting the loops below always begins the action from zero.
+  startTraining(skillId: SkillId, recipeId?: string): boolean {
+    if (recipeId !== undefined) {
+      const recipe = SKILLS[skillId].recipes.find((r) => r.id === recipeId);
+      if (!recipe || recipe.requiredLevel > this.levels[skillId]) return false;
+      this.selectRecipe(skillId, recipe.id);
+    }
     this.state = { ...this.state, activeSkill: skillId };
     this.#startActionLoop();
     this.#startProgressLoop();
+    return true;
   }
 
   stopTraining(): void {

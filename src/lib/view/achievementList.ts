@@ -4,12 +4,14 @@ import {
   ACHIEVEMENTS,
   CATEGORY_LABELS,
   CATEGORY_ORDER,
+  SKILL_MILESTONE_LEVELS,
   isSkillMilestone,
+  skillMilestoneId,
   type AchievementCategory,
   type AchievementDef,
   type AchievementProgress,
 } from "../achievements";
-import type { SkillId } from "../gameData";
+import { SKILL_ORDER, type SkillId } from "../gameData";
 import type { GameState } from "../gameEngine";
 
 export type AchievementFilter = "all" | AchievementCategory;
@@ -38,12 +40,30 @@ export interface AchievementSection {
   items: AchievementItem[];
 }
 
+export interface SkillMilestoneRow {
+  skillId: SkillId;
+  discovered: boolean;
+  levels: { level: number; done: boolean }[];
+}
+
 export interface AchievementListView {
   done: number;
   total: number;
   filters: AchievementFilterChip[];
   sections: AchievementSection[];
+  /** The per-skill milestone grid; empty unless the filter is "all" or "skills". */
+  milestones: SkillMilestoneRow[];
 }
+
+// Short chip labels; section headers keep the longer CATEGORY_LABELS.
+export const FILTER_LABELS: Record<AchievementCategory, string> = {
+  skills: "Skills",
+  resources: "Resources",
+  ages: "Ages",
+  army: "Army",
+  combat: "Combat",
+  misc: "Misc",
+};
 
 const SECRET_NAME = "???";
 const SECRET_DESCRIPTION = "Hidden achievement. Keep playing to find out.";
@@ -91,7 +111,7 @@ export function achievementList(
 
   const filters: AchievementFilterChip[] = [
     { id: "all", label: "All", ...count(ACHIEVEMENTS) },
-    ...CATEGORY_ORDER.map((c) => ({ id: c, label: CATEGORY_LABELS[c], ...count(byCategory.get(c)!) })),
+    ...CATEGORY_ORDER.map((c) => ({ id: c, label: FILTER_LABELS[c], ...count(byCategory.get(c)!) })),
   ];
 
   const sections = CATEGORY_ORDER.filter((c) => filter === "all" || filter === c).map((category) => ({
@@ -105,5 +125,17 @@ export function achievementList(
       .map((r) => r.item),
   }));
 
-  return { ...count(ACHIEVEMENTS), filters, sections };
+  const milestones: SkillMilestoneRow[] =
+    filter === "all" || filter === "skills"
+      ? SKILL_ORDER.map((skillId) => ({
+          skillId,
+          discovered: state.skills[skillId].unlocked,
+          levels: SKILL_MILESTONE_LEVELS.map((level) => ({
+            level,
+            done: state.achievements[skillMilestoneId(skillId, level)] !== undefined,
+          })),
+        }))
+      : [];
+
+  return { ...count(ACHIEVEMENTS), filters, sections, milestones };
 }
