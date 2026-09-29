@@ -6,6 +6,7 @@
   import PhoneHeader from "$lib/components/mobile/PhoneHeader.svelte";
   import AgeSheet from "$lib/components/mobile/AgeSheet.svelte";
   import SkillPicker from "$lib/components/mobile/SkillPicker.svelte";
+  import ActionBar from "$lib/components/mobile/ActionBar.svelte";
   import { ageChecklist, checklistProgress } from "$lib/view/ageChecklist";
   import SkillPanel from "$lib/components/SkillPanel.svelte";
   import TrainingView from "$lib/components/TrainingView.svelte";
@@ -358,6 +359,23 @@
       {/if}
     </div>
 
+    <!-- Phone training controls, above the nav and never over the content -->
+    {#if centerTab === "train" && selectedSkill && viewedRecipeId}
+      <ActionBar
+        class="md:hidden"
+        skillId={selectedSkill}
+        recipeId={viewedRecipeId}
+        state={game.state}
+        level={game.levels[selectedSkill]}
+        ageIndex={game.ageIndex}
+        progress={game.displayProgress}
+        events={game.events}
+        onTrain={handleStartTraining}
+        onStop={handleStopTraining}
+        onBack={openTraining}
+      />
+    {/if}
+
     <!-- Phone navigation: thumb-reachable tabs along the bottom edge -->
     <nav
       aria-label="Sections"
@@ -417,10 +435,14 @@
     onAdvance={() => game.advanceAgeAction()}
   />
 
-  <GainToastStack
-    events={game.events}
-    onDismiss={(id) => game.dismissEvent(id)}
-  />
+  <!-- Desktop only: phones show gains in the action bar. Hidden rather than removed,
+       since the toasts dismiss their events. -->
+  <div class="hidden md:contents">
+    <GainToastStack
+      events={game.events}
+      onDismiss={(id) => game.dismissEvent(id)}
+    />
+  </div>
 
   <AnimationOverlay
     events={game.events}

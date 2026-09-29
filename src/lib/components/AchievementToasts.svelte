@@ -23,7 +23,7 @@
 
 {#if toasts.length > 0}
   <div
-    class="pointer-events-none fixed inset-x-0 top-3 z-[120] flex flex-col items-center gap-2"
+    class="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[120] flex flex-col items-center gap-2"
   >
     {#each toasts as event (event.id)}
       <AchievementToast {event} {onDismiss} />
