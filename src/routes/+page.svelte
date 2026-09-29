@@ -21,11 +21,22 @@
   import AchievementsView from "$lib/components/AchievementsView.svelte";
   import AchievementToasts from "$lib/components/AchievementToasts.svelte";
   import { ACHIEVEMENTS, unlockedCount } from "$lib/achievements";
+  import { OverlayQueue } from "$lib/view/overlayQueue.svelte";
   import DebugPanel from "$lib/components/DebugPanel.svelte";
   import { page } from "$app/state";
   import type { BattleMode } from "$lib/combatEngine";
 
   const game = new CivdleGame();
+
+  // One popup at a time: age advance, then a new-skill sheet, then one grouped achievements toast.
+  const overlays = new OverlayQueue();
+  $effect(() => overlays.sync(game.pendingUnlocks, game.events));
+  let overlay = $derived(overlays.current);
+  let ageOverlayEvent = $derived(overlay?.kind === "ageAdvance" ? overlay.event : null);
+  // Summon reveals are modal too; the sheet and toast wait for them to finish.
+  let revealOpen = $derived(
+    game.events.some((e) => e.type === "summon" || e.type === "summonPack" || e.type === "starUp"),
+  );
 
   let isDebug = $derived(page.url.searchParams.has("debug"));
 
@@ -79,6 +90,7 @@
 
     return () => {
       wide.removeEventListener("change", leaveItemsTab);
+      overlays.destroy();
       cleanup();
     };
   });
@@ -143,13 +155,15 @@
     ]);
   });
 
-  $effect(() => {
-    if (game.pendingUnlocks.length > 0) {
-      const newSkill = game.pendingUnlocks[0];
-      selectedSkill = newSkill;
-      centerTab = "train";
-    }
-  });
+  function startUnlockedSkill(id: SkillId, recipeId: string) {
+    game.startTraining(id, recipeId);
+    openRecipe(id, recipeId);
+    game.dismissUnlock();
+  }
+
+  function dismissAchievementToast() {
+    for (const id of overlays.dismissAchievements()) game.dismissEvent(id);
+  }
 </script>
 
 {#snippet itemsPanel()}
@@ -222,6 +236,7 @@
         ageAdvanceStatus={game.ageAdvanceStatus}
         onAdvance={() => game.advanceAgeAction()}
         events={game.events}
+        ageEvent={ageOverlayEvent}
         onDismissEvent={(id) => game.dismissEvent(id)}
       />
     </div>
@@ -430,12 +445,14 @@
     </nav>
   </div>
 
-  {#if game.pendingUnlocks.length > 0}
-    {#key game.pendingUnlocks[0]}
+  {#if overlay?.kind === "skillUnlock" && !revealOpen}
+    {@const skillId = overlay.skillId}
+    {#key skillId}
       <SkillUnlockModal
-        skillId={game.pendingUnlocks[0]}
-        level={game.levels[game.pendingUnlocks[0]]}
-        onDismiss={() => game.dismissUnlock()}
+        {skillId}
+        level={game.levels[skillId]}
+        onStart={(recipeId) => startUnlockedSkill(skillId, recipeId)}
+        onLater={() => game.dismissUnlock()}
       />
     {/key}
   {/if}
@@ -460,12 +477,17 @@
 
   <AnimationOverlay
     events={game.events}
+    ageEvent={ageOverlayEvent}
     onDismiss={(id) => game.dismissEvent(id)}
   />
 
   <AchievementToasts
-    events={game.events}
-    onDismiss={(id) => game.dismissEvent(id)}
+    overlay={overlay?.kind === "achievements" && !revealOpen ? overlay : null}
+    onOpen={() => {
+      centerTab = "achievements";
+      dismissAchievementToast();
+    }}
+    onDismiss={dismissAchievementToast}
   />
 
   {#if isDebug}

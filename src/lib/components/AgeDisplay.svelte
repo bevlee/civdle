@@ -21,6 +21,7 @@
     ageAdvanceStatus,
     onAdvance,
     events,
+    ageEvent,
     onDismissEvent,
   }: {
     ageIndex: number;
@@ -33,6 +34,8 @@
     ageAdvanceStatus: AgeAdvanceStatus;
     onAdvance: () => void;
     events: QueuedEvent[];
+    /** The age advance being celebrated right now; the overlay owns dismissing it. */
+    ageEvent: QueuedEvent<AgeAdvanceEventData> | null;
     onDismissEvent: (id: string) => void;
   } = $props();
 
@@ -49,13 +52,6 @@
   let spoilsEvents = $derived(
     events.filter(
       (e): e is QueuedEvent<{ amount: number }> => e.type === "spoilsGain",
-    ),
-  );
-
-  let ageAdvanceEvents = $derived(
-    events.filter(
-      (e): e is QueuedEvent<AgeAdvanceEventData> =>
-        e.type === "ageAdvance",
     ),
   );
 
@@ -155,15 +151,17 @@
       {#if bonusText}
         <span class="hidden text-xs text-muted-foreground sm:inline">{bonusText}</span>
       {/if}
-      {#each ageAdvanceEvents as event (event.id)}
-        <FloatingText
-          id={event.id}
-          text={event.data.bonusText}
-          class="text-sm text-amber-400"
-          duration={1400}
-          onDone={onDismissEvent}
-        />
-      {/each}
+      {#if ageEvent}
+        {#key ageEvent.id}
+          <FloatingText
+            id={ageEvent.id}
+            text={ageEvent.data.bonusText}
+            class="text-sm text-amber-400"
+            duration={1400}
+            onDone={() => {}}
+          />
+        {/key}
+      {/if}
     </div>
     <div class="flex shrink-0 items-center gap-3 sm:gap-4">
       <div class="relative flex items-center">
