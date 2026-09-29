@@ -5,6 +5,7 @@
   import AgeDisplay from "$lib/components/AgeDisplay.svelte";
   import PhoneHeader from "$lib/components/mobile/PhoneHeader.svelte";
   import AgeSheet from "$lib/components/mobile/AgeSheet.svelte";
+  import SkillPicker from "$lib/components/mobile/SkillPicker.svelte";
   import { ageChecklist, checklistProgress } from "$lib/view/ageChecklist";
   import SkillPanel from "$lib/components/SkillPanel.svelte";
   import TrainingView from "$lib/components/TrainingView.svelte";
@@ -224,7 +225,7 @@
     {/if}
 
     <div class="flex min-h-0 flex-1">
-      <!-- Left: Skill panel (the Train tab shows it as a strip on phones) -->
+      <!-- Left: Skill panel (phones use the SkillPicker on the Train tab) -->
       <SkillPanel
         class="hidden md:flex"
         state={game.state}
@@ -259,15 +260,12 @@
 
         <div class="flex flex-1 flex-col overflow-y-auto {isCombatTab ? 'max-md:overflow-hidden' : ''}">
           {#if centerTab === "train"}
-            <SkillPanel
-              horizontal
+            <SkillPicker
               class="md:hidden"
               state={game.state}
               levels={game.levels}
               {selectedSkill}
               onSelect={handleSelectSkill}
-              events={game.events}
-              onDismissEvent={(id) => game.dismissEvent(id)}
             />
           {/if}
           {#if centerTab === "train" && selectedSkill}
