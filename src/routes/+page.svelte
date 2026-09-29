@@ -61,6 +61,8 @@
     lastRunningMode = running;
   });
 
+  let tributeHintOpen = $state(false);
+
   const BATTLE_MODES: { id: BattleMode; label: string }[] = [
     { id: "story", label: "Campaign" },
     { id: "depths", label: "The Abyss" },
@@ -344,23 +346,67 @@
             </div>
           {:else if centerTab === "battle"}
             <div class="flex min-h-0 flex-1 flex-col gap-2 p-2 sm:p-3">
-              <div
-                role="group"
-                aria-label="Battle mode"
-                class="grid shrink-0 grid-cols-2 gap-1 self-center rounded-full border border-border bg-card p-1"
-              >
-                {#each BATTLE_MODES as m (m.id)}
-                  <button
-                    class="min-h-9 rounded-full px-4 text-sm font-medium transition-colors {battleMode ===
-                    m.id
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:text-foreground'}"
-                    aria-pressed={battleMode === m.id}
-                    onclick={() => (battleMode = m.id)}
+              <!-- Phone: what Tribute is, opened from the chip beside the mode switch. -->
+              {#if tributeHintOpen}
+                <div
+                  id="tribute-hint"
+                  class="flex shrink-0 items-start gap-2.5 rounded-xl border border-primary/25 bg-card py-2.5 pr-2 pl-3 md:hidden"
+                >
+                  <span
+                    class="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-xs font-bold text-primary-foreground italic"
+                    aria-hidden="true">i</span
                   >
-                    {m.label}
+                  <p class="flex-1 text-[13px] leading-snug text-pretty">
+                    <b class="font-semibold">Tribute</b> is earned by winning Campaign levels and descending
+                    the Abyss. It pays for Legendary Packs once the Hall of Legends is built.
+                  </p>
+                  <button
+                    class="-my-1 flex size-7 shrink-0 items-center justify-center text-base text-muted-foreground"
+                    aria-label="Dismiss"
+                    onclick={() => (tributeHintOpen = false)}
+                  >
+                    ×
                   </button>
-                {/each}
+                </div>
+              {/if}
+              <div class="flex shrink-0 items-center gap-3 md:justify-center">
+                <div
+                  role="group"
+                  aria-label="Battle mode"
+                  class="grid shrink-0 grid-cols-2 gap-1 rounded-full border border-border bg-card p-1 max-md:min-w-0 max-md:flex-1 max-md:rounded-xl"
+                >
+                  {#each BATTLE_MODES as m (m.id)}
+                    <button
+                      class="min-h-9 rounded-full px-4 text-sm font-medium transition-colors max-md:rounded-lg max-md:px-2 max-md:font-semibold {battleMode ===
+                      m.id
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'}"
+                      aria-pressed={battleMode === m.id}
+                      onclick={() => (battleMode = m.id)}
+                    >
+                      {m.label}
+                    </button>
+                  {/each}
+                </div>
+                <!-- Desktop shows Tribute in the age header. -->
+                <button
+                  class="flex min-h-11 shrink-0 flex-col items-end justify-center gap-0.5 leading-tight md:hidden"
+                  aria-label={`${game.state.gacha.gold} Tribute. About Tribute`}
+                  aria-expanded={tributeHintOpen}
+                  aria-controls="tribute-hint"
+                  onclick={() => (tributeHintOpen = !tributeHintOpen)}
+                >
+                  <span class="text-[17px] font-bold tabular-nums">{game.state.gacha.gold.toLocaleString()}</span>
+                  <span
+                    class="flex items-center gap-1 text-[11px] font-semibold tracking-wide whitespace-nowrap text-muted-foreground"
+                  >
+                    TRIBUTE
+                    <span
+                      class="flex size-3 items-center justify-center rounded-full border border-muted-foreground/70 font-serif text-[9px] font-bold tracking-normal italic"
+                      aria-hidden="true">i</span
+                    >
+                  </span>
+                </button>
               </div>
               <CombatView {game} mode={battleMode} />
             </div>

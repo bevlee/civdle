@@ -37,6 +37,13 @@
       (storyRecruit ? ` · ${UNITS[storyRecruit.unitId].name} ${UNITS[storyRecruit.unitId].baseStars}★ joins you` : ""),
   );
   let nextTierAt = $derived((Math.floor(game.depthsCleared / DEPTHS_TIER_SIZE) + 1) * DEPTHS_TIER_SIZE);
+  let levelTitle = $derived(mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`);
+  // The phone's one-line summary under the title.
+  let levelSub = $derived(mode === "depths"
+    ? `+${game.depthsIncome * game.treasuryMultiplier} Tribute/min · next tier at ${nextTierAt}`
+    : game.storyComplete ? "" : `${storyBoss ? "Boss · " : ""}${storyRewardText}`);
+  let fightLabel = $derived(isPlaying ? "Fighting…" : mode === "story" ? "⚔ Fight" : "⚔ Descend");
+  function startFight() { if (mode === "story") game.startStoryFight(); else game.startDepthsFight(); }
   let canFight = $derived(!formationLocked && partyCards.length > 0 && !(mode === "story" && game.storyComplete));
   let pendingImpact = $state(false);
   let beforeImpact = $state<Fighter[]>([]);
@@ -235,19 +242,55 @@
 
 <div class="combat-layout">
   <div class="combat-main">
+    <!-- Phone: title and Fight, then one row of playback controls. -->
+    <div class="phone-header flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 class="truncate text-lg leading-tight font-bold tracking-tight">{levelTitle}</h2>
+          {#if levelSub}<p class="truncate text-[13px] text-muted-foreground" title={levelSub}>{levelSub}</p>{/if}
+        </div>
+        {#if mode === "depths"}
+          <button class="h-11 shrink-0 rounded-xl border border-border px-3 text-sm font-semibold transition-colors disabled:opacity-50 {gacha.depths.auto ? 'bg-accent text-foreground' : 'text-muted-foreground'}"
+            aria-pressed={gacha.depths.auto} disabled={otherBattleActive || partyCards.length === 0}
+            onclick={() => game.setDepthsAuto(!gacha.depths.auto)}>Auto</button>
+        {/if}
+        <Button class="h-11 shrink-0 rounded-xl px-4 text-[15px] font-semibold" disabled={!canFight} onclick={startFight}>{fightLabel}</Button>
+      </div>
+      <div class="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Battle playback">
+        <button class="h-9 w-10 shrink-0 rounded-[10px] border border-border text-[13px] transition-colors disabled:opacity-40 {game.battlePaused ? 'text-foreground' : 'text-muted-foreground'}"
+          disabled={!battle} aria-pressed={game.battlePaused} aria-label={game.battlePaused ? "Resume battle" : "Pause battle"}
+          onclick={() => game.setBattlePaused(!game.battlePaused)}>{game.battlePaused ? "▶" : "Ⅱ"}</button>
+        <div class="flex shrink-0 overflow-hidden rounded-[10px] border border-border" role="group" aria-label="Battle speed">
+          {#each [0.5, 1, 2] as speed}
+            <button class="h-9 w-9 text-[13px] font-semibold transition-colors {game.battleSpeed === speed ? 'bg-accent text-foreground' : 'text-muted-foreground'}"
+              aria-label={`${speed}× battle speed`} aria-pressed={game.battleSpeed === speed}
+              onclick={() => game.setBattleSpeed(speed as BattleSpeed)}>{speed === 0.5 ? "½" : speed}×</button>
+          {/each}
+        </div>
+        <span class="flex-1"></span>
+        <button class="h-9 shrink-0 rounded-[10px] border border-border px-2.5 text-[13px] whitespace-nowrap text-muted-foreground"
+          aria-label="Battle sounds" aria-pressed={!game.battleMuted}
+          onclick={() => game.setBattleMuted(!game.battleMuted)}>{game.battleMuted ? "🔈 Off" : "🔊 On"}</button>
+        <button class="h-9 shrink-0 rounded-[10px] border border-border px-2.5 text-[13px] text-muted-foreground"
+          aria-expanded={showLog} aria-controls="battle-report" onclick={() => (showLog = !showLog)}>Log</button>
+        <button class="size-9 shrink-0 rounded-full border border-border text-[13px] text-muted-foreground"
+          aria-haspopup="dialog" aria-label="Combat guide" onclick={() => showHelp = true}>?</button>
+      </div>
+    </div>
+
     <header class="combat-header">
       <div class="level-heading" class:stacked={mode === "depths"}>
-        <h2>{mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</h2>
+        <h2>{levelTitle}</h2>
         {#if mode === "depths"}<span>+{game.depthsIncome * game.treasuryMultiplier} ⚔ / min{game.treasuryMultiplier > 1 ? " (2× Treasury)" : ""} · next tier at depth {nextTierAt}</span>
         {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}{storyRewardText}</span>{/if}
         {#if mode === "depths"}<p class="depths-blurb text-[16px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
       </div>
       <div class="battle-controls">
-        <button class="help-button" aria-haspopup="dialog" aria-label="Combat guide" onclick={() => showHelp = true}><span class="help-label">Combat guide</span><span class="help-icon" aria-hidden="true">?</span></button>
+        <button class="help-button" aria-haspopup="dialog" onclick={() => showHelp = true}>Combat guide</button>
         {#if mode === "depths"}
           <label class="auto-toggle"><input type="checkbox" checked={gacha.depths.auto} disabled={otherBattleActive || partyCards.length === 0} onchange={e => game.setDepthsAuto(e.currentTarget.checked)} /> Auto</label>
         {/if}
-        <Button size="sm" class="h-9 px-4 text-sm sm:h-9 sm:px-3 sm:text-[17px]" disabled={!canFight} onclick={() => mode === "story" ? game.startStoryFight() : game.startDepthsFight()}>{isPlaying ? "Fighting…" : mode === "story" ? "⚔ Fight" : "⚔ Descend"}</Button>
+        <Button size="sm" class="h-9 px-4 text-sm sm:h-9 sm:px-3 sm:text-[17px]" disabled={!canFight} onclick={startFight}>{fightLabel}</Button>
       </div>
     </header>
 
@@ -260,7 +303,6 @@
       </div>
       <button class="sound-toggle" aria-label="Battle sounds" aria-pressed={!game.battleMuted} onclick={() => game.setBattleMuted(!game.battleMuted)}>Sound: {game.battleMuted ? "off" : "on"}</button>
       {#if game.battlePaused}<span role="status">Battle paused</span>{/if}
-      <button class="log-toggle" aria-expanded={showLog} aria-controls="battle-report" onclick={() => (showLog = !showLog)}>Log</button>
     </div>
 
     {#if showHelp}
@@ -492,17 +534,9 @@
   .log-empty { padding: 12px 0; }
   @media (max-width: 1100px) { .combat-layout { grid-template-columns: minmax(0, 1fr) 240px; gap: 12px; } .battle-stage { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); } }
   @media (max-width: 900px) { .combat-layout { grid-template-columns: minmax(0, 1fr); } .battle-sidebar { display: grid; grid-template-columns: 1fr 1fr; } }
-  .log-toggle, .report-heading, .help-icon { display: none; }
+  .report-heading { display: none; }
+  @media (min-width: 768px) { .phone-header { display: none; } }
   @keyframes sheet-up { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
-  @media (max-width: 640px) {
-    .combat-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; }
-    .level-heading { display: contents; }
-    .level-heading h2 { font-size: 16px; }
-    .level-heading > span, .level-heading > p { grid-column: 1 / -1; }
-    .battle-controls { grid-column: 2; grid-row: 1; gap: 8px; }
-    .playback-controls { font-size: 11px; gap: 6px; }
-    .playback-controls button { padding: 6px 10px; }
-  }
   @media (max-width: 640px) { .battle-sidebar { grid-template-columns: 1fr; } .battlefield { padding: 12px 8px 0; } .field-position { width: 76px; } .battle-stage { height: 400px; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); } .army-headings { gap: 10px; } .empty-circle, .drop-circle { width: 56px; height: 56px; } .versus { font-size: 24px; } .position-button { min-height: 92px; } }
   /* Phones: the combat view fills the screen without page scrolling. The battlefield
      takes the spare height and only the army list scrolls. */
@@ -510,9 +544,9 @@
     /* Stretch, not the desktop grid's "start": otherwise the column shrinks to fit the army list. */
     .combat-layout { display: flex; flex-direction: column; align-items: stretch; flex: 1; min-height: 0; }
     .combat-main { flex: 1; min-height: 0; gap: 8px; }
-    .combat-header, .playback-controls { flex-shrink: 0; }
-    .depths-blurb { display: none; }
-    .log-toggle { display: block; }
+    /* Phones get their own title row and one-line controls (.phone-header). */
+    .combat-header, .playback-controls { display: none; }
+    .phone-header { flex-shrink: 0; }
     .battlefield { flex: 1 1 0; min-height: 250px; display: flex; flex-direction: column; padding: 8px 8px 4px; }
     .army-headings { min-height: 0; }
     .battle-stage { flex: 1; min-height: 0; height: auto; margin-top: 4px; }
@@ -520,9 +554,6 @@
     .battle-stage { container-type: size; }
     .formation { --unit-h: 108px; }
     .field-position { top: calc((var(--position) - 1) * (100% - var(--unit-h)) / 4); }
-    .help-label { display: none; }
-    .help-icon { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 50%; font-size: 12px; text-decoration: none; }
-    .help-button { text-decoration: none; }
     .battlefield-footer { display: none; }
     .army-dock { flex: 0 1 auto; min-height: 118px; display: flex; flex-direction: column; }
     .army-dock > :global(*) { flex: 1; }
