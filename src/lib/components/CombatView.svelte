@@ -226,7 +226,7 @@
       <div class="flex items-center gap-3">
         <div class="flex min-w-0 flex-1 flex-col gap-0.5">
           <h2 class="truncate text-lg leading-tight font-bold tracking-tight">{levelTitle}</h2>
-          {#if levelSub}<p class="truncate text-[13px] text-muted-foreground" title={levelSub}>{levelSub}</p>{/if}
+          {#if levelSub}<p class="line-clamp-2 text-[13px] leading-snug text-pretty text-muted-foreground">{levelSub}</p>{/if}
         </div>
         {#if mode === "depths"}
           <button class="h-11 shrink-0 rounded-xl border border-border px-3 text-sm font-semibold transition-colors disabled:opacity-50 {gacha.depths.auto ? 'bg-accent text-foreground' : 'text-muted-foreground'}"
