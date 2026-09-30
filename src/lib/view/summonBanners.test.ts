@@ -36,7 +36,11 @@ describe("summonBanners", () => {
     expect(pack.locked).toBe(true);
     expect(pack.requirements).toEqual([
       { label: "Build the Hall of Legends", done: false, sub: "Settlement building", settlement: true },
+      { label: "Reach the Medieval era", done: false, sub: "Currently in the Iron Age", settlement: false },
     ]);
+
+    // The Hall alone isn't enough before 5★ summons.
+    expect(summonBanners({ ...ironAge, hasHallOfLegends: true })[2].locked).toBe(true);
 
     // The altar alone isn't enough before the final age.
     const altarOnly = summonBanners({ ...ironAge, hasCelestialAltar: true })[1];
@@ -48,6 +52,7 @@ describe("summonBanners", () => {
     const [, legendary, pack] = summonBanners({
       ...ironAge,
       ageIndex: AGES.length - 1,
+      maxStars: 5,
       hasCelestialAltar: true,
       hasHallOfLegends: true,
       glory: 40,
@@ -118,6 +123,7 @@ describe("summonBanners against the game", () => {
     { ageIndex: finalAge - 1, built: ["celestialAltar"] },
     { ageIndex: finalAge, built: ["celestialAltar"] },
     { ageIndex: 2, built: ["hallOfLegends"] },
+    { ageIndex: AGES.findIndex((a) => a.id === "medieval"), built: ["hallOfLegends"] },
     { ageIndex: finalAge, built: ["celestialAltar", "hallOfLegends"] },
   ];
 
@@ -135,6 +141,6 @@ describe("summonBanners against the game", () => {
     });
     expect(standard.locked).toBe(false);
     expect(legendary.locked).toBe(!game.legendarySummonsUnlocked);
-    expect(pack.locked).toBe(!game.hasHallOfLegends);
+    expect(pack.locked).toBe(!game.tributeLegendaryPackUnlocked);
   });
 });
