@@ -395,7 +395,7 @@
     </section>
 
     <div class="army-dock">
-      <ArmyInventory cards={gacha.cards} {partyIds} locked={formationLocked} {draggingId} bind:covering={armyCovering}
+      <ArmyInventory cards={gacha.cards} party={gacha.party} locked={formationLocked} {draggingId} bind:covering={armyCovering}
         onTap={cardId => selectedCardId = cardId} onDrop={applyDrop} onDragState={setDrag} onOpenSummon={() => (summonOpen = true)} />
     </div>
   </div>

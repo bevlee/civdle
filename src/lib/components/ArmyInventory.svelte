@@ -7,7 +7,7 @@
   import UnitCard from "./UnitCard.svelte";
   import { cn } from "$lib/utils";
   import { RARITY_NAMES } from "$lib/rarity";
-  import { dragPlace, type DragState, type DropResult } from "$lib/dragPlace";
+  import { dragPlace, slotName, slotTag, type DragState, type DropResult } from "$lib/dragPlace";
   import {
     NO_FILTER,
     SORT_LABELS,
@@ -30,7 +30,7 @@
 
   let {
     cards,
-    partyIds,
+    party,
     locked = false,
     draggingId = null,
     onTap,
@@ -40,7 +40,8 @@
     covering = $bindable(false),
   }: {
     cards: UnitCardT[];
-    partyIds: Set<string>;
+    /** Card ids by board slot (null for an empty slot). */
+    party: (string | null)[];
     locked?: boolean;
     /** Card currently being dragged anywhere on the screen. */
     draggingId?: string | null;
@@ -78,6 +79,7 @@
   let filterLabel = $derived(activeFilterLabel(filter));
   let countLabel = $derived(filtered ? `${shown.length}/${cards.length}` : `${cards.length}`);
   let promotable = $derived(promotableIds(cards));
+  let slotOf = $derived(new Map(party.flatMap((id, slot) => (id ? [[id, slot] as const] : []))));
 
   const clearFilters = () => (picked = { ...NO_FILTER });
   const setStars = (stars: StarFilter) => (picked = { ...filter, stars });
@@ -142,7 +144,8 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#snippet cardButton(card: UnitCardT, variant: "strip" | "grid" | "panel")}
-  {@const inParty = partyIds.has(card.id)}
+  {@const slot = slotOf.get(card.id)}
+  {@const inParty = slot !== undefined}
   {@const name = UNITS[card.unitId].name}
   <button
     class={cn(
@@ -161,7 +164,7 @@
       onDrop: variant === "grid" ? gridDrop : onDrop,
       onDragState: variant === "grid" ? gridDragState : onDragState,
     }}
-    aria-label={`${name}, ${card.stars} stars${inParty ? ", deployed" : ""}`}
+    aria-label={`${name}, ${card.stars} stars${inParty ? `, deployed at ${slotName(slot)}` : ""}`}
     title={`${name} — drag onto the battlefield, or click for details`}
   >
     <UnitCard
@@ -177,7 +180,8 @@
       )}
     />
     {#if inParty}
-      <span class="absolute -top-1 -left-1 rounded bg-primary px-1 text-[12px] leading-[18px] font-bold text-primary-foreground md:text-[14px]">P</span>
+      <!-- Where it stands on the board, e.g. F2 for Front · 2. -->
+      <span class="absolute -top-1 -left-1 rounded bg-primary px-1 text-[12px] leading-[18px] font-bold text-primary-foreground md:text-[14px]" aria-hidden="true">{slotTag(slot)}</span>
     {/if}
     {#if promotable.has(card.id)}
       <span

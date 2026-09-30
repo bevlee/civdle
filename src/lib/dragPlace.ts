@@ -53,6 +53,12 @@ export function slotName(slot: number): string {
   return `${isFrontRow(position) ? "Front" : "Back"} · ${position}`;
 }
 
+/** "F2" / "B1": a slot as a short badge (see slotName). */
+export function slotTag(slot: number): string {
+  const position = indexToPosition(slot);
+  return `${isFrontRow(position) ? "F" : "B"}${position}`;
+}
+
 /** The caption under the drag ghost. */
 export function dragLabel(src: DragSource, overSlot: DropTarget): string {
   if (typeof overSlot === "number") return `Place · ${slotName(overSlot)}`;
