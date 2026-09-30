@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UnitCard, UnitId } from "../combatData";
-import {
-  NO_FILTER,
-  activeFilterLabel,
-  filterArmy,
-  isFiltered,
-  ownedTraits,
-  promotableIds,
-  sortArmy,
-  starCounts,
-  typeCounts,
-} from "./armyFilter";
+import { NO_FILTER, activeFilterLabel, filterArmy, isFiltered, ownedTraits, promotableIds, sortArmy, starCounts, typeCounts, sortDirectionLabel } from "./armyFilter";
 
 const card = (id: string, unitId: UnitId, stars: number): UnitCard => ({ id, unitId, stars });
 
@@ -110,5 +100,14 @@ describe("sortArmy", () => {
 
   it("sorts by name", () => {
     expect(ids(sortArmy(army, "name", false))).toEqual(["a", "b", "d", "e", "c"]);
+  });
+});
+
+describe("sortDirectionLabel", () => {
+  it("says which way the army is sorted, in words that fit the key", () => {
+    expect(sortDirectionLabel("stars", true)).toBe("High–low");
+    expect(sortDirectionLabel("stars", false)).toBe("Low–high");
+    expect(sortDirectionLabel("name", false)).toBe("A–Z");
+    expect(sortDirectionLabel("trait", true)).toBe("Z–A");
   });
 });

@@ -17,6 +17,7 @@
     ownedTraits,
     promotableIds,
     sortArmy,
+    sortDirectionLabel,
     starCounts,
     starLabel,
     traitLabel,
@@ -270,8 +271,8 @@
               <option value={key}>{label}</option>
             {/each}
           </select>
-          <button class="rounded border border-border bg-muted px-1.5 py-0.5 text-[16px] hover:bg-accent" title={sortDesc ? "Descending" : "Ascending"}
-            onclick={() => (sortDesc = !sortDesc)}>{sortDesc ? "▼" : "▲"}</button>
+          <button class="rounded border border-border bg-muted px-1.5 py-0.5 text-[16px] whitespace-nowrap hover:bg-accent" aria-label={`Sorted ${sortDirectionLabel(sortKey, sortDesc)}. Reverse`}
+            onclick={() => (sortDesc = !sortDesc)}>{sortDirectionLabel(sortKey, sortDesc)}</button>
         </div>
       </div>
     {/if}
@@ -365,8 +366,8 @@
             <option value={key}>{label}</option>
           {/each}
         </select>
-        <button class="size-11 shrink-0 rounded-[10px] border border-border text-[12px] text-muted-foreground" aria-label={sortDesc ? "Sorted descending" : "Sorted ascending"}
-          onclick={() => (sortDesc = !sortDesc)}>{sortDesc ? "▼" : "▲"}</button>
+        <button class="h-11 min-w-11 shrink-0 rounded-[10px] border border-border px-2 text-[12px] whitespace-nowrap text-muted-foreground" aria-label={`Sorted ${sortDirectionLabel(sortKey, sortDesc)}. Reverse`}
+          onclick={() => (sortDesc = !sortDesc)}>{sortDirectionLabel(sortKey, sortDesc)}</button>
         <button bind:this={doneButton} class="h-11 shrink-0 rounded-[10px] border border-border px-3.5 text-sm font-semibold" onclick={closeExpanded}>Done</button>
       </div>
 

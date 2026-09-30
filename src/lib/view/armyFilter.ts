@@ -91,6 +91,12 @@ export type SortKey = "stars" | "trait" | "name";
 
 export const SORT_LABELS: Record<SortKey, string> = { stars: "Stars", trait: "Trait", name: "Name" };
 
+/** The sort direction as the toggle shows it: "High–low" for stars, "A–Z" for names. */
+export function sortDirectionLabel(key: SortKey, desc: boolean): string {
+  if (key === "stars") return desc ? "High–low" : "Low–high";
+  return desc ? "Z–A" : "A–Z";
+}
+
 export function sortArmy(cards: UnitCard[], key: SortKey, desc: boolean): UnitCard[] {
   const compare = (a: UnitCard, b: UnitCard): number => {
     const da = UNITS[a.unitId];
