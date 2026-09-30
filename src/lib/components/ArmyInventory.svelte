@@ -2,7 +2,6 @@
   import { UNITS, ATTACK_TYPES, type Trait, type UnitCard as UnitCardT } from "$lib/combatData";
   import { Button } from "$lib/components/ui/button";
   import { tick } from "svelte";
-  import { MediaQuery } from "svelte/reactivity";
   import Hint from "./Hint.svelte";
   import UnitCard from "./UnitCard.svelte";
   import { cn } from "$lib/utils";
@@ -57,8 +56,8 @@
     covering?: boolean;
   } = $props();
 
-  // Phones get a slim dock with an expandable filter view; wider screens keep the panel.
-  const wide = new MediaQuery("(min-width: 48rem)");
+  // A slim dock (one row of cards) with an expandable filter view, so the board keeps the
+  // screen on phones and desktops alike.
 
   let sortKey = $state<SortKey>("stars");
   let sortDesc = $state(true);
@@ -131,10 +130,6 @@
     onDragState(state);
   }
 
-  $effect(() => {
-    if (wide.current) expanded = false;
-  });
-
   function handleKeydown(e: KeyboardEvent) {
     // An Esc meant for a sheet or dialog on top (hero details) leaves the army open.
     const inDialog = e.target instanceof Element && e.target.closest("[role='dialog']");
@@ -144,7 +139,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#snippet cardButton(card: UnitCardT, variant: "strip" | "grid" | "panel")}
+{#snippet cardButton(card: UnitCardT, variant: "strip" | "grid")}
   {@const slot = slotOf.get(card.id)}
   {@const inParty = slot !== undefined}
   {@const name = UNITS[card.unitId].name}
@@ -152,7 +147,6 @@
     class={cn(
       "relative shrink-0 rounded-lg transition-transform select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring [-webkit-touch-callout:none]",
       variant === "strip" ? "touch-pan-x" : "touch-pan-y",
-      variant === "panel" && "hover:scale-105",
       variant === "grid" && "w-full",
       !locked && "cursor-grab active:cursor-grabbing",
       inParty && "ring-2 ring-primary ring-offset-1 ring-offset-background",
@@ -177,7 +171,6 @@
         "rounded-md border",
         variant === "strip" && "h-[72px] w-16",
         variant === "grid" && "h-[76px] w-full",
-        variant === "panel" && "h-24 w-24",
       )}
     />
     {#if inParty}
@@ -202,97 +195,6 @@
   </div>
 {/snippet}
 
-{#if wide.current}
-  <div role="group" aria-label="Army inventory" class="flex flex-col gap-2 rounded-lg border border-border bg-muted/20">
-    <div class="flex flex-wrap items-center justify-between gap-2 px-3 pt-2">
-      <div class="flex items-center gap-2">
-        <h3 class="text-[17px] font-semibold tracking-wider text-muted-foreground uppercase">Army ({countLabel})</h3>
-        {#if promotable.size > 0}
-          <Hint text="Cards with enough copies to promote. Open one to promote it.">
-            <span class="cursor-help rounded bg-green-500/20 px-1.5 py-0.5 text-[15px] text-green-300">
-              <span class="font-black">+</span> {promotable.size} promotable
-            </span>
-          </Hint>
-        {/if}
-      </div>
-      <Button size="sm" class="h-8 px-3 text-[15px]" aria-haspopup="dialog" onclick={onOpenSummon}>Summon</Button>
-    </div>
-
-    {#if cards.length > 0}
-      <div class="flex flex-wrap items-center gap-1.5 px-3">
-        <div class="flex overflow-hidden rounded border border-border" role="group" aria-label="Filter by attack type">
-          {#each typeRows as row (row.type)}
-            <button
-              class={cn("px-1.5 py-0.5 text-[16px] transition-colors", filter.type === row.type ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent")}
-              aria-pressed={filter.type === row.type}
-              title={row.type === "all" ? "All attack types" : ATTACK_TYPES[row.type].name}
-              onclick={() => setType(row.type)}
-            >
-              {row.type === "all" ? "All" : `${ATTACK_TYPES[row.type].icon} ${typeLabel(row.type)}`}
-              <span class="text-[13px] tabular-nums opacity-70">{row.n}</span>
-            </button>
-          {/each}
-        </div>
-        <div class="flex overflow-hidden rounded border border-border" role="group" aria-label="Filter by rarity">
-          {#each starRows as row (row.stars)}
-            <button
-              class={cn(
-                "px-1.5 py-0.5 text-[16px] transition-colors",
-                filter.stars === row.stars ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent",
-                row.n === 0 && filter.stars !== row.stars && "opacity-40",
-              )}
-              aria-pressed={filter.stars === row.stars}
-              title={row.stars === 0 ? "Any rarity" : `${RARITY_NAMES[row.stars]} heroes`}
-              onclick={() => setStars(row.stars)}
-            >
-              {starLabel(row.stars)}
-              <span class="text-[13px] tabular-nums opacity-70">{row.n}</span>
-            </button>
-          {/each}
-        </div>
-        <select
-          class={cn("rounded border bg-muted px-1.5 py-0.5 text-[16px]", filter.trait === null ? "border-border" : "border-primary")}
-          aria-label="Filter by trait"
-          value={filter.trait ?? "all"}
-          onchange={(e) => setTrait(e.currentTarget.value === "all" ? null : (e.currentTarget.value as Trait))}
-        >
-          <option value="all">All traits</option>
-          {#each traits as t (t)}
-            <option value={t}>{traitLabel(t)}</option>
-          {/each}
-        </select>
-        {#if filtered}
-          <button class="text-[15px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onclick={clearFilters}>Clear</button>
-        {/if}
-        <div class="ml-auto flex items-center gap-1.5">
-          <label class="text-[15px] text-muted-foreground" for="army-sort">Sort</label>
-          <select id="army-sort" class="rounded border border-border bg-muted px-1.5 py-0.5 text-[16px]" bind:value={sortKey}>
-            {#each Object.entries(SORT_LABELS) as [key, label] (key)}
-              <option value={key}>{label}</option>
-            {/each}
-          </select>
-          <button class="rounded border border-border bg-muted px-1.5 py-0.5 text-[16px] whitespace-nowrap hover:bg-accent" aria-label={`Sorted ${sortDirectionLabel(sortKey, sortDesc)}. Reverse`}
-            onclick={() => (sortDesc = !sortDesc)}>{sortDirectionLabel(sortKey, sortDesc)}</button>
-        </div>
-      </div>
-    {/if}
-
-    <div class="max-h-[26rem] overflow-y-auto px-3 pb-1" data-drag-scroll="y">
-      {#if cards.length > 0 && shown.length === 0}
-        {@render emptyFiltered("flex flex-col items-center gap-2 py-6 text-center text-[17px] text-muted-foreground")}
-      {:else if shown.length === 0}
-        <p class="py-6 text-center text-[19px] text-muted-foreground">No units yet — summon one with Tribute.</p>
-      {:else}
-        <div class="flex flex-wrap gap-2 pt-1.5">
-          {#each shown as card (card.id)}
-            {@render cardButton(card, "panel")}
-          {/each}
-        </div>
-      {/if}
-    </div>
-    <p class="px-3 pb-2 text-[15px] text-muted-foreground">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or click it for details."}</p>
-  </div>
-{:else}
   <!-- Phone dock: one header row and one strip of cards that scrolls sideways; a vertical
        drag, or a hold, lifts a card onto the board. Filters and sorting live in the expanded view. -->
   <div role="group" aria-label="Army" class="flex flex-col" inert={covering}>
@@ -427,7 +329,8 @@
       {/if}
 
       <p class="shrink-0 px-3 pt-2 text-center text-xs text-muted-foreground">
-        {locked ? "Formation locked until the battle ends · tap for details" : "Hold a hero, then drag it onto the board · tap for details"}
+        {#if locked}Formation locked until the battle ends · <span class="md:hidden">tap</span><span class="max-md:hidden">click</span> for details
+        {:else}<span class="md:hidden">Hold a hero, then drag it onto the board · tap for details</span><span class="max-md:hidden">Drag a hero onto the board · click for details</span>{/if}
       </p>
       <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-2 pb-3" data-drag-scroll="y">
         {#if cards.length > 0 && shown.length === 0}
@@ -435,7 +338,7 @@
         {:else if cards.length === 0}
           <p class="py-8 text-center text-sm text-muted-foreground">No heroes yet — summon some with Tribute.</p>
         {:else}
-          <div class="grid grid-cols-4 gap-x-2.5 gap-y-3">
+          <div class="grid grid-cols-4 gap-x-2.5 gap-y-3 md:grid-cols-6 lg:grid-cols-8">
             {#each shown as card (card.id)}
               <div class="flex min-w-0 flex-col items-center gap-1">
                 {@render cardButton(card, "grid")}
@@ -447,4 +350,3 @@
       </div>
     {/if}
   </div>
-{/if}

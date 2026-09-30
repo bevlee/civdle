@@ -388,7 +388,7 @@
         {#if battleDone && resultReady}
           <span>{mode === "depths" && gacha.depths.auto ? "Auto continuing…" : game.battlePaused ? "Paused" : "Continuing…"}</span>
         {:else if isPlaying}<span>{game.battlePaused ? "Battle paused" : "Battle in progress"} · Turn {battle?.turn}</span><span>Formation locked</span>
-        {:else if !formationLocked}<span><span class="md:hidden">Drag heroes onto a slot · tap one for details</span><span class="max-md:hidden">Drag heroes onto a slot · click one for details</span></span>
+        {:else if !formationLocked && partyCards.length === 0}<span><span class="md:hidden">Drag heroes onto a slot · tap one for details</span><span class="max-md:hidden">Drag heroes onto a slot · click one for details</span></span>
         {/if}
       </footer>
     </section>
@@ -461,7 +461,8 @@
   .playback-controls button[aria-pressed="true"], .playback-controls button.paused { color: #eee; background: #ffffff18; border-color: #ffffff40; }
   .playback-controls button:disabled { opacity: .4; cursor: default; }
   .sound-toggle { margin-left: auto; }
-  .combat-main { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  /* position: the army's expanded view covers the battle area. */
+  .combat-main { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .combat-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; flex-wrap: wrap; }
   .level-heading, .battle-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .level-heading h2 { font-size: 23px; font-weight: 650; letter-spacing: -.3px; }
@@ -530,6 +531,32 @@
   .log-empty { padding: 12px 0; }
   @media (max-width: 1100px) { .combat-layout { grid-template-columns: minmax(0, 1fr) 240px; gap: 12px; } .battle-stage { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); } }
   @media (max-width: 900px) { .combat-layout { grid-template-columns: minmax(0, 1fr); } .battle-sidebar { display: grid; grid-template-columns: 1fr 1fr; } }
+  /* Desktop: the battle fills the screen without scrolling, as on phones. The battlefield
+     takes the spare height and spreads the five slots over it; the army docks below. */
+  @media (min-width: 900px) {
+    .combat-layout { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+    .combat-main { min-height: 0; }
+    .battlefield { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+    .battle-stage { flex: 1; min-height: 0; height: auto; container: desk-stage / size; }
+    .formation { --unit-h: 106px; }
+    .field-position { top: calc((var(--position) - 1) * (100% - var(--unit-h)) / 4); }
+    .battle-sidebar { min-height: 0; overflow-y: auto; }
+    .army-dock { flex: none; }
+    /* The placing hint only while the party is empty (as on phones). */
+    .battlefield-footer { min-height: 0; }
+    .battlefield-footer > :global(*) { padding: 4px 0 6px; }
+  }
+  /* Short desktop stages (laptop screens): smaller units, so the five slots don't overlap. */
+  @container desk-stage (max-height: 400px) {
+    .formation { --unit-h: 84px; }
+    .position-button { min-height: 80px; }
+    .empty-circle { width: 52px; height: 52px; }
+    .field-position :global(.unit-sprite) { height: 46px; }
+    .field-position :global(.unit-name) { font-size: 14px; line-height: 17px; }
+    .field-position :global(.unit-stars) { font-size: 14px; line-height: 16px; }
+    .position-caption { font-size: 13px; }
+    .field-position.targeted::after { top: 38px; }
+  }
   .report-heading { display: none; }
   .log-backdrop { display: none; }
   @media (min-width: 768px) { .phone-header { display: none; } }
@@ -558,7 +585,7 @@
     .enemy-boost { padding: 2px 5px; font-size: 11px; }
     .battle-stage { flex: 1; min-height: 0; height: auto; margin-top: 4px; }
     /* Spread the five slots over the stage height so the last unit sits on the bottom edge. */
-    .battle-stage { container-type: size; }
+    .battle-stage { container: phone-stage / size; }
     .formation { --unit-h: 108px; }
     .field-position { top: calc((var(--position) - 1) * (100% - var(--unit-h)) / 4); }
     .battlefield-footer { display: none; }
@@ -584,7 +611,7 @@
     .stop-auto { font-size: 13px; min-height: 44px; }
   }
   /* Tall stages (bigger phones): larger units, so names and stars stay easy to read. */
-  @container (min-height: 400px) {
+  @container phone-stage (min-height: 400px) {
     .formation { --unit-h: 128px; }
     .field-position { width: 88px; }
     .position-button { min-height: 112px; }
@@ -593,14 +620,14 @@
     .field-position.targeted::after { top: 68px; }
   }
   /* Short stages (small phones): shrink units so the five slots don't overlap. */
-  @container (max-height: 330px) {
+  @container phone-stage (max-height: 330px) {
     .formation { --unit-h: 88px; }
     .position-button { min-height: 76px; }
     .empty-circle { width: 44px; height: 44px; }
     .field-position :global(.unit-sprite) { height: 44px; }
     .field-position.targeted::after { top: 36px; }
   }
-  @container (max-height: 260px) {
+  @container phone-stage (max-height: 260px) {
     .formation { --unit-h: 72px; }
     .position-button { min-height: 64px; }
     .empty-circle { width: 36px; height: 36px; }

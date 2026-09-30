@@ -314,7 +314,7 @@
           {/each}
         </div>
 
-        <div bind:this={centerScroll} class="flex flex-1 flex-col overflow-y-auto {isCombatTab ? 'max-md:overflow-hidden' : ''}">
+        <div bind:this={centerScroll} class="flex flex-1 flex-col overflow-y-auto {isCombatTab ? 'max-md:overflow-hidden min-[900px]:overflow-hidden' : ''}">
           {#if centerTab === "train"}
             <SkillPicker
               class="md:hidden"
