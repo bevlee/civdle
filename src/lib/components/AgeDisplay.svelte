@@ -3,9 +3,9 @@
   import { Button } from "$lib/components/ui/button";
   import FloatingText from "./FloatingText.svelte";
   import Hint from "./Hint.svelte";
-  import { AGES } from "$lib/gameData";
+  import { AGES, type SkillId } from "$lib/gameData";
   import { describeAgeBonus, type AgeAdvanceStatus, type AgeBonus } from "$lib/gameEngine";
-  import { ageRewards, checklistProgress, type ChecklistItem } from "$lib/view/ageChecklist";
+  import { ageRewards, checklistJump, checklistProgress, type ChecklistItem } from "$lib/view/ageChecklist";
   import type { AgeAdvanceEventData } from "$lib/gameState.svelte";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
   import { cn } from "$lib/utils";
@@ -22,6 +22,8 @@
     ageEvent,
     onDismissEvent,
     onOpenShop,
+    unlocked,
+    onJump,
   }: {
     ageIndex: number;
     ageBonus: AgeBonus;
@@ -37,6 +39,9 @@
     onDismissEvent: (id: string) => void;
     /** Open the Town's Shop, where skill points are spent. */
     onOpenShop?: () => void;
+    unlocked: (id: SkillId) => boolean;
+    /** Opens a skill on the Train tab (on a recipe when given), from an unmet requirement. */
+    onJump: (skill: SkillId, recipeId: string | null) => void;
   } = $props();
 
   let age = $derived(AGES[ageIndex]);
@@ -124,10 +129,23 @@
               <div class="flex flex-col gap-1.5">
                 <span class="text-xs font-semibold text-muted-foreground">Requirements</span>
                 {#each checklist as item (item.label)}
-                  <div class={cn("flex justify-between gap-4 text-xs", item.met ? "text-emerald-400" : "text-foreground")}>
-                    <span>{item.met ? "✓ " : ""}{item.label}</span>
-                    <span class="tabular-nums">{Math.min(item.current, item.required)} / {item.required}</span>
-                  </div>
+                  {@const jump = checklistJump(item, unlocked)}
+                  {#if jump}
+                    <!-- As on phones: an unmet requirement opens what to train for it. -->
+                    <button
+                      class="-mx-1.5 flex justify-between gap-4 rounded px-1.5 text-left text-xs text-foreground hover:bg-muted/60"
+                      title={jump.label}
+                      onclick={() => { detailsOpen = false; onJump(jump.skill, jump.recipeId); }}
+                    >
+                      <span>{item.label}</span>
+                      <span class="tabular-nums">{Math.min(item.current, item.required)} / {item.required} <span class="text-muted-foreground" aria-hidden="true">›</span></span>
+                    </button>
+                  {:else}
+                    <div class={cn("flex justify-between gap-4 text-xs", item.met ? "text-emerald-400" : "text-foreground")}>
+                      <span>{item.met ? "✓ " : ""}{item.label}</span>
+                      <span class="tabular-nums">{Math.min(item.current, item.required)} / {item.required}</span>
+                    </div>
+                  {/if}
                 {/each}
               </div>
               <div class="flex flex-col gap-1.5">

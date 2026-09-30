@@ -259,6 +259,8 @@
         ageEvent={ageOverlayEvent}
         onDismissEvent={(id) => game.dismissEvent(id)}
         onOpenShop={() => openTown("shop", true)}
+        unlocked={(id) => game.state.skills[id].unlocked}
+        onJump={openRecipe}
       />
     </div>
 
@@ -521,6 +523,8 @@
     checklist={ageItems}
     canAdvance={game.ageAdvanceStatus.canAdvance}
     onAdvance={() => game.advanceAgeAction()}
+    unlocked={(id) => game.state.skills[id].unlocked}
+    onJump={openRecipe}
   />
 
   <!-- Desktop only: phones show gains in the action bar. Hidden rather than removed,
