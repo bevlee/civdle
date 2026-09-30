@@ -207,6 +207,19 @@ describe("hold to lift (a finger in a scrolling list)", () => {
     action.destroy();
   });
 
+  it("drops nothing when a held card is released without moving", () => {
+    // The expanded army hides once a card lifts, so a slot can end up under a finger that never moved.
+    const card = listCard();
+    const { calls, drops, action } = mount(card);
+    pointer(card, "pointerdown", 0, 100, touch);
+    vi.advanceTimersByTime(HOLD_MS);
+    pointer(card, "pointermove", 3, 100, touch);
+    pointer(card, "pointerup", 3, 100, touch);
+    expect(drops).toEqual([]);
+    expect(calls).toEqual(["state", "state", "end"]);
+    action.destroy();
+  });
+
   it("scrolls when the finger moves before the hold completes", () => {
     const card = listCard();
     const { calls, action } = mount(card);
