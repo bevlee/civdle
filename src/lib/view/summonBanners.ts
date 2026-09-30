@@ -127,13 +127,14 @@ export function summonBanners(input: BannerInput): Banner[] {
       balance: input.tribute,
       locked: !(input.hasHallOfLegends && fiveStars),
       requirements: [
-        settlementRequirement("hallOfLegends", input.hasHallOfLegends),
+        // The age comes first: the Hall can't be built until it is reached.
         {
           label: `Reach ${theAge(ageNameForStars(5))}`,
           done: fiveStars,
           sub: fiveStars ? "Done" : `Currently in ${theAge(current)}`,
           settlement: false,
         },
+        settlementRequirement("hallOfLegends", input.hasHallOfLegends),
       ],
       options: [{ count: LEGENDARY_PACK_SIZE, cost: TRIBUTE_LEGENDARY_PACK_COST, save: 0 }],
     },

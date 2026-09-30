@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AGES, type ResourceId } from "../gameData";
-import { createInitialState, getSkillLevels, settlementPurchaseBlock, type GameState } from "../gameEngine";
+import { createInitialState, getMaxSummonStars, getSkillLevels, settlementPurchaseBlock, type GameState } from "../gameEngine";
 import { CivdleGame } from "../gameState.svelte";
 import {
   SETTLEMENT_UPGRADES,
@@ -125,6 +125,12 @@ describe("settlementPurchaseBlock", () => {
     });
     state.ageIndex = AGES.findIndex((a) => a.id === "medieval");
     expect(settlementPurchaseBlock(state, levels, "hallOfLegends")).toBeNull();
+  });
+
+  it("gates the Hall of Legends on the age that opens 5★ summons", () => {
+    const hallAge = AGES.findIndex((a) => a.id === SETTLEMENT_UPGRADES.hallOfLegends.ageRequired);
+    expect(getMaxSummonStars(hallAge)).toBeGreaterThanOrEqual(5);
+    expect(getMaxSummonStars(hallAge - 1)).toBeLessThan(5);
   });
 
   it("reports why a purchase is blocked", () => {

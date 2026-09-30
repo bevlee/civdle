@@ -806,8 +806,11 @@ export function settlementPurchaseBlock(
   if (def.requires && !state.settlementUpgrades.includes(def.requires)) {
     return { kind: "locked", reason: `Build ${SETTLEMENT_UPGRADES[def.requires].name} first` };
   }
-  if (def.ageRequired && state.ageIndex < ageIndexOf(def.ageRequired)) {
-    return { kind: "locked", reason: `Reach ${theAge(AGES[ageIndexOf(def.ageRequired)].name)}` };
+  if (def.ageRequired) {
+    const requiredAge = ageIndexOf(def.ageRequired);
+    if (state.ageIndex < requiredAge) {
+      return { kind: "locked", reason: `Reach ${theAge(AGES[requiredAge].name)}` };
+    }
   }
   const unmet = def.prereqs.find((p) => (levels[p.skill] ?? 0) < p.level);
   if (unmet) return { kind: "locked", reason: `Needs ${SKILLS[unmet.skill].name} Lv ${unmet.level}` };
