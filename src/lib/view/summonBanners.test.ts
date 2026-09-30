@@ -35,8 +35,8 @@ describe("summonBanners", () => {
     ]);
     expect(pack.locked).toBe(true);
     expect(pack.requirements).toEqual([
-      { label: "Build the Hall of Legends", done: false, sub: "Settlement building", settlement: true },
       { label: "Reach the Medieval era", done: false, sub: "Currently in the Iron Age", settlement: false },
+      { label: "Build the Hall of Legends", done: false, sub: "Settlement building", settlement: true },
     ]);
 
     // The Hall alone isn't enough before 5★ summons.
