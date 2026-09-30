@@ -45,9 +45,7 @@
   // The enemy that joins your army when this campaign level is won.
   let storyRecruit = $derived(gacha.encounter ? strongestEnemy(gacha.encounter) : null);
   let storyRecruitText = $derived(storyRecruit ? `${UNITS[storyRecruit.unitId].name} ${UNITS[storyRecruit.unitId].baseStars}★` : "");
-  // Before the fight the recruit "joins you"; on the victory card it simply has.
-  let storyWinText = $derived(`+${storyTribute(gacha.storyLevel)} Tribute${storyRecruitText ? ` · ${storyRecruitText}` : ""}`);
-  let storyRewardText = $derived(`${storyWinText}${storyRecruitText ? " joins you" : ""}`);
+  let storyRewardText = $derived(`+${storyTribute(gacha.storyLevel)} Tribute${storyRecruitText ? ` · ${storyRecruitText}` : ""}`);
   let nextTierAt = $derived((Math.floor(game.depthsCleared / DEPTHS_TIER_SIZE) + 1) * DEPTHS_TIER_SIZE);
   let levelTitle = $derived(mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}${storyBoss ? " - Boss" : ""}` : `Depth ${gacha.depths.level}`);
   // The phone's one-line summary under the title.
@@ -375,7 +373,7 @@
               <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</p>
               <span class="result-label">{battle?.status === "won" ? "Victory!" : "Defeated"}</span>
               {#if battle?.status === "won"}
-                <span class="result-detail">{mode === "story" ? storyWinText : `Depth ${gacha.depths.level} cleared`}</span>
+                <span class="result-detail">{mode === "story" ? storyRewardText : `Depth ${gacha.depths.level} cleared`}</span>
               {:else}
                 <span class="result-detail">Adjust your formation and try again.</span>
               {/if}
