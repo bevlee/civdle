@@ -216,6 +216,8 @@
   {/if}
 {/snippet}
 
+<svelte:window onkeydown={(e) => { if (e.key === "Escape" && showLog) showLog = false; }} />
+
 <div class="combat-layout">
   <div class="combat-main">
     <!-- Phone: title and Fight, then one row of playback controls. -->
@@ -401,6 +403,10 @@
     </section>
     <CombatStatsPanel playerFighters={report?.fighters.filter(f => !f.isEnemy) ?? []} enemyFighters={report?.fighters.filter(f => f.isEnemy) ?? []} />
   </aside>
+  {#if showLog}
+    <!-- Phones: a tap outside the report closes it. -->
+    <button class="log-backdrop" aria-label="Close battle report" tabindex="-1" onclick={() => (showLog = false)}></button>
+  {/if}
 </div>
 
 
@@ -517,6 +523,7 @@
   @media (max-width: 1100px) { .combat-layout { grid-template-columns: minmax(0, 1fr) 240px; gap: 12px; } .battle-stage { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); } }
   @media (max-width: 900px) { .combat-layout { grid-template-columns: minmax(0, 1fr); } .battle-sidebar { display: grid; grid-template-columns: 1fr 1fr; } }
   .report-heading { display: none; }
+  .log-backdrop { display: none; }
   @media (min-width: 768px) { .phone-header { display: none; } }
   @keyframes sheet-up { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
   @media (max-width: 640px) { .battle-sidebar { grid-template-columns: 1fr; } .battlefield { padding: 12px 8px 0; } .field-position { width: 76px; } .battle-stage { height: 400px; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); } .army-headings { gap: 10px; } .empty-circle { width: 56px; height: 56px; } .versus { font-size: 24px; } .position-button { min-height: 92px; } }
@@ -546,6 +553,7 @@
     .battlefield-footer.idle-hint { display: flex; justify-content: center; min-height: 0; padding: 2px 0 4px; border-top: 0; font-size: 12px; }
     .army-dock { flex: none; }
     .battle-sidebar { display: none; }
+    .log-backdrop { display: block; position: fixed; inset: 0; z-index: 39; background: #0009; }
     .battle-sidebar.open { display: flex; position: fixed; inset: auto 0 0; z-index: 40; max-height: 70dvh; overflow-y: auto; padding: 0 8px calc(8px + env(safe-area-inset-bottom)); background: var(--background); border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -12px 32px #000c; animation: sheet-up .2s ease-out; }
     .open .report-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 12px 4px 4px; background: var(--background); }
     .report-heading button { min-height: 44px; margin: -8px 0; padding: 0 8px; font-size: 12px; color: var(--muted-foreground); text-decoration: underline; }
