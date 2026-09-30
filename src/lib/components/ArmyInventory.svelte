@@ -289,7 +289,7 @@
   </div>
 {:else}
   <!-- Phone dock: one header row and one strip of cards that scrolls sideways; a vertical
-       drag lifts a card onto the board. Filters and sorting live in the expanded view. -->
+       drag, or a hold, lifts a card onto the board. Filters and sorting live in the expanded view. -->
   <div role="group" aria-label="Army" class="flex flex-col" inert={covering}>
     <div class="flex min-w-0 items-center gap-2">
       <button
@@ -421,6 +421,9 @@
         </div>
       {/if}
 
+      <p class="shrink-0 px-3 pt-2 text-center text-xs text-muted-foreground">
+        {locked ? "Formation locked until the battle ends · tap for details" : "Hold a hero, then drag it onto the board · tap for details"}
+      </p>
       <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-2 pb-3" data-drag-scroll="y">
         {#if cards.length > 0 && shown.length === 0}
           {@render emptyFiltered("flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground")}
@@ -436,10 +439,6 @@
             {/each}
           </div>
         {/if}
-        <p class="pt-3.5 text-center text-xs text-muted-foreground">
-          <!-- The grid scrolls vertically, so a card lifts on a sideways drag (then goes anywhere). -->
-          {locked ? "Formation locked until the battle ends · tap for details" : "Drag a hero sideways to lift it · tap for details"}
-        </p>
       </div>
     {/if}
   </div>
