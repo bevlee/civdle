@@ -1,7 +1,7 @@
 // The dragPlace action's gesture state machine, driven with a tiny fake DOM (Node's
 // own EventTarget and Event) rather than a DOM environment dependency.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { dragPlace, type DragPlaceOptions, type DragState, type DropResult } from "./dragPlace";
+import { dragPlace, HOLD_MS, type DragPlaceOptions, type DragState, type DropResult } from "./dragPlace";
 
 const camel = (attr: string) => attr.replace(/^data-/, "").replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
 
@@ -183,6 +183,73 @@ describe("dragPlace action", () => {
     pointer(card, "pointermove", 0, 100);
     pointer(card, "pointerup", 0, 100);
     expect(calls).toEqual(["state", "drop", "end"]);
+    action.destroy();
+  });
+});
+
+describe("hold to lift (a finger in a scrolling list)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const listCard = () => new FakeElement(new FakeElement(null, { "data-drag-scroll": "y" }));
+  const touch = { pointerType: "touch" };
+
+  it("lifts a card after a still hold, then drags it along the scroll axis", () => {
+    const card = listCard();
+    const { calls, drops, action } = mount(card);
+    pointer(card, "pointerdown", 0, 0, touch);
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(calls).toEqual(["state"]);
+    pointer(card, "pointermove", 0, 100, touch);
+    pointer(card, "pointerup", 0, 100, touch);
+    expect(drops).toEqual([{ assign: ["a", 2] }]);
+    expect(calls).toEqual(["state", "state", "drop", "end"]);
+    action.destroy();
+  });
+
+  it("scrolls when the finger moves before the hold completes", () => {
+    const card = listCard();
+    const { calls, action } = mount(card);
+    pointer(card, "pointerdown", 0, 0, touch);
+    pointer(card, "pointermove", 0, 100, touch);
+    vi.advanceTimersByTime(HOLD_MS);
+    pointer(card, "pointerup", 0, 100, touch);
+    expect(calls).toEqual([]);
+    action.destroy();
+  });
+
+  it("still taps on a quick press", () => {
+    const card = listCard();
+    const { calls, action } = mount(card);
+    pointer(card, "pointerdown", 0, 0, touch);
+    pointer(card, "pointerup", 0, 0, touch);
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(calls).toEqual(["tap"]);
+    action.destroy();
+  });
+
+  it("treats a hold on a locked card as a tap (details)", () => {
+    const card = listCard();
+    const { calls, action } = mount(card, { locked: true });
+    pointer(card, "pointerdown", 0, 0, touch);
+    vi.advanceTimersByTime(HOLD_MS);
+    pointer(card, "pointerup", 0, 0, touch);
+    expect(calls).toEqual(["tap"]);
+    action.destroy();
+  });
+
+  it("stops the list scrolling only once a card is lifted", () => {
+    const card = listCard();
+    const { action } = mount(card);
+    pointer(card, "pointerdown", 0, 0, touch);
+    const early = new Event("touchmove", { cancelable: true });
+    card.dispatchEvent(early);
+    expect(early.defaultPrevented).toBe(false);
+    vi.advanceTimersByTime(HOLD_MS);
+    const late = new Event("touchmove", { cancelable: true });
+    card.dispatchEvent(late);
+    expect(late.defaultPrevented).toBe(true);
+    pointer(card, "pointerup", 0, 0, touch);
     action.destroy();
   });
 });
