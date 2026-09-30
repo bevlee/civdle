@@ -139,7 +139,7 @@
         </h3>
         <p class="flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
           <StarRow stars={card.stars} ascended={card.ascended} />
-          <span>{card.stars}/{MAX_STARS} · <span style:color={color}>{RARITY_NAMES[def.baseStars]}</span></span>
+          <span>max {MAX_STARS}★ · <span style:color={color}>{RARITY_NAMES[def.baseStars]}</span></span>
         </p>
         <p class="text-[13px] text-muted-foreground">
           <span class="font-semibold" style:color={faction.color}>{faction.name}</span> · {type.icon} {type.name}
@@ -233,8 +233,9 @@
             <div class="grid grid-cols-5 gap-1.5">
               {#each slots as i (i)}
                 {@const current = i === slot}
+                {@const other = slotCards[i]}
                 <button
-                  class="flex h-11 min-w-0 items-center justify-center rounded-lg border px-1 text-[12px] md:h-9 font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 {current
+                  class="flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1 text-[12px] leading-tight font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 {current
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-border bg-card text-foreground enabled:hover:bg-accent'}"
                   aria-pressed={current}
@@ -244,6 +245,10 @@
                   onclick={() => { if (!current) onPlace?.(i); }}
                 >
                   {slotName(i)}
+                  <!-- Who is there now, so a placement never swaps someone out unseen. -->
+                  <span class="max-w-full truncate text-[10px] font-medium {current ? '' : other ? 'text-muted-foreground' : 'text-muted-foreground/60'}" aria-hidden="true">
+                    {current ? "Here" : other ? UNITS[other.unitId].name : "Empty"}
+                  </span>
                 </button>
               {/each}
             </div>
