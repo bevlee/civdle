@@ -119,7 +119,7 @@ describe("outputs", () => {
     expect(withUpgrade?.outputs.map((o) => o.resource)).toContain("logs");
   });
 
-  it("keeps level milestones at their level when an outputLevel effect lowers the ore", () => {
+  it("an outputLevel effect does not pull level-milestone repeats earlier", () => {
     const upgrades = SKILLS.mining.upgrades;
     upgrades.push({
       id: "testOre",
