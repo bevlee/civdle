@@ -196,6 +196,11 @@ export function getMaxSummonStars(ageIndex: number): number {
   return stars;
 }
 
+/** An age as it reads after "in" or "Reach": "the Iron Age", "the Medieval era", "the Renaissance". */
+export function theAge(name: string): string {
+  return /age$/i.test(name) || name === "Renaissance" ? `the ${name}` : `the ${name} era`;
+}
+
 export function isCombatUnlocked(ageIndex: number): boolean {
   return AGES.slice(0, ageIndex + 1).some((a) => a.reward.unlocksCombat);
 }
@@ -800,6 +805,9 @@ export function settlementPurchaseBlock(
   if (!def) return { kind: "locked", reason: "Unknown building" };
   if (def.requires && !state.settlementUpgrades.includes(def.requires)) {
     return { kind: "locked", reason: `Build ${SETTLEMENT_UPGRADES[def.requires].name} first` };
+  }
+  if (def.ageRequired && state.ageIndex < ageIndexOf(def.ageRequired)) {
+    return { kind: "locked", reason: `Reach ${theAge(AGES[ageIndexOf(def.ageRequired)].name)}` };
   }
   const unmet = def.prereqs.find((p) => (levels[p.skill] ?? 0) < p.level);
   if (unmet) return { kind: "locked", reason: `Needs ${SKILLS[unmet.skill].name} Lv ${unmet.level}` };

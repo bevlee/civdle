@@ -3,6 +3,7 @@
 
 import { GACHA_COST, PACK_COST, PACK_SIZE, UNITS, type UnitCard } from "../combatData";
 import { AGES } from "../gameData";
+import { theAge } from "../gameEngine";
 import {
   LEGENDARY_PACK_COST,
   LEGENDARY_PACK_SIZE,
@@ -54,12 +55,9 @@ export interface BannerInput {
   hasHallOfLegends: boolean;
 }
 
-export const formatAmount = (n: number): string => n.toLocaleString("en-US");
+export { theAge };
 
-/** An age as it reads after "in" or "Reach": "the Iron Age", "the Medieval era", "the Renaissance". */
-export function theAge(name: string): string {
-  return /age$/i.test(name) || name === "Renaissance" ? `the ${name}` : `the ${name} era`;
-}
+export const formatAmount = (n: number): string => n.toLocaleString("en-US");
 
 function settlementRequirement(id: SettlementUpgradeId, built: boolean): Requirement {
   return {
