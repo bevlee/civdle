@@ -748,6 +748,11 @@ export class CivdleGame {
     return hasHallOfLegends(this.#settlementSet);
   }
 
+  /** The Tribute 5★ pack needs the Hall of Legends and an age that summons 5★ heroes. */
+  get tributeLegendaryPackUnlocked(): boolean {
+    return this.hasHallOfLegends && this.#maxSummonStars >= 5;
+  }
+
   get #hasPendingSummon(): boolean {
     return this.eventQueue.events.some(e => e.type === "summon" || e.type === "summonPack");
   }
@@ -793,10 +798,10 @@ export class CivdleGame {
     });
   }
 
-  /** Summon 10 guaranteed 5★ heroes for Tribute. Needs the Hall of Legends. */
+  /** Summon 10 guaranteed 5★ heroes for Tribute. Needs the Hall of Legends and 5★ summons. */
   rollTributeLegendaryPack(): void {
     const cost = TRIBUTE_LEGENDARY_PACK_COST;
-    if (!this.hasHallOfLegends || this.state.gacha.gold < cost || this.#hasPendingSummon) return;
+    if (!this.tributeLegendaryPackUnlocked || this.state.gacha.gold < cost || this.#hasPendingSummon) return;
     this.#summonLegendary(LEGENDARY_PACK_SIZE, {
       ...this.state,
       gacha: { ...this.state.gacha, gold: this.state.gacha.gold - cost },

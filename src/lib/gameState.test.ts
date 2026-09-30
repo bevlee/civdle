@@ -432,7 +432,11 @@ describe("legendary summons", () => {
 });
 
 describe("Hall of Legends", () => {
+  const MEDIEVAL = AGES.findIndex((a) => a.id === "medieval");
+  const IRON_AGE = AGES.findIndex((a) => a.id === "ironAge");
+
   function buyHall() {
+    game.state.ageIndex = MEDIEVAL;
     game.state.resources = { enchantedGear: 10, fineClothing: 40, furniture: 40, bricks: 30 };
     game.buySettlementUpgradeAction("hallOfLegends");
     expect(game.hasHallOfLegends).toBe(true);
@@ -440,6 +444,16 @@ describe("Hall of Legends", () => {
 
   it("is needed for the Tribute 5★ pack", () => {
     game.state.gacha.gold = TRIBUTE_LEGENDARY_PACK_COST;
+    game.rollTributeLegendaryPack();
+    expect(game.state.gacha.cards).toHaveLength(0);
+    expect(game.state.gacha.gold).toBe(TRIBUTE_LEGENDARY_PACK_COST);
+  });
+
+  it("stays shut before 5★ summons, even with the Hall already built", () => {
+    game.state.ageIndex = IRON_AGE;
+    game.state.settlementUpgrades = ["hallOfLegends"]; // an old save built it early
+    game.state.gacha.gold = TRIBUTE_LEGENDARY_PACK_COST;
+    expect(game.tributeLegendaryPackUnlocked).toBe(false);
     game.rollTributeLegendaryPack();
     expect(game.state.gacha.cards).toHaveLength(0);
     expect(game.state.gacha.gold).toBe(TRIBUTE_LEGENDARY_PACK_COST);
