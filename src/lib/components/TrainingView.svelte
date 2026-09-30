@@ -60,7 +60,7 @@
   } = $props();
 
   const formatTime = (t: number) => `${t.toFixed(2)}s`;
-  const formatXp = (xp: number) => `+${xp} XP`;
+  const formatXp = (xp: number) => `+${xp.toLocaleString()} XP`;
 
   let def = $derived(SKILLS[skillId]);
   let skillState = $derived(game.skills[skillId]);
@@ -221,7 +221,7 @@
         </span>
       {/if}
       <span class={cn("shrink-0 text-xs text-muted-foreground tabular-nums", flash && "max-md:hidden")}>
-        {Math.floor(skillState.xp - xpBase)} / {xpSpan} XP
+        {Math.floor(skillState.xp - xpBase).toLocaleString()} / {xpSpan.toLocaleString()} XP
       </span>
     </div>
     <span class="sr-only md:hidden" aria-live="polite">{flash ? `Level up! ${def.name} is level ${flash.newLevel}` : ""}</span>
