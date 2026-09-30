@@ -16,8 +16,6 @@ export interface ActionBarArgs {
   activeSkill: SkillId | null;
   activeRecipeId: string | null;
   resources: Partial<Record<ResourceId, number>>;
-  timeText: string;
-  xpText: string;
 }
 
 // Unknown ids fall back to the first recipe, as the engine does.
@@ -41,9 +39,9 @@ export function actionBarState(args: ActionBarArgs): ActionBarState {
     return { kind: "short", label: `Short on ${name}`, sub: `Needs ${missing.amount} ${name}` };
   }
 
-  const sub = `${args.timeText} · ${args.xpText}`;
-  if (activeSkill !== null) return { kind: "switch", label: `Switch to ${recipe.name}`, sub };
-  return { kind: "train", label: `Train ${recipe.name}`, sub };
+  // The recipe is named beside the button, and its time and XP just above it.
+  if (activeSkill !== null) return { kind: "switch", label: "Switch", sub: `Stops ${SKILLS[activeSkill].name}` };
+  return { kind: "train", label: "Train", sub: "" };
 }
 
 export function stillTrainingLine(activeSkill: SkillId, activeRecipeId: string): string {

@@ -1,7 +1,7 @@
 // Groups skills for the phone skill picker.
 
-import { SKILLS, SKILL_ORDER, type SkillId } from "../gameData";
-import type { GameState } from "../gameEngine";
+import { AGES, SKILLS, SKILL_ORDER, type SkillId } from "../gameData";
+import { getSkillLevels, theAge, type GameState } from "../gameEngine";
 
 export type SkillGroupLabel = "Gathering" | "Production";
 
@@ -33,4 +33,23 @@ export function skillGroups(state: GameState): SkillGroup[] {
       skills: [...chips.filter((c) => c.unlocked), ...chips.filter((c) => !c.unlocked)],
     };
   });
+}
+
+/**
+ * What to do next to discover a skill in this group, e.g. "Woodcutting Lv 10" or
+ * "Reach the Iron Age", or null when it has nothing left to discover. Only skills whose
+ * prerequisites the player can already see count, so no locked skill is named.
+ */
+export function nextDiscovery(state: GameState, label: SkillGroupLabel): string | null {
+  const levels = getSkillLevels(state);
+  for (const id of SKILL_ORDER) {
+    if (groupOf(id) !== label || state.skills[id].unlocked) continue;
+    const def = SKILLS[id];
+    if (!def.prereqs.every((p) => state.skills[p.skill].unlocked)) continue;
+    const unmet = def.prereqs.find((p) => levels[p.skill] < p.level);
+    if (unmet) return `${SKILLS[unmet.skill].name} Lv ${unmet.level}`;
+    const age = AGES.findIndex((a) => a.id === def.ageRequired);
+    if (age > state.ageIndex) return `Reach ${theAge(AGES[age].name)}`;
+  }
+  return null;
 }

@@ -454,7 +454,6 @@
         events={game.events}
         onTrain={handleStartTraining}
         onStop={handleStopTraining}
-        onBack={openTraining}
       />
     {/if}
 

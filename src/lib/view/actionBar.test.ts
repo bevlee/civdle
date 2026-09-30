@@ -8,8 +8,6 @@ const base = {
   activeSkill: null,
   activeRecipeId: null,
   resources: { wood: 5, stone: 5, plantFibres: 5 },
-  timeText: "2.60s",
-  xpText: "+9 XP",
 };
 
 describe("actionBarState", () => {
@@ -54,15 +52,15 @@ describe("actionBarState", () => {
   it("offers a switch when another skill is running", () => {
     expect(actionBarState({ ...base, activeSkill: "foraging", activeRecipeId: "forage" })).toEqual({
       kind: "switch",
-      label: "Switch to Tools",
-      sub: "2.60s · +9 XP",
+      label: "Switch",
+      sub: "Stops Foraging",
     });
   });
 
   it("offers a switch when the same skill runs a different recipe", () => {
     expect(
       actionBarState({ ...base, viewedRecipeId: "cordage", activeSkill: "crafting", activeRecipeId: "tools" }),
-    ).toEqual({ kind: "switch", label: "Switch to Cordage", sub: "2.60s · +9 XP" });
+    ).toEqual({ kind: "switch", label: "Switch", sub: "Stops Crafting" });
   });
 
   it("prefers short over switch", () => {
@@ -71,14 +69,14 @@ describe("actionBarState", () => {
   });
 
   it("offers train when idle", () => {
-    expect(actionBarState(base)).toEqual({ kind: "train", label: "Train Tools", sub: "2.60s · +9 XP" });
+    expect(actionBarState(base)).toEqual({ kind: "train", label: "Train", sub: "" });
   });
 
   it("offers train for a gathering recipe with no inputs", () => {
     expect(actionBarState({ ...base, viewedSkill: "foraging", viewedRecipeId: "forage", resources: {} })).toEqual({
       kind: "train",
-      label: "Train Forage",
-      sub: "2.60s · +9 XP",
+      label: "Train",
+      sub: "",
     });
   });
 });

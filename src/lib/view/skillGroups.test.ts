@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SKILL_ORDER } from "../gameData";
-import { createInitialState } from "../gameEngine";
-import { groupOf, skillGroups, type SkillChip } from "./skillGroups";
+import { createInitialState, xpForLevel } from "../gameEngine";
+import { groupOf, nextDiscovery, skillGroups, type SkillChip } from "./skillGroups";
 
 describe("skillGroups", () => {
   it("returns Gathering then Production", () => {
@@ -52,5 +52,29 @@ describe("groupOf", () => {
     expect(groupOf("woodcutting")).toBe("Gathering");
     expect(groupOf("smithing")).toBe("Production");
     expect(groupOf("conquest")).toBe("Production");
+  });
+});
+
+describe("nextDiscovery", () => {
+  it("names the first step toward a skill the player can already work on", () => {
+    const state = createInitialState();
+    expect(nextDiscovery(state, "Gathering")).toBe("Foraging Lv 10");
+    expect(nextDiscovery(state, "Production")).toBe("Foraging Lv 10");
+
+    for (const id of ["woodcutting", "fishing", "hunting"] as const) state.skills[id].unlocked = true;
+    state.skills.foraging.xp = xpForLevel(10);
+    expect(nextDiscovery(state, "Gathering")).toBe("Woodcutting Lv 10");
+  });
+
+  it("names the age when that is all that stands in the way", () => {
+    const state = createInitialState();
+    for (const id of SKILL_ORDER) state.skills[id].unlocked = id !== "conquest";
+    expect(nextDiscovery(state, "Production")).toBe("Reach the Renaissance");
+  });
+
+  it("returns null once a group is fully discovered", () => {
+    const state = createInitialState();
+    for (const id of SKILL_ORDER) state.skills[id].unlocked = true;
+    expect(nextDiscovery(state, "Gathering")).toBeNull();
   });
 });
