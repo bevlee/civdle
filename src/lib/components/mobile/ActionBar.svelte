@@ -17,7 +17,6 @@
     state: game,
     level,
     ageIndex,
-    progress,
     events,
     onTrain,
     onStop,
@@ -29,7 +28,6 @@
     state: GameState;
     level: number;
     ageIndex: number;
-    progress: number;
     events: QueuedEvent[];
     onTrain: () => void;
     onStop: () => void;
@@ -64,7 +62,6 @@
       activeSkill,
       activeRecipeId,
       resources: game.resources,
-      secondsLeft: result ? Math.max(0, (1 - progress) * result.time) : 0,
       timeText: result ? `${result.time.toFixed(2)}s` : "",
       xpText: result ? `+${result.xp} XP` : "",
     }),
@@ -125,10 +122,6 @@
       <span class="shrink-0 text-[13px] font-semibold text-muted-foreground">Back ›</span>
     </button>
   {/if}
-
-  <div class="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-    <div class="h-full bg-primary" style:width="{viewingActive ? progress * 100 : 0}%"></div>
-  </div>
 
   <div class="flex items-center gap-3">
     <div class="flex min-w-0 flex-1 flex-col leading-tight">

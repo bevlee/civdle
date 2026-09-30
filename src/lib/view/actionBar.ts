@@ -16,7 +16,6 @@ export interface ActionBarArgs {
   activeSkill: SkillId | null;
   activeRecipeId: string | null;
   resources: Partial<Record<ResourceId, number>>;
-  secondsLeft: number;
   timeText: string;
   xpText: string;
 }
@@ -28,7 +27,7 @@ const recipeOf = (skillId: SkillId, recipeId: string): Recipe =>
 export function actionBarState(args: ActionBarArgs): ActionBarState {
   const { viewedSkill, viewedRecipeId, activeSkill, activeRecipeId, resources } = args;
   if (viewedSkill === activeSkill && viewedRecipeId === activeRecipeId) {
-    return { kind: "stop", label: `Stop · ${args.secondsLeft.toFixed(1)}s` };
+    return { kind: "stop", label: "Stop" };
   }
 
   const recipe = recipeOf(viewedSkill, viewedRecipeId);

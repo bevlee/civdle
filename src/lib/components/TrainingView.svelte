@@ -123,7 +123,6 @@
       activeSkill,
       activeRecipeId,
       resources: game.resources,
-      secondsLeft: result ? Math.max(0, (1 - progress) * result.time) : 0,
       timeText: result ? formatTime(result.time) : "",
       xpText: result ? formatXp(result.xp) : "",
     }),
