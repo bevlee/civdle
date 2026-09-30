@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AGES, type ResourceId, type SkillId } from "../gameData";
 import { createInitialState, getAgeAdvanceStatus, getSkillLevels, type GameState } from "../gameEngine";
-import { ageChecklist, ageRewards, checklistProgress, firstUnmet, shortAgeName } from "./ageChecklist";
+import { ageChecklist, ageRewards, checklistJump, checklistProgress, firstUnmet, shortAgeName } from "./ageChecklist";
 
 function checklistFor(
   state: GameState,
@@ -76,6 +76,27 @@ describe("firstUnmet", () => {
   it("is undefined when everything is met", () => {
     const state = withResources(createInitialState(), { stone: 200, wood: 200 });
     expect(firstUnmet(checklistFor(state, { mining: 10 }, ["mining"]))).toBeUndefined();
+  });
+});
+
+describe("checklistJump", () => {
+  const all = () => true;
+  const none = () => false;
+
+  it("sends a skill row to that skill", () => {
+    const item = { label: "Woodcutting Lv 10", current: 3, required: 10, met: false, skill: "woodcutting" as const };
+    expect(checklistJump(item, all)).toEqual({ skill: "woodcutting", recipeId: null, label: "Train Woodcutting" });
+  });
+
+  it("sends a resource row to the recipe that makes it", () => {
+    const item = { label: "Iron Bar", current: 0, required: 150, met: false, resource: "ironBar" as const };
+    expect(checklistJump(item, all)).toEqual({ skill: "smithing", recipeId: "ironBar", label: "Train Smithing for Iron Bar" });
+  });
+
+  it("has nowhere to go for met rows or skills not yet discovered", () => {
+    expect(checklistJump({ label: "Coal", current: 5, required: 5, met: true, resource: "coal" }, all)).toBeNull();
+    expect(checklistJump({ label: "🔒 Mining Lv 10", current: 0, required: 10, met: false, skill: "mining" }, none)).toBeNull();
+    expect(checklistJump({ label: "Iron Bar", current: 0, required: 150, met: false, resource: "ironBar" }, none)).toBeNull();
   });
 });
 
