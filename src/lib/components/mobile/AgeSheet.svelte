@@ -3,6 +3,7 @@
   import { SKILLS, type AgeDef } from "$lib/gameData";
   import { ageRewards, firstUnmet, type ChecklistItem } from "$lib/view/ageChecklist";
   import { cn } from "$lib/utils";
+  import { holdPopups } from "$lib/view/popupHold.svelte";
 
   /** What the next age asks for and grants, with the button that advances to it. */
   let {
@@ -27,6 +28,10 @@
     if (!item) return "Not yet";
     if (item.skill) return `Not yet — train ${SKILLS[item.skill].name}`;
     return `Not yet — ${item.required - item.current} more ${item.label}`;
+  });
+
+  $effect(() => {
+    if (open) return holdPopups();
   });
 
   function advance() {

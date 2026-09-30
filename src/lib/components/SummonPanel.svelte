@@ -5,6 +5,7 @@
   import type { CivdleGame } from "$lib/gameState.svelte";
   import { rarityColor } from "$lib/rarity";
   import { cn } from "$lib/utils";
+  import { holdPopups } from "$lib/view/popupHold.svelte";
   import { ageNameForStars, displayOdds } from "$lib/view/summonOdds";
   import {
     bestPull,
@@ -47,6 +48,10 @@
 
   let revealing = $derived(game.events.some((e) => e.type === "summon" || e.type === "summonPack"));
   let shown = $derived(open && !revealing);
+  // Held on `open`, not `shown`, so queued popups also wait through the reveals.
+  $effect(() => {
+    if (open) return holdPopups();
+  });
 
   let tribute = $derived(game.state.gacha.gold);
   let glory = $derived(game.glory);

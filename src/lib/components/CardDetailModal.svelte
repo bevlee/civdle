@@ -16,6 +16,7 @@
   import { slotName } from "$lib/dragPlace";
   import { Dialog } from "bits-ui";
   import { MediaQuery } from "svelte/reactivity";
+  import { holdPopups } from "$lib/view/popupHold.svelte";
   import { Button } from "$lib/components/ui/button";
   import Hint from "./Hint.svelte";
   import Sprite from "./Sprite.svelte";
@@ -71,6 +72,9 @@
 
   // Phones get a bottom sheet; wider screens keep the centred dialog.
   const wide = new MediaQuery("(min-width: 48rem)");
+
+  // Only mounted while it is showing.
+  $effect(() => holdPopups());
 
   let traitCounts = $derived(countTraits(partyCards));
   let def = $derived(UNITS[card.unitId]);

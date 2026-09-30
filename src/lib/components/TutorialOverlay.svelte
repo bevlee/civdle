@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { holdPopups } from "$lib/view/popupHold.svelte";
   import { COMBAT_SLIDES, COMBAT_TOPICS } from "$lib/combatGuide";
   import CombatGuideVisual from "./CombatGuideVisual.svelte";
 
@@ -7,6 +8,9 @@
   let dialog: HTMLDialogElement;
   let step = $state(0);
   let current = $derived(COMBAT_SLIDES[step]);
+
+  // Only mounted while it is showing.
+  $effect(() => holdPopups());
 
   onMount(() => {
     dialog.showModal();

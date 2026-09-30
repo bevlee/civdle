@@ -24,6 +24,7 @@
   import { OverlayQueue } from "$lib/view/overlayQueue.svelte";
   import DebugPanel from "$lib/components/DebugPanel.svelte";
   import { page } from "$app/state";
+  import { popupHold } from "$lib/view/popupHold.svelte";
   import type { BattleMode } from "$lib/combatEngine";
 
   const game = new CivdleGame();
@@ -33,10 +34,12 @@
   $effect(() => overlays.sync(game.pendingUnlocks, game.events));
   let overlay = $derived(overlays.current);
   let ageOverlayEvent = $derived(overlay?.kind === "ageAdvance" ? overlay.event : null);
-  // Summon reveals are modal too; the sheet and toast wait for them to finish.
+  // Summon reveals, and sheets the player opened, are modal too; the queued sheet and
+  // toast wait for them to close.
   let revealOpen = $derived(
     game.events.some((e) => e.type === "summon" || e.type === "summonPack" || e.type === "starUp"),
   );
+  let popupsWait = $derived(revealOpen || popupHold.active);
 
   let isDebug = $derived(page.url.searchParams.has("debug"));
 
@@ -510,7 +513,7 @@
     </nav>
   </div>
 
-  {#if overlay?.kind === "skillUnlock" && !revealOpen}
+  {#if overlay?.kind === "skillUnlock" && !popupsWait}
     {@const skillId = overlay.skillId}
     {#key skillId}
       <SkillUnlockModal
@@ -547,7 +550,7 @@
   />
 
   <AchievementToasts
-    overlay={overlay?.kind === "achievements" && !revealOpen ? overlay : null}
+    overlay={overlay?.kind === "achievements" && !popupsWait ? overlay : null}
     onOpen={() => {
       centerTab = "achievements";
       dismissAchievementToast();
