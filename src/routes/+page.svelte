@@ -213,9 +213,11 @@
   }
 </script>
 
-{#snippet itemsPanel()}
+<!-- The sidebar beside the Train view marks what the viewed recipe uses and makes; the
+     Items tab stands alone, so it doesn't. -->
+{#snippet itemsPanel(highlight: boolean)}
   <div class="flex-1 overflow-y-auto">
-    <Inventory resources={game.state.resources} {highlightedResources} />
+    <Inventory resources={game.state.resources} highlightedResources={highlight ? highlightedResources : undefined} />
   </div>
 {/snippet}
 
@@ -425,7 +427,7 @@
             <TownView {game} bind:segment={townSegment} bind:shopHintOpen onJump={openRecipe} />
           {:else if centerTab === "items"}
             <div class="flex min-h-0 flex-1 flex-col">
-              {@render itemsPanel()}
+              {@render itemsPanel(false)}
             </div>
           {:else if centerTab === "achievements"}
             <AchievementsView state={game.state} levels={game.levels} />
@@ -437,7 +439,7 @@
       {#if !isCombatTab}
         <aside class="hidden w-72 shrink-0 flex-col border-l border-border lg:flex" aria-label="Inventory">
           <h2 class="shrink-0 border-b border-border px-3 py-2 text-sm font-medium">Inventory</h2>
-          {@render itemsPanel()}
+          {@render itemsPanel(true)}
         </aside>
       {/if}
     </div>
