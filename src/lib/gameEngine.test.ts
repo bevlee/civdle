@@ -119,6 +119,23 @@ describe("outputs", () => {
     expect(withUpgrade?.outputs.map((o) => o.resource)).toContain("logs");
   });
 
+  it("keeps level milestones at their level when an outputLevel effect lowers the ore", () => {
+    const upgrades = SKILLS.mining.upgrades;
+    upgrades.push({
+      id: "testOre",
+      name: "Test",
+      cost: 0,
+      description: "",
+      effects: [{ type: "outputLevel", resource: "copperOre", level: 1 }],
+    });
+    try {
+      const r = computeActionResult("mining", 10, ["testOre"], 1, "mineStone");
+      expect(r?.outputs.find((o) => o.resource === "copperOre")?.amount).toBe(1);
+    } finally {
+      upgrades.pop();
+    }
+  });
+
   it("adds a flat primary-output bonus to crafting recipes", () => {
     const r = computeActionResult("cooking", 1, ["bigPot"], 0, "cookedFish");
     expect(r?.outputs).toEqual([{ resource: "cookedFish", amount: 2 }]);

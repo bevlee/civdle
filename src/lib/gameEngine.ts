@@ -481,8 +481,12 @@ function resolveOutputs(
   levelOverrides: Partial<Record<ResourceId, number>>
 ): ResourceAmount[] {
   const merged: ResourceAmount[] = [];
+  const seen = new Set<ResourceId>();
   for (const o of outputs) {
-    if (!isOutputActive(o, level, ageIndex, levelOverrides)) continue;
+    // An outputLevel effect moves a resource's first entry earlier; its level milestones stay put.
+    const overrides = seen.has(o.resource) ? {} : levelOverrides;
+    seen.add(o.resource);
+    if (!isOutputActive(o, level, ageIndex, overrides)) continue;
     const existing = merged.find((m) => m.resource === o.resource);
     if (existing) existing.amount += o.amount;
     else merged.push({ resource: o.resource, amount: o.amount });
