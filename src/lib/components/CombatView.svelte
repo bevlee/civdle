@@ -71,6 +71,13 @@
   let showHelp = $state(false);
   // Phones show the battle log and stats as a sheet over the battlefield.
   let showLog = $state(false);
+  let logToggle = $state<HTMLButtonElement>();
+  // The report hides with display:none, so hand focus back to its toggle rather than dropping it to <body>.
+  function closeLog() {
+    const focusInReport = document.activeElement?.closest("#battle-report");
+    showLog = false;
+    if (focusInReport) logToggle?.focus();
+  }
   let summonOpen = $state(false);
   // Phone: the army's expanded view covers the header and the board.
   let armyCovering = $state(false);
@@ -217,7 +224,12 @@
   {/if}
 {/snippet}
 
-<svelte:window onkeydown={(e) => { if (e.key === "Escape" && showLog) showLog = false; }} />
+<svelte:window onkeydown={(e) => {
+  if (e.key !== "Escape" || !showLog) return;
+  // Another dialog (the combat guide, hero details) owns its own Escape.
+  if (e.target instanceof Element && e.target.closest("dialog, [role='dialog']")) return;
+  closeLog();
+}} />
 
 <div class="combat-layout">
   <div class="combat-main">
@@ -252,7 +264,7 @@
           aria-label="Battle sounds" aria-pressed={!game.battleMuted}
           onclick={() => game.setBattleMuted(!game.battleMuted)}>{game.battleMuted ? "🔈 Off" : "🔊 On"}</button>
         <button class="tap-target h-9 shrink-0 rounded-[10px] border border-border px-2.5 text-[13px] text-muted-foreground"
-          aria-expanded={showLog} aria-controls="battle-report" onclick={() => (showLog = !showLog)}>Log</button>
+          bind:this={logToggle} aria-expanded={showLog} aria-controls="battle-report" onclick={() => (showLog = !showLog)}>Log</button>
         <button class="tap-target size-9 shrink-0 rounded-full border border-border text-[13px] text-muted-foreground"
           aria-haspopup="dialog" aria-label="Combat guide" onclick={() => showHelp = true}>?</button>
       </div>
@@ -392,7 +404,7 @@
   </div>
 
   <aside id="battle-report" class="battle-sidebar" class:open={showLog} aria-label="Battle report">
-    <div class="report-heading"><h3>Battle report</h3><button onclick={() => (showLog = false)}>Close</button></div>
+    <div class="report-heading"><h3>Battle report</h3><button onclick={closeLog}>Close</button></div>
     <section class="battle-log">
       <div class="log-heading"><h3>Battle log</h3><span>{report ? `${battle ? "Turn" : "Last battle · Turn"} ${report.turn}` : "Ready"}</span></div>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex (The scrollable log needs keyboard access.) -->
@@ -406,7 +418,7 @@
   </aside>
   {#if showLog}
     <!-- Phones: a tap outside the report closes it. -->
-    <button class="log-backdrop" aria-label="Close battle report" tabindex="-1" onclick={() => (showLog = false)}></button>
+    <button class="log-backdrop" aria-label="Close battle report" tabindex="-1" onclick={closeLog}></button>
   {/if}
 </div>
 
