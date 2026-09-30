@@ -551,17 +551,17 @@
     .phone-header { flex-shrink: 0; }
     .battlefield { flex: 1 1 0; min-height: 250px; display: flex; flex-direction: column; padding: 8px 8px 4px; }
     .army-headings { min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    /* The VS splits the board, so the side headings are for screen readers only, and the
-       enemy's stat boost shares the chips' line. */
+    /* The VS splits the board, so the side headings are for screen readers only. Each side's
+       trait chips (and the enemy's stat boost) wrap onto a second line rather than hiding. */
     .army-headings h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-    .enemy-heading { display: flex; align-items: center; gap: 4px; min-width: 0; }
-    .enemy-title { flex-shrink: 0; }
-    .enemy-heading :global(.synergies) { flex: 1; min-width: 0; margin-top: 0; }
-    /* One row of synergy chips per side that scrolls sideways, so a full party doesn't squeeze the board. */
-    .army-headings :global(.synergies) { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-top: 0; }
-    .army-headings :global(.synergies > *) { flex-shrink: 0; }
-    .army-headings :global(.synergies.enemy) { justify-content: flex-start; }
-    .army-headings :global(.synergies.enemy > :first-child) { margin-left: auto; }
+    .army-headings :global(.synergies) { gap: 3px; margin-top: 0; }
+    .army-headings :global(.synergy) { padding: 2px 5px; font-size: 11px; }
+    .army-headings :global(.synergies .empty) { font-size: 11px; }
+    .enemy-heading { display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: flex-end; gap: 3px; min-width: 0; }
+    .enemy-title, .enemy-heading :global(.synergies) { display: contents; }
+    .enemy-boost { padding: 2px 5px; font-size: 11px; }
+    /* The campaign subtitle already says it's a boss level. */
+    .boss-label { display: none; }
     .battle-stage { flex: 1; min-height: 0; height: auto; margin-top: 4px; }
     /* Spread the five slots over the stage height so the last unit sits on the bottom edge. */
     .battle-stage { container-type: size; }
@@ -573,6 +573,8 @@
     /* Space is tight: the ultimate banner shows just its name, and units on the board go
        without names (tap one for details; the slots' labels still name them). */
     .ultimate-overlay span { display: none; }
+    /* Over the VS, clear of the trait chips above the board. */
+    .ultimate-overlay { inset: 0; align-items: center; }
     .field-position :global(.unit-name) { display: none; }
     .battle-sidebar { display: none; }
     .log-backdrop { display: block; position: fixed; inset: 0; z-index: 39; background: #0009; }
