@@ -170,7 +170,7 @@
         <Hint side="bottom" class={statClass} title="⚔ Tribute" text="Earned by winning battles and from The Abyss. Spend it on summons and card packs for your army.">
           <span class="text-sm text-muted-foreground">⚔ <span class="hidden sm:inline">Tribute</span></span>
           <Badge variant="secondary" class="text-sm tabular-nums">
-            {warSpoils}
+            {warSpoils.toLocaleString()}
           </Badge>
         </Hint>
         {#each spoilsEvents as event (event.id)}
@@ -195,7 +195,7 @@
               }}
             >
               <span class="text-sm text-muted-foreground"><span class="sm:hidden">SP</span><span class="hidden sm:inline">Skill Points</span></span>
-              <Badge class="text-sm tabular-nums">{skillPoints}</Badge>
+              <Badge class="text-sm tabular-nums">{skillPoints.toLocaleString()}</Badge>
             </button>
           {/snippet}
         </Hint>

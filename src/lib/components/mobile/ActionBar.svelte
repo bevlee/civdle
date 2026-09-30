@@ -82,7 +82,7 @@
         lastGain && lastGain.skillId === skillId && lastGain.recipeId === recipe.id
           ? lastGain.text
           : null;
-      return { text: gain ?? (result ? `+${result.xp} XP` : ""), tone: "text-emerald-400" };
+      return { text: gain ?? (result ? `+${result.xp.toLocaleString()} XP` : ""), tone: "text-emerald-400" };
     }
     if (bar.kind === "locked") return { text: "", tone: "" };
     return {
