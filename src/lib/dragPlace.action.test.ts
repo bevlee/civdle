@@ -252,4 +252,57 @@ describe("hold to lift (a finger in a scrolling list)", () => {
     pointer(card, "pointerup", 0, 0, touch);
     action.destroy();
   });
+
+  it("does not arm for a mouse, or for a card outside a scrolling list", () => {
+    const inList = listCard();
+    const a = mount(inList);
+    pointer(inList, "pointerdown", 0, 0);
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(a.calls).toEqual([]);
+    pointer(inList, "pointerup", 0, 0);
+    a.action.destroy();
+
+    const loose = new FakeElement();
+    const b = mount(loose);
+    pointer(loose, "pointerdown", 0, 0, touch);
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(b.calls).toEqual([]);
+    pointer(loose, "pointerup", 0, 0, touch);
+    b.action.destroy();
+  });
+
+  it("does not lift after the pointer is cancelled mid-hold", () => {
+    const card = listCard();
+    const { calls, action } = mount(card);
+    pointer(card, "pointerdown", 0, 0, touch);
+    pointer(card, "pointercancel", 0, 0, touch);
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(calls).toEqual([]);
+    action.destroy();
+  });
+
+  it("still lifts when the finger jitters under the drag threshold", () => {
+    const card = listCard();
+    const { calls, action } = mount(card);
+    pointer(card, "pointerdown", 0, 0, touch);
+    pointer(card, "pointermove", 3, 0, touch);
+    vi.advanceTimersByTime(HOLD_MS);
+    expect(calls).toEqual(["state"]);
+    pointer(card, "pointerup", 3, 0, touch);
+    action.destroy();
+  });
+
+  it("suppresses the context menu during a gesture only", () => {
+    const card = listCard();
+    const { action } = mount(card);
+    pointer(card, "pointerdown", 0, 0, touch);
+    const during = new Event("contextmenu", { cancelable: true });
+    card.dispatchEvent(during);
+    expect(during.defaultPrevented).toBe(true);
+    pointer(card, "pointerup", 0, 0, touch);
+    const after = new Event("contextmenu", { cancelable: true });
+    card.dispatchEvent(after);
+    expect(after.defaultPrevented).toBe(false);
+    action.destroy();
+  });
 });
