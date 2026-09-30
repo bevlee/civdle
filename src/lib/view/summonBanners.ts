@@ -11,6 +11,7 @@ import {
   TRIBUTE_LEGENDARY_PACK_COST,
 } from "../gameState.svelte";
 import { SETTLEMENT_UPGRADES, rollRateUpgrade, type SettlementUpgradeId } from "../settlementData";
+import { ageNameForStars } from "./summonOdds";
 
 export type BannerId = "standard" | "legendary" | "pack";
 export type Currency = "Tribute" | "Glory";
@@ -71,6 +72,7 @@ function settlementRequirement(id: SettlementUpgradeId, built: boolean): Require
 export function summonBanners(input: BannerInput): Banner[] {
   const finalAge = AGES.length - 1;
   const reachedFinalAge = input.ageIndex >= finalAge;
+  const fiveStars = input.maxStars >= 5;
   const current = AGES[Math.min(input.ageIndex, finalAge)].name;
   const banners: Omit<Banner, "status">[] = [
     {
@@ -123,8 +125,16 @@ export function summonBanners(input: BannerInput): Banner[] {
       stars: 5,
       currency: "Tribute",
       balance: input.tribute,
-      locked: !input.hasHallOfLegends,
-      requirements: [settlementRequirement("hallOfLegends", input.hasHallOfLegends)],
+      locked: !(input.hasHallOfLegends && fiveStars),
+      requirements: [
+        settlementRequirement("hallOfLegends", input.hasHallOfLegends),
+        {
+          label: `Reach ${theAge(ageNameForStars(5))}`,
+          done: fiveStars,
+          sub: fiveStars ? "Done" : `Currently in ${theAge(current)}`,
+          settlement: false,
+        },
+      ],
       options: [{ count: LEGENDARY_PACK_SIZE, cost: TRIBUTE_LEGENDARY_PACK_COST, save: 0 }],
     },
   ];
