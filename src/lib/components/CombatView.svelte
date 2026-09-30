@@ -45,16 +45,16 @@
   let storyBoss = $derived(mode === "story" && isBossLevel(gacha.storyLevel));
   // The enemy that joins your army when this campaign level is won.
   let storyRecruit = $derived(gacha.encounter ? strongestEnemy(gacha.encounter) : null);
-  let storyRewardText = $derived(
-    `+${storyTribute(gacha.storyLevel)} Tribute` +
-      (storyRecruit ? ` · ${UNITS[storyRecruit.unitId].name} ${UNITS[storyRecruit.unitId].baseStars}★ joins you` : ""),
-  );
+  let storyRecruitText = $derived(storyRecruit ? `${UNITS[storyRecruit.unitId].name} ${UNITS[storyRecruit.unitId].baseStars}★` : "");
+  // Before the fight the recruit "joins you"; on the victory card it simply has.
+  let storyWinText = $derived(`+${storyTribute(gacha.storyLevel)} Tribute${storyRecruitText ? ` · ${storyRecruitText}` : ""}`);
+  let storyRewardText = $derived(`${storyWinText}${storyRecruitText ? " joins you" : ""}`);
   let nextTierAt = $derived((Math.floor(game.depthsCleared / DEPTHS_TIER_SIZE) + 1) * DEPTHS_TIER_SIZE);
-  let levelTitle = $derived(mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${nice(gacha.depths.level)}`);
+  let levelTitle = $derived(mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}${storyBoss ? " - Boss" : ""}` : `Depth ${nice(gacha.depths.level)}`);
   // The phone's one-line summary under the title.
   let levelSub = $derived(mode === "depths"
     ? `+${game.depthsIncome * game.treasuryMultiplier} Tribute/min · next tier at ${nextTierAt}`
-    : game.storyComplete ? "" : `${storyBoss ? "Boss · " : ""}${storyRewardText}`);
+    : game.storyComplete ? "" : storyRewardText);
   let fightLabel = $derived(isPlaying ? "Fighting…" : mode === "story" ? "⚔ Fight" : "⚔ Descend");
   function startFight() { if (mode === "story") game.startStoryFight(); else game.startDepthsFight(); }
   let canFight = $derived(!formationLocked && partyCards.length > 0 && !(mode === "story" && game.storyComplete));
@@ -274,7 +274,7 @@
       <div class="level-heading" class:stacked={mode === "depths"}>
         <h2>{levelTitle}</h2>
         {#if mode === "depths"}<span>+{game.depthsIncome * game.treasuryMultiplier} ⚔ / min{game.treasuryMultiplier > 1 ? " (2× Treasury)" : ""} · next tier at depth {nextTierAt}</span>
-        {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}{storyRewardText}</span>{/if}
+        {:else if !game.storyComplete}<span>{storyRewardText}</span>{/if}
         {#if mode === "depths"}<p class="depths-blurb text-[16px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
       </div>
       <div class="battle-controls">
@@ -376,7 +376,7 @@
               <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${nice(gacha.depths.level)}`}</p>
               <span class="result-label">{battle?.status === "won" ? "Victory!" : "Defeated"}</span>
               {#if battle?.status === "won"}
-                <span class="result-detail">{mode === "story" ? storyRewardText : `Depth ${nice(gacha.depths.level)} cleared`}</span>
+                <span class="result-detail">{mode === "story" ? storyWinText : `Depth ${nice(gacha.depths.level)} cleared`}</span>
               {:else}
                 <span class="result-detail">Adjust your formation and try again.</span>
               {/if}
