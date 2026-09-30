@@ -152,10 +152,10 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
   }
 
   // Once lifted, the finger drags the card, so stop the list scrolling underneath it.
-  // (Only a cancelable touchmove can stop a touch-action pan, and the first one after a
-  // still hold is cancelable.)
+  // (Only a cancelable touchmove can stop a touch-action pan; the first one past the
+  // browser's slop is cancelable unless a scroll has already begun.)
   function touchmove(e: Event) {
-    if (gesture?.mode === "drag") e.preventDefault();
+    if (gesture?.mode === "drag" && e.cancelable) e.preventDefault();
   }
 
   function down(e: PointerEvent) {
@@ -207,6 +207,8 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
   }
 
   const noNativeDrag = (e: DragEvent) => e.preventDefault();
+  // Resting on a card is a normal gesture now, and a page menu would cancel the pointer mid-drag.
+  const noMenu = (e: Event) => { if (gesture) e.preventDefault(); };
 
   node.addEventListener("pointerdown", down);
   node.addEventListener("pointermove", move);
@@ -215,6 +217,7 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
   node.addEventListener("lostpointercapture", cancel);
   node.addEventListener("click", click);
   node.addEventListener("dragstart", noNativeDrag);
+  node.addEventListener("contextmenu", noMenu);
   node.addEventListener("touchmove", touchmove, { passive: false });
 
   return {
@@ -232,6 +235,7 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
       node.removeEventListener("lostpointercapture", cancel);
       node.removeEventListener("click", click);
       node.removeEventListener("dragstart", noNativeDrag);
+      node.removeEventListener("contextmenu", noMenu);
       node.removeEventListener("touchmove", touchmove);
     },
   };
