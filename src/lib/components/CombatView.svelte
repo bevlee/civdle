@@ -387,7 +387,7 @@
           </div>
         {/if}
       </div>
-      <footer class="battlefield-footer" class:idle-hint={!formationLocked} aria-live="polite">
+      <footer class="battlefield-footer" class:idle-hint={!formationLocked && partyCards.length === 0} aria-live="polite">
         {#if battleDone && resultReady}
           <span>{mode === "depths" && gacha.depths.auto ? "Auto continuing…" : game.battlePaused ? "Paused" : "Continuing…"}</span>
         {:else if isPlaying}<span>{game.battlePaused ? "Battle paused" : "Battle in progress"} · Turn {battle?.turn}</span><span>Formation locked</span>
@@ -551,8 +551,14 @@
     .phone-header { flex-shrink: 0; }
     .battlefield { flex: 1 1 0; min-height: 250px; display: flex; flex-direction: column; padding: 8px 8px 4px; }
     .army-headings { min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    /* The VS splits the board, so the side headings are for screen readers only, and the
+       enemy's stat boost shares the chips' line. */
+    .army-headings h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .enemy-heading { display: flex; align-items: center; gap: 4px; min-width: 0; }
+    .enemy-title { flex-shrink: 0; }
+    .enemy-heading :global(.synergies) { flex: 1; min-width: 0; margin-top: 0; }
     /* One row of synergy chips per side that scrolls sideways, so a full party doesn't squeeze the board. */
-    .army-headings :global(.synergies) { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-top: 4px; }
+    .army-headings :global(.synergies) { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-top: 0; }
     .army-headings :global(.synergies > *) { flex-shrink: 0; }
     .army-headings :global(.synergies.enemy) { justify-content: flex-start; }
     .army-headings :global(.synergies.enemy > :first-child) { margin-left: auto; }
@@ -577,13 +583,23 @@
     .result-detail { font-size: 14px; }
     .stop-auto { font-size: 13px; min-height: 44px; }
   }
+  /* Tall stages (bigger phones): larger units, so names and stars stay easy to read. */
+  @container (min-height: 400px) {
+    .formation { --unit-h: 128px; }
+    .field-position { width: 88px; }
+    .position-button { min-height: 112px; }
+    .field-position :global(.unit-sprite) { height: 80px; }
+    .field-position :global(.unit-name) { font-size: 16px; line-height: 20px; max-width: 88px; }
+    .field-position :global(.unit-stars) { font-size: 18px; }
+    .field-position.targeted::after { top: 68px; }
+  }
   /* Short stages (small phones): shrink units so the five slots don't overlap. */
   @container (max-height: 330px) {
     .formation { --unit-h: 88px; }
     .position-button { min-height: 76px; }
     .empty-circle { width: 44px; height: 44px; }
     .field-position :global(.unit-sprite) { height: 44px; }
-    .field-position :global(.unit-name) { font-size: 9px; line-height: 12px; }
+    .field-position :global(.unit-name) { font-size: 11px; line-height: 13px; }
     .field-position.targeted::after { top: 36px; }
   }
   @container (max-height: 260px) {
