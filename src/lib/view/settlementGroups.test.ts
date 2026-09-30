@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ResourceId } from "../gameData";
+import { AGES, type ResourceId } from "../gameData";
 import { createInitialState, getSkillLevels, settlementPurchaseBlock, type GameState } from "../gameEngine";
 import { CivdleGame } from "../gameState.svelte";
 import {
@@ -10,9 +10,10 @@ import {
 } from "../settlementData";
 import { settlementGroups } from "./settlementGroups";
 
-// Enough of every resource any building asks for.
+// Enough of every resource any building asks for, in the final age (so no age gate applies).
 function richState(): GameState {
   const state = createInitialState();
+  state.ageIndex = AGES.length - 1;
   for (const id of SETTLEMENT_UPGRADE_ORDER) {
     for (const { resource, amount } of SETTLEMENT_UPGRADES[id].cost) {
       state.resources[resource] = Math.max(state.resources[resource] ?? 0, amount);
@@ -114,6 +115,18 @@ describe("settlementGroups", () => {
 });
 
 describe("settlementPurchaseBlock", () => {
+  it("locks the Hall of Legends until the Medieval era", () => {
+    const state = richState();
+    const levels = getSkillLevels(state);
+    state.ageIndex = AGES.findIndex((a) => a.id === "ironAge");
+    expect(settlementPurchaseBlock(state, levels, "hallOfLegends")).toEqual({
+      kind: "locked",
+      reason: "Reach the Medieval era",
+    });
+    state.ageIndex = AGES.findIndex((a) => a.id === "medieval");
+    expect(settlementPurchaseBlock(state, levels, "hallOfLegends")).toBeNull();
+  });
+
   it("reports why a purchase is blocked", () => {
     const state = createInitialState();
     state.settlementUpgrades = ["treasury"];

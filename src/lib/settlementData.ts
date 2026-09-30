@@ -1,7 +1,7 @@
 // Settlement upgrades: one-time resource-costing improvements that bridge
 // skill progression to combat power.
 
-import type { ResourceAmount, SkillId } from "./gameData";
+import type { AgeId, ResourceAmount, SkillId } from "./gameData";
 
 export type SettlementUpgradeId =
   | "treasury"
@@ -24,6 +24,8 @@ export interface SettlementUpgradeDef {
   prereqs: { skill: SkillId; level: number }[];
   /** Upgrade that must be purchased first (linear chains). */
   requires?: SettlementUpgradeId;
+  /** Age that must be reached before building. */
+  ageRequired?: AgeId;
 }
 
 export const SETTLEMENT_UPGRADES: Record<SettlementUpgradeId, SettlementUpgradeDef> = {
@@ -144,6 +146,8 @@ export const SETTLEMENT_UPGRADES: Record<SettlementUpgradeId, SettlementUpgradeD
       { resource: "bricks", amount: 30 },
     ],
     prereqs: [],
+    // It sells 5★ heroes, so it waits for the age that opens 5★ summons.
+    ageRequired: "medieval",
   },
 };
 
