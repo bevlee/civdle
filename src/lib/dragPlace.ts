@@ -111,6 +111,8 @@ interface Gesture {
   axis: ScrollAxis;
   mode: "wait" | "scroll" | "drag" | "ignore";
   hold: ReturnType<typeof setTimeout> | null;
+  /** Lifted by a hold and not yet moved past DRAG_THRESHOLD: a release here drops nothing. */
+  resting: boolean;
 }
 
 // One gesture at a time across every element (a second finger does nothing).
@@ -146,6 +148,7 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
     g.hold = null;
     if (gesture !== g || g.mode !== "wait" || !options.source || options.locked) return;
     g.mode = "drag";
+    g.resting = true;
     window.addEventListener("keydown", onKey);
     navigator.vibrate?.(10);
     options.onDragState?.({ source: options.source, x: g.x0, y: g.y0, over: dropTargetAt(g.x0, g.y0) });
@@ -162,7 +165,7 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
     if (!options.source || e.button > 0 || gesture || activeGesture) return;
     gesture = activeGesture = {
       pointerId: e.pointerId, pointerType: e.pointerType, x0: e.clientX, y0: e.clientY,
-      axis: options.source.type === "card" ? scrollAxisOf(node) : null, mode: "wait", hold: null,
+      axis: options.source.type === "card" ? scrollAxisOf(node) : null, mode: "wait", hold: null, resting: false,
     };
     try { node.setPointerCapture(e.pointerId); } catch { /* the pointer is already gone */ }
     const g = gesture;
@@ -182,6 +185,7 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
     }
     // "scroll": the finger scrolls the list natively (touch-action) and cancels the pointer.
     if (g.mode !== "drag" || !options.source) return;
+    if (g.resting && Math.hypot(dx, dy) >= DRAG_THRESHOLD) g.resting = false;
     e.preventDefault();
     options.onDragState?.({ source: options.source, x: e.clientX, y: e.clientY, over: dropTargetAt(e.clientX, e.clientY) });
   }
@@ -189,7 +193,9 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
   function up(e: PointerEvent) {
     const g = gesture;
     if (!g || e.pointerId !== g.pointerId) return;
-    const result = g.mode === "drag" && options.source && !options.locked
+    // A held card let go where it lifted is put back: the grid hid on lift, so a board
+    // slot may sit under a finger that never meant to go there.
+    const result = g.mode === "drag" && !g.resting && options.source && !options.locked
       ? resolveDrop(options.source, dropTargetAt(e.clientX, e.clientY))
       : null;
     if (result) options.onDrop?.(result);
