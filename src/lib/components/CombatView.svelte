@@ -297,7 +297,7 @@
     {#if showHelp}
       <TutorialOverlay onClose={() => { showHelp = false; game.skipTutorial(); }} />
     {/if}
-    {#if otherBattleActive}<p class="notice">A battle is running in {gacha.battleMode === "story" ? "Campaign" : "The Depths"}. Your formation is locked until it finishes.</p>{/if}
+    {#if otherBattleActive}<p class="notice">A battle is running in {gacha.battleMode === "story" ? "Campaign" : "The Abyss"}. Your formation is locked until it finishes.</p>{/if}
 
     <section class="battlefield" aria-label="Battlefield" class:placing={drag !== null} inert={armyCovering}>
       <div class="army-headings">

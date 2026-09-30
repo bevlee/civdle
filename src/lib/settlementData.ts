@@ -32,7 +32,7 @@ export const SETTLEMENT_UPGRADES: Record<SettlementUpgradeId, SettlementUpgradeD
   treasury: {
     id: "treasury",
     name: "Treasury",
-    description: "Doubles Tribute earned from the Depths.",
+    description: "Doubles Tribute earned from The Abyss.",
     icon: "🏛",
     cost: [
       { resource: "stone", amount: 100 },

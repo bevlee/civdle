@@ -167,7 +167,7 @@
     </div>
     <div class="flex shrink-0 items-center gap-3 sm:gap-4">
       <div class="relative flex items-center">
-        <Hint side="bottom" class={statClass} title="⚔ Tribute" text="Earned by winning battles and from the Depths. Spend it on summons and card packs for your army.">
+        <Hint side="bottom" class={statClass} title="⚔ Tribute" text="Earned by winning battles and from The Abyss. Spend it on summons and card packs for your army.">
           <span class="text-sm text-muted-foreground">⚔ <span class="hidden sm:inline">Tribute</span></span>
           <Badge variant="secondary" class="text-sm tabular-nums">
             {warSpoils}
