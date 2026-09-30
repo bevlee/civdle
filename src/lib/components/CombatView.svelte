@@ -353,7 +353,6 @@
                 role="button" tabindex="0" aria-label={`Inspect enemy position ${position}, ${isFrontRow(position) ? "front" : "back"} row: ${UNITS[card.unitId].name}, ${card.stars} stars`}
                 onclick={() => inspectedEnemy = { id: card.id, unitId: card.unitId, stars: card.stars }}
                 onkeydown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inspectedEnemy = { id: card.id, unitId: card.unitId, stars: card.stars }; } }} style="cursor: pointer">
-                {#if encounter?.bossId === card.id}<span class="boss-label">Boss</span>{/if}
                 <div class={fighterClass(fighter)} use:attackMotion={{ active: actingId !== null && actingId === fighter?.id, key: animationKey, ultimate: actingKind === "ultimate", distance: movement * (fighter?.isEnemy ? -1 : 1) }}><BattleUnit {card} {fighter} enemy ultEvery={battle?.enemyMods.ultEvery ?? 3} castingUltimate={actingId === fighter?.id && actingKind === "ultimate"} pose={fighterPose(fighter)} animate={isPlaying} /></div>
                 {@render effects(fighter)}
               </div>
@@ -504,7 +503,6 @@
   .ghost-portrait { width: 60px; height: 60px; display: flex; align-items: flex-end; justify-content: center; padding: 6px 8px 4px; border: 2px solid; border-radius: 50%; overflow: hidden; background: color-mix(in oklch, var(--card) 94%, transparent); box-shadow: 0 14px 30px #0009; }
   .ghost-label { padding: 3px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--foreground); background: color-mix(in oklch, var(--background) 80%, transparent); }
   .versus { align-self: center; text-align: center; margin-top: -12px; font-size: 37px; letter-spacing: 3px; font-weight: 800; color: #ffffff22; }
-  .boss-label { position: absolute; z-index: 2; top: -8px; left: 50%; transform: translateX(-50%); font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: #edaaa1; background: #50251f; border-radius: 3px; padding: 1px 5px; }
   .story-complete { font-size: 17px; line-height: 1.7; color: var(--muted-foreground); padding-top: 130px; text-align: center; }
   .battlefield-footer { min-height: 30px; display: flex; justify-content: space-between; gap: 8px; font-size: 15px; align-items: center; color: var(--muted-foreground); border-top: 1px solid #ffffff05; }
   .win { color: #9fca98; }
@@ -559,8 +557,6 @@
     .enemy-heading { display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: flex-end; gap: 3px; min-width: 0; }
     .enemy-title, .enemy-heading :global(.synergies) { display: contents; }
     .enemy-boost { padding: 2px 5px; font-size: 11px; }
-    /* The campaign subtitle already says it's a boss level. */
-    .boss-label { display: none; }
     .battle-stage { flex: 1; min-height: 0; height: auto; margin-top: 4px; }
     /* Spread the five slots over the stage height so the last unit sits on the bottom edge. */
     .battle-stage { container-type: size; }

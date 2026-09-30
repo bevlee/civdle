@@ -526,9 +526,9 @@
     onJump={openRecipe}
   />
 
-  <!-- Desktop only: phones show gains in the action bar. Hidden rather than removed,
-       since the toasts dismiss their events. -->
-  <div class="hidden md:contents">
+  <!-- Desktop only, and not over the battlefield: phones show gains in the action bar.
+       Hidden rather than removed, since the toasts dismiss their events. -->
+  <div class="hidden {isCombatTab ? '' : 'md:contents'}">
     <GainToastStack
       events={game.events}
       onDismiss={(id) => game.dismissEvent(id)}
