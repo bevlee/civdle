@@ -571,6 +571,10 @@
     .battlefield-footer { display: none; }
     .battlefield-footer.idle-hint { display: flex; justify-content: center; min-height: 0; padding: 2px 0 4px; border-top: 0; font-size: 12px; }
     .army-dock { flex: none; }
+    /* Space is tight: the ultimate banner shows just its name, and units on the board go
+       without names (tap one for details; the slots' labels still name them). */
+    .ultimate-overlay span { display: none; }
+    .field-position :global(.unit-name) { display: none; }
     .battle-sidebar { display: none; }
     .log-backdrop { display: block; position: fixed; inset: 0; z-index: 39; background: #0009; }
     .battle-sidebar.open { display: flex; position: fixed; inset: auto 0 0; z-index: 40; max-height: 70dvh; overflow-y: auto; padding: 0 8px calc(8px + env(safe-area-inset-bottom)); background: var(--background); border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -12px 32px #000c; animation: sheet-up .2s ease-out; }
@@ -590,7 +594,6 @@
     .field-position { width: 88px; }
     .position-button { min-height: 112px; }
     .field-position :global(.unit-sprite) { height: 80px; }
-    .field-position :global(.unit-name) { font-size: 16px; line-height: 20px; max-width: 88px; }
     .field-position :global(.unit-stars) { font-size: 18px; }
     .field-position.targeted::after { top: 68px; }
   }
@@ -600,7 +603,6 @@
     .position-button { min-height: 76px; }
     .empty-circle { width: 44px; height: 44px; }
     .field-position :global(.unit-sprite) { height: 44px; }
-    .field-position :global(.unit-name) { font-size: 11px; line-height: 13px; }
     .field-position.targeted::after { top: 36px; }
   }
   @container (max-height: 260px) {
