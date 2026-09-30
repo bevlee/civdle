@@ -5,7 +5,7 @@
   import Hint from "./Hint.svelte";
   import { AGES } from "$lib/gameData";
   import { describeAgeBonus, type AgeAdvanceStatus, type AgeBonus } from "$lib/gameEngine";
-  import { ageRewards, type ChecklistItem } from "$lib/view/ageChecklist";
+  import { ageRewards, checklistProgress, type ChecklistItem } from "$lib/view/ageChecklist";
   import type { AgeAdvanceEventData } from "$lib/gameState.svelte";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
   import { cn } from "$lib/utils";
@@ -42,6 +42,7 @@
   let age = $derived(AGES[ageIndex]);
   let bonusText = $derived(describeAgeBonus(ageBonus));
   let nextRewards = $derived(ageAdvanceStatus.nextAge ? ageRewards(ageAdvanceStatus.nextAge) : []);
+  let progress = $derived(checklistProgress(checklist));
 
   let skillPointEvents = $derived(
     events.filter(
@@ -96,7 +97,7 @@
             onclick={handleAdvanceClick}
             variant={ageAdvanceStatus.canAdvance ? "default" : "secondary"}
             class={cn("h-7 rounded-r-none px-2.5 text-xs", ageAdvanceStatus.canAdvance ? "animate-pulse-glow" : "text-muted-foreground")}
-            title={`Advance to ${ageAdvanceStatus.nextAge.name}`}
+            title={ageAdvanceStatus.canAdvance ? `Advance to ${ageAdvanceStatus.nextAge.name}` : `What ${ageAdvanceStatus.nextAge.name} needs`}
           >
             Advance
           </Button>
@@ -106,9 +107,12 @@
             class="relative h-7 rounded-l-none border-l border-background/40 px-1.5 text-xs"
             aria-expanded={detailsOpen}
             aria-controls="age-advance"
-            aria-label={`Requirements and rewards for ${ageAdvanceStatus.nextAge.name}`}
+            aria-label={`Requirements and rewards for ${ageAdvanceStatus.nextAge.name}, ${progress.met} of ${progress.total} met`}
             onclick={() => (detailsOpen = !detailsOpen)}
           >
+            {#if !ageAdvanceStatus.canAdvance}
+              <span class="mr-1 tabular-nums" aria-hidden="true">{progress.met}/{progress.total}</span>
+            {/if}
             <span aria-hidden="true" class={cn("transition-transform", detailsOpen && "rotate-180")}>▾</span>
           </Button>
           {#if detailsOpen}
