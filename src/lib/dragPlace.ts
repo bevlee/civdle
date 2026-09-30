@@ -33,6 +33,9 @@ export interface DragState {
 /** Pixels the pointer must travel before a press becomes a drag rather than a tap. */
 export const DRAG_THRESHOLD = 6;
 
+/** How long a finger rests on a card in a scrolling list before it lifts (then drags any way). */
+export const HOLD_MS = 350;
+
 /**
  * The party change for dropping `src` on `overSlot`. A card from the army needs a
  * slot; a hero dragged off the board leaves the party; a gap on the board does nothing.
@@ -59,7 +62,7 @@ export function dragLabel(src: DragSource, overSlot: DropTarget): string {
 /**
  * What the first real movement of a press means. A finger in a list that scrolls
  * along `scrollAxis` scrolls it when it moves mostly that way; anything else drags.
- * A mouse or pen always drags (the wheel scrolls).
+ * A mouse or pen always drags (the wheel scrolls). A finger that rests first lifts (see HOLD_MS).
  */
 export function gestureIntent(dx: number, dy: number, scrollAxis: ScrollAxis, pointerType: string): "wait" | "scroll" | "drag" {
   if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return "wait";
@@ -107,6 +110,7 @@ interface Gesture {
   y0: number;
   axis: ScrollAxis;
   mode: "wait" | "scroll" | "drag" | "ignore";
+  hold: ReturnType<typeof setTimeout> | null;
 }
 
 // One gesture at a time across every element (a second finger does nothing).
@@ -116,6 +120,7 @@ let activeGesture: Gesture | null = null;
  * `use:dragPlace={{ source, onTap, onDrop, locked, onDragState }}`.
  * Give the element `touch-action: none` on the board, or `pan-x` / `pan-y` in a
  * list that scrolls that way, so the browser keeps native touch scrolling there.
+ * In such a list a finger scrolls it, or rests HOLD_MS to lift the card and drag any way.
  */
 export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) => {
   let options = initial;
@@ -125,6 +130,7 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
     const g = gesture;
     gesture = null;
     if (!g) return;
+    if (g.hold) clearTimeout(g.hold);
     if (activeGesture === g) activeGesture = null;
     if (node.hasPointerCapture?.(g.pointerId)) node.releasePointerCapture(g.pointerId);
     window.removeEventListener("keydown", onKey);
@@ -135,13 +141,32 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
     if (e.key === "Escape") end(true);
   }
 
+  // A finger resting on a card in a scrolling list lifts it. A locked card stays a tap.
+  function lift(g: Gesture) {
+    g.hold = null;
+    if (gesture !== g || g.mode !== "wait" || !options.source || options.locked) return;
+    g.mode = "drag";
+    window.addEventListener("keydown", onKey);
+    navigator.vibrate?.(10);
+    options.onDragState?.({ source: options.source, x: g.x0, y: g.y0, over: dropTargetAt(g.x0, g.y0) });
+  }
+
+  // Once lifted, the finger drags the card, so stop the list scrolling underneath it.
+  // (Only a cancelable touchmove can stop a touch-action pan, and the first one after a
+  // still hold is cancelable.)
+  function touchmove(e: Event) {
+    if (gesture?.mode === "drag") e.preventDefault();
+  }
+
   function down(e: PointerEvent) {
     if (!options.source || e.button > 0 || gesture || activeGesture) return;
     gesture = activeGesture = {
       pointerId: e.pointerId, pointerType: e.pointerType, x0: e.clientX, y0: e.clientY,
-      axis: options.source.type === "card" ? scrollAxisOf(node) : null, mode: "wait",
+      axis: options.source.type === "card" ? scrollAxisOf(node) : null, mode: "wait", hold: null,
     };
     try { node.setPointerCapture(e.pointerId); } catch { /* the pointer is already gone */ }
+    const g = gesture;
+    if (e.pointerType === "touch" && g.axis) g.hold = setTimeout(() => lift(g), HOLD_MS);
   }
 
   function move(e: PointerEvent) {
@@ -151,6 +176,7 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
     if (g.mode === "wait") {
       const intent = gestureIntent(dx, dy, g.axis, g.pointerType);
       if (intent === "wait") return;
+      if (g.hold) { clearTimeout(g.hold); g.hold = null; }
       g.mode = intent === "drag" && (options.locked || !options.source) ? "ignore" : intent;
       if (g.mode === "drag") window.addEventListener("keydown", onKey);
     }
@@ -189,6 +215,7 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
   node.addEventListener("lostpointercapture", cancel);
   node.addEventListener("click", click);
   node.addEventListener("dragstart", noNativeDrag);
+  node.addEventListener("touchmove", touchmove, { passive: false });
 
   return {
     update(next) {
@@ -205,6 +232,7 @@ export const dragPlace: Action<HTMLElement, DragPlaceOptions> = (node, initial) 
       node.removeEventListener("lostpointercapture", cancel);
       node.removeEventListener("click", click);
       node.removeEventListener("dragstart", noNativeDrag);
+      node.removeEventListener("touchmove", touchmove);
     },
   };
 };
