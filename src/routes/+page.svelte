@@ -293,6 +293,7 @@
         <div class="hidden shrink-0 overflow-x-auto whitespace-nowrap border-b border-border md:flex">
           {#each TABS as tab (tab.id)}
             <button
+              aria-current={centerTab === tab.id ? "page" : undefined}
               class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
               tab.id
                 ? 'border-b-2 border-primary text-foreground'
