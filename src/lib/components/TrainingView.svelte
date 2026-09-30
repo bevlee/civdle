@@ -122,8 +122,6 @@
       activeSkill,
       activeRecipeId,
       resources: game.resources,
-      timeText: result ? formatTime(result.time) : "",
-      xpText: result ? formatXp(result.xp) : "",
     }),
   );
 
@@ -244,14 +242,15 @@
               aria-pressed={selected}
               onclick={() => onViewRecipe(recipe.id)}
               class={cn(
-                "flex h-[52px] min-w-0 flex-col items-center justify-center gap-px rounded-xl border px-1.5 text-sm font-semibold transition-colors",
+                "flex min-h-[52px] min-w-0 flex-col items-center justify-center gap-px rounded-xl border px-1.5 py-1.5 text-sm font-semibold transition-colors",
                 selected
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-card text-foreground",
                 locked ? "cursor-not-allowed opacity-40" : !selected && "hover:bg-accent",
               )}
             >
-              <span class="max-w-full truncate">{locked ? "???" : recipe.name}</span>
+              <!-- Long names wrap to a second line rather than being cut off. -->
+              <span class="line-clamp-2 max-w-full text-center leading-tight">{locked ? "???" : recipe.name}</span>
               {#if locked}
                 <span class="text-[11px] font-medium">Lv {recipe.requiredLevel}</span>
               {:else if running}

@@ -3,13 +3,13 @@
   import { computeActionResult, type GameState } from "$lib/gameEngine";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
   import type { ActionGainEventData } from "$lib/gameState.svelte";
-  import { actionBarState, stillTrainingLine } from "$lib/view/actionBar";
+  import { actionBarState } from "$lib/view/actionBar";
   import { gainLine } from "$lib/view/gainLine";
   import { cn } from "$lib/utils";
 
   /**
    * The phone Train tab's sticky bar: the viewed recipe with a Train / Switch / Stop
-   * button, the latest gains while it runs, and a way back to whatever else is running.
+   * button (Switch says what it stops), and the latest gains while it runs.
    */
   let {
     skillId,
@@ -20,7 +20,6 @@
     events,
     onTrain,
     onStop,
-    onBack,
     class: className,
   }: {
     skillId: SkillId;
@@ -31,8 +30,6 @@
     events: QueuedEvent[];
     onTrain: () => void;
     onStop: () => void;
-    /** Shows the skill and recipe that are training. */
-    onBack: () => void;
     class?: string;
   } = $props();
 
@@ -41,7 +38,6 @@
   );
   let activeSkill = $derived(game.activeSkill);
   let activeRecipeId = $derived(activeSkill ? game.skills[activeSkill].selectedRecipeId : null);
-  let viewingActive = $derived(activeSkill === skillId && activeRecipeId === recipe.id);
 
   let result = $derived(
     computeActionResult(
@@ -62,8 +58,6 @@
       activeSkill,
       activeRecipeId,
       resources: game.resources,
-      timeText: result ? `${result.time.toFixed(2)}s` : "",
-      xpText: result ? `+${result.xp} XP` : "",
     }),
   );
 
@@ -109,19 +103,6 @@
   aria-label="Training"
   class={cn("flex shrink-0 flex-col gap-2.5 border-t border-border bg-background px-4 pt-2.5 pb-3", className)}
 >
-  {#if activeSkill && activeRecipeId && !viewingActive}
-    <button
-      class="flex min-h-11 items-center gap-2 rounded-[10px] border border-green-500/30 bg-green-500/8 px-3 text-left"
-      onclick={onBack}
-    >
-      <span class="size-[7px] shrink-0 rounded-full bg-green-500" aria-hidden="true"></span>
-      <span class="min-w-0 truncate text-sm font-semibold">
-        Still training {stillTrainingLine(activeSkill, activeRecipeId)}
-      </span>
-      <span class="flex-1"></span>
-      <span class="shrink-0 text-[13px] font-semibold text-muted-foreground">Back ›</span>
-    </button>
-  {/if}
 
   <div class="flex items-center gap-3">
     <div class="flex min-w-0 flex-1 flex-col leading-tight">
