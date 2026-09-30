@@ -30,8 +30,10 @@
     return `Not yet — ${item.required - item.current} more ${item.label}`;
   });
 
+  // The sheet only shows when there is a next age; the hold follows what is on screen.
+  let shown = $derived(open && nextAge !== null);
   $effect(() => {
-    if (open) return holdPopups();
+    if (shown) return holdPopups();
   });
 
   function advance() {
@@ -40,7 +42,7 @@
   }
 </script>
 
-<BottomSheet open={open && nextAge !== null} {onClose} title={nextAge ? `Next age: ${nextAge.name}` : "Next age"} hideTitle>
+<BottomSheet open={shown} {onClose} title={nextAge ? `Next age: ${nextAge.name}` : "Next age"} hideTitle>
   {#if nextAge}
     <div class="flex flex-col gap-4 pt-1">
       <div class="flex flex-col gap-0.5">

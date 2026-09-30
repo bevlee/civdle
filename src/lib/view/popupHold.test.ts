@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { holdPopups, popupHold } from "./popupHold.svelte";
-import { mountHolder } from "./popupHoldHarness.svelte";
+import { mountHolder } from "./popupHold.testing.svelte";
 
 describe("popupHold", () => {
   it("holds while any hold is open, and a second release does nothing", () => {
