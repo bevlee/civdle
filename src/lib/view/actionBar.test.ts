@@ -8,7 +8,6 @@ const base = {
   activeSkill: null,
   activeRecipeId: null,
   resources: { wood: 5, stone: 5, plantFibres: 5 },
-  secondsLeft: 1.234,
   timeText: "2.60s",
   xpText: "+9 XP",
 };
@@ -17,7 +16,7 @@ describe("actionBarState", () => {
   it("offers stop when viewing the running skill and recipe", () => {
     expect(actionBarState({ ...base, activeSkill: "crafting", activeRecipeId: "tools" })).toEqual({
       kind: "stop",
-      label: "Stop · 1.2s",
+      label: "Stop",
     });
   });
 
