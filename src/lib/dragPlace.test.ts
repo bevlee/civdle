@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dragLabel, gestureIntent, resolveDrop, slotName, type DragSource } from "./dragPlace";
+import { dragLabel, gestureIntent, resolveDrop, slotName, slotTag, type DragSource } from "./dragPlace";
 
 const card: DragSource = { type: "card", cardId: "a" };
 const slot1: DragSource = { type: "slot", slot: 1, cardId: "b" };
@@ -28,6 +28,14 @@ describe("resolveDrop", () => {
   it("does nothing when either is dropped in a gap on the board", () => {
     expect(resolveDrop(card, "board")).toBeNull();
     expect(resolveDrop(slot1, "board")).toBeNull();
+  });
+});
+
+describe("slotTag", () => {
+  it("shortens a slot to its row letter and position", () => {
+    expect(slotTag(0)).toBe("B1");
+    expect(slotTag(1)).toBe("F2");
+    expect(slotTag(4)).toBe("B5");
   });
 });
 
