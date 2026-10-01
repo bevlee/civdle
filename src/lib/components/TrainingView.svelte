@@ -141,7 +141,8 @@
   let flash = $derived(levelFlash?.skillId === skillId ? levelFlash : null);
 
   // An expected (average) amount splits into the guaranteed whole number and the
-  // chance of one more, per action: 1.25 is "+1" with "+25%", 0.3 is just "30%".
+  // chance of one more, per action: 1.25 is "+1" with "+25%", 0.3 is "+1" with
+  // "30%" (a 30% chance of one).
   let makes = $derived.by(() => {
     if (!result) return [];
     const rows = result.outputs.map((o) => {
@@ -149,7 +150,7 @@
       const chance = Math.round((o.amount - base) * 100);
       return {
         resource: o.resource,
-        base,
+        base: base > 0 ? base : chance > 0 ? 1 : 0,
         chance: chance > 0 ? (base > 0 ? `+${chance}%` : `${chance}%`) : "",
       };
     });
