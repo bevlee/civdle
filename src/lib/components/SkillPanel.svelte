@@ -1,6 +1,7 @@
 <script lang="ts">
   import SkillRow from "./SkillRow.svelte";
-  import { SKILL_ORDER, type SkillId } from "$lib/gameData";
+  import type { SkillId } from "$lib/gameData";
+  import { nextDiscovery, skillGroups } from "$lib/view/skillGroups";
   import type { GameState } from "$lib/gameEngine";
   import { xpProgressPct } from "$lib/view/xpProgress";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
@@ -24,7 +25,15 @@
     class?: string;
   } = $props();
 
-  let unlocked = $derived(SKILL_ORDER.filter((id) => game.skills[id].unlocked));
+  // Grouped as on the phone's picker, each with what's left to discover there.
+  let groups = $derived(
+    skillGroups(game).map((g) => ({
+      label: g.label,
+      unlocked: g.skills.filter((c) => c.unlocked).map((c) => c.id),
+      locked: g.skills.filter((c) => !c.unlocked).length,
+      hint: nextDiscovery(game, g.label),
+    })),
+  );
 </script>
 
 {#snippet row(id: SkillId)}
@@ -48,12 +57,19 @@
     className,
   )}
 >
-  <h2
-    class="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-  >
-    Skills
-  </h2>
-  {#each unlocked as id (id)}
-    {@render row(id)}
+  <h2 class="sr-only">Skills</h2>
+  {#each groups as group (group.label)}
+    <h3 class="mt-1 mb-1 px-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase first-of-type:mt-0">
+      {group.label}
+    </h3>
+    {#each group.unlocked as id (id)}
+      {@render row(id)}
+    {/each}
+    {#if group.locked > 0}
+      <p class="mb-2 px-2 text-[11px] leading-snug text-muted-foreground">
+        <span aria-hidden="true">🔒</span>
+        {group.locked} more to discover{#if group.hint}<br />Next: <span class="font-semibold text-foreground">{group.hint}</span>{/if}
+      </p>
+    {/if}
   {/each}
 </nav>

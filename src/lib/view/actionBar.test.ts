@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actionBarState, stillTrainingLine } from "./actionBar";
+import { actionBarState } from "./actionBar";
 
 const base = {
   viewedSkill: "crafting" as const,
@@ -78,12 +78,5 @@ describe("actionBarState", () => {
       label: "Train",
       sub: "",
     });
-  });
-});
-
-describe("stillTrainingLine", () => {
-  it("names the running skill and recipe", () => {
-    expect(stillTrainingLine("crafting", "tools")).toBe("Crafting · Tools");
-    expect(stillTrainingLine("foraging", "forage")).toBe("Foraging · Forage");
   });
 });

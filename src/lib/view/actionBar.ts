@@ -43,7 +43,3 @@ export function actionBarState(args: ActionBarArgs): ActionBarState {
   if (activeSkill !== null) return { kind: "switch", label: "Switch", sub: `Stops ${SKILLS[activeSkill].name}` };
   return { kind: "train", label: "Train", sub: "" };
 }
-
-export function stillTrainingLine(activeSkill: SkillId, activeRecipeId: string): string {
-  return `${SKILLS[activeSkill].name} · ${recipeOf(activeSkill, activeRecipeId).name}`;
-}
