@@ -16,7 +16,7 @@
     xpForLevel,
   } from "$lib/gameEngine";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
-  import { actionBarState, stillTrainingLine } from "$lib/view/actionBar";
+  import { actionBarState } from "$lib/view/actionBar";
   import { latestLevelUp, type LevelUpFlash } from "$lib/view/levelUp";
   import { resourceSource } from "$lib/view/resourceSource";
   import { usesJump } from "$lib/view/usesJump";
@@ -38,7 +38,6 @@
     events,
     onStart,
     onStop,
-    onBack,
     onViewRecipe,
     onJump,
   }: {
@@ -52,8 +51,6 @@
     events: QueuedEvent[];
     onStart: () => void;
     onStop: () => void;
-    /** Shows the skill and recipe that are training. */
-    onBack: () => void;
     onViewRecipe: (recipeId: string) => void;
     /** Opens the skill that makes an input, on its recipe when one is given. */
     onJump: (skillId: SkillId, recipeId: string | null) => void;
@@ -382,31 +379,22 @@
       </p>
     {/if}
 
-    <!-- Phones train from the sticky action bar instead. Whatever is viewed, a running
-         skill can always be stopped from here. -->
+    <!-- Desktop train/switch/stop, as on the phone's action bar (stopping from anywhere
+         else is in the header). -->
     <div class="hidden flex-col gap-3 md:flex">
       <Progress value={bar.kind === "stop" ? progress * 100 : 0} class="h-3 max-w-sm" />
-      <div class="flex flex-wrap gap-2">
+      <div class="flex items-center gap-3">
         {#if bar.kind === "stop"}
           <Button variant="destructive" onclick={onStop}>Stop</Button>
         {:else}
           <Button onclick={onStart} disabled={bar.kind === "locked" || bar.kind === "short"}>
             {bar.label}
           </Button>
-          {#if activeSkill}
-            <Button variant="destructive" onclick={onStop}>Stop</Button>
+          {#if bar.kind !== "locked" && bar.sub}
+            <span class="text-sm {bar.kind === 'short' ? 'text-destructive' : 'text-muted-foreground'}">{bar.sub}</span>
           {/if}
         {/if}
       </div>
-      {#if bar.kind !== "stop" && activeSkill && activeRecipeId}
-        <p class="flex items-center gap-2 text-sm text-muted-foreground">
-          <span class="size-[7px] shrink-0 rounded-full bg-green-500" aria-hidden="true"></span>
-          <span>Still training {stillTrainingLine(activeSkill, activeRecipeId)} ·</span>
-          <button class="font-semibold text-foreground underline-offset-4 hover:underline" onclick={onBack}>
-            Back
-          </button>
-        </p>
-      {/if}
     </div>
   </div>
 </div>

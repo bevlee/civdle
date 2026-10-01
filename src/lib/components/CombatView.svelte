@@ -364,7 +364,7 @@
           <CombatProjectile playback={game.battlePlayback} {...projectile} onDone={id => projectiles = projectiles.filter(p => p.id !== id)} />
         {/each}
         {#if ultBanner}
-          {#key ultBanner.key}<div class="ultimate-overlay" aria-live="polite"><div class="ult-banner"><strong>{ULTIMATES[ultBanner.type].name}</strong><span>{ultBanner.name} · {ULTIMATES[ultBanner.type].short}</span></div></div>{/key}
+          {#key ultBanner.key}<div class="ultimate-overlay" aria-live="polite"><div class="ult-banner"><strong>{ULTIMATES[ultBanner.type].name}</strong><span class="sr-only">{ultBanner.name} · {ULTIMATES[ultBanner.type].short}</span></div></div>{/key}
         {/if}
         {#if battleDone && resultReady}
           <div class="battle-result-overlay" aria-live="assertive">
@@ -474,9 +474,14 @@
   .auto-toggle input { accent-color: #ddd; }
   .notice { font-size: 17px; color: var(--muted-foreground); border: 1px solid var(--border); border-radius: 8px; padding: 12px; line-height: 1.6; }
   .battlefield { position: relative; background: #ffffff02; border: 1px solid var(--border); border-radius: 9px; padding: 16px 14px 0; overflow: hidden; }
-  .army-headings { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; min-height: 64px; }
+  .army-headings { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+  /* The VS splits the board, so the side headings are for screen readers only, and the
+     enemy's stat boost flows in with its trait chips. */
+  .army-headings h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .army-headings :global(.synergies) { margin-top: 0; }
+  .enemy-heading { display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: flex-end; gap: 4px; min-width: 0; }
+  .enemy-title, .enemy-heading :global(.synergies) { display: contents; }
   h3 { text-transform: uppercase; letter-spacing: 1.1px; font-size: 15px; font-weight: 600; color: #999; }
-  .enemy-title { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; justify-content: flex-end; }
   .enemy-boost { border-radius: 3px; padding: 3px 5px; font-size: 14px; white-space: nowrap; }
   .enemy-boost { color: #e7978f; background: #702b2b55; }
   .battle-stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 60px minmax(0, 1fr); height: 400px; margin-top: 8px; }
@@ -516,10 +521,10 @@
   .battle-result-content.lose .result-label { color: #cf6b62; }
   .result-detail { font-size: 21px; color: #aaa; }
   @keyframes result-fade-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
-  .ultimate-overlay { position: absolute; inset: -8px 0 auto; z-index: 8; display: flex; align-items: start; justify-content: center; pointer-events: none; }
+  /* Just the ultimate's name, over the VS and clear of the trait chips (the log has the details). */
+  .ultimate-overlay { position: absolute; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; pointer-events: none; }
   .ultimate-overlay > div { background: #18120be6; border: 1px solid #9c723c55; padding: 5px 12px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; color: #f5c17c; }
   .ultimate-overlay strong { font-size: 20px; letter-spacing: 1px; }
-  .ultimate-overlay span { font-size: 19px; }
   .battle-sidebar { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   .battle-log { border: 1px solid var(--border); border-radius: 8px; background: #ffffff02; padding: 10px; }
   .log-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -574,15 +579,10 @@
     .combat-header, .playback-controls { display: none; }
     .phone-header { flex-shrink: 0; }
     .battlefield { flex: 1 1 0; min-height: 250px; display: flex; flex-direction: column; padding: 8px 8px 4px; }
-    .army-headings { min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    /* The VS splits the board, so the side headings are for screen readers only. Each side's
-       trait chips (and the enemy's stat boost) wrap onto a second line rather than hiding. */
-    .army-headings h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-    .army-headings :global(.synergies) { gap: 3px; margin-top: 0; }
+    /* Smaller trait chips, so each side's fit in two lines. */
+    .army-headings :global(.synergies), .enemy-heading { gap: 3px; }
     .army-headings :global(.synergy) { padding: 2px 5px; font-size: 11px; }
     .army-headings :global(.synergies .empty) { font-size: 11px; }
-    .enemy-heading { display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: flex-end; gap: 3px; min-width: 0; }
-    .enemy-title, .enemy-heading :global(.synergies) { display: contents; }
     .enemy-boost { padding: 2px 5px; font-size: 11px; }
     .battle-stage { flex: 1; min-height: 0; height: auto; margin-top: 4px; }
     /* Spread the five slots over the stage height so the last unit sits on the bottom edge. */
@@ -592,11 +592,8 @@
     .battlefield-footer { display: none; }
     .battlefield-footer.idle-hint { display: flex; justify-content: center; min-height: 0; padding: 2px 0 4px; border-top: 0; font-size: 12px; }
     .army-dock { flex: none; }
-    /* Space is tight: the ultimate banner shows just its name, and units on the board go
-       without names (tap one for details; the slots' labels still name them). */
-    .ultimate-overlay span { display: none; }
-    /* Over the VS, clear of the trait chips above the board. */
-    .ultimate-overlay { inset: 0; align-items: center; }
+    /* Space is tight: units on the board go without names (tap one for details; the
+       slots' labels still name them). */
     .field-position :global(.unit-name) { display: none; }
     .battle-sidebar { display: none; }
     .log-backdrop { display: block; position: fixed; inset: 0; z-index: 39; background: #0009; }

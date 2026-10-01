@@ -260,6 +260,13 @@
         onOpenShop={() => openTown("shop", true)}
         unlocked={(id) => game.state.skills[id].unlocked}
         onJump={openRecipe}
+        training={{
+          activeSkill: game.state.activeSkill,
+          level: game.state.activeSkill ? game.levels[game.state.activeSkill] : 0,
+          xp: game.state.activeSkill ? game.state.skills[game.state.activeSkill].xp : 0,
+          onOpenTrain: openTraining,
+          onStop: handleStopTraining,
+        }}
       />
     </div>
 
@@ -336,7 +343,6 @@
               events={game.events}
               onStart={handleStartTraining}
               onStop={handleStopTraining}
-              onBack={openTraining}
               onViewRecipe={(recipeId) => viewRecipe(selectedSkill!, recipeId)}
               onJump={openRecipe}
             />

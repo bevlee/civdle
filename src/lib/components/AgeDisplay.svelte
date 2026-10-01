@@ -3,6 +3,8 @@
   import { Button } from "$lib/components/ui/button";
   import FloatingText from "./FloatingText.svelte";
   import Hint from "./Hint.svelte";
+  import TrainingStatus from "./TrainingStatus.svelte";
+  import type { ComponentProps } from "svelte";
   import { AGES, type SkillId } from "$lib/gameData";
   import { describeAgeBonus, type AgeAdvanceStatus, type AgeBonus } from "$lib/gameEngine";
   import { ageRewards, checklistJump, checklistProgress, type ChecklistItem } from "$lib/view/ageChecklist";
@@ -24,6 +26,7 @@
     onOpenShop,
     unlocked,
     onJump,
+    training,
   }: {
     ageIndex: number;
     ageBonus: AgeBonus;
@@ -42,6 +45,8 @@
     unlocked: (id: SkillId) => boolean;
     /** Opens a skill on the Train tab (on a recipe when given), from an unmet requirement. */
     onJump: (skill: SkillId, recipeId: string | null) => void;
+    /** What is training, shown as on phones (see TrainingStatus). */
+    training: ComponentProps<typeof TrainingStatus>;
   } = $props();
 
   let age = $derived(AGES[ageIndex]);
@@ -184,6 +189,7 @@
       {/if}
     </div>
     <div class="flex shrink-0 items-center gap-3 sm:gap-4">
+      <TrainingStatus {...training} class="border-r border-border pr-4" />
       <div class="relative flex items-center">
         <Hint side="bottom" class={statClass} title="⚔ Tribute" text="Earned by winning battles and from The Abyss. Spend it on summons and card packs for your army.">
           <span class="text-sm text-muted-foreground">⚔ <span class="hidden sm:inline">Tribute</span></span>
