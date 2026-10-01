@@ -40,7 +40,7 @@
   {:else if topic === "positions" || topic === "attacks" || topic === "ready"}
     {#if topic === "attacks"}
       <div class="type-picker" role="group" aria-label="Preview ultimate targeting">
-        {#each Object.values(ATTACK_TYPES) as type}<button aria-pressed={attackType === type.id} onclick={() => attackType = type.id}>{type.icon} {type.name}</button>{/each}
+        {#each Object.values(ATTACK_TYPES) as type}<button class="tap-target" aria-pressed={attackType === type.id} onclick={() => attackType = type.id}>{type.icon} {type.name}</button>{/each}
       </div>
       <p class="visual-heading">{ULTIMATES[attackType].name} · highlighted targets</p>
     {:else}<p class="visual-heading">{topic === "ready" ? "Example five-hero formation" : "Incoming basic attacks ↓"}</p>{/if}
@@ -103,7 +103,7 @@
     <figcaption>{toStars === 10 ? "One gold star marks rank 10. Ascension adds extra stats and doubles trait contributions." : `Promoting to 6 stars unlocks ${TRAIT_SYNERGIES[UNITS.swordsman.traits[1]].name}, the Swordsman’s second trait.`}</figcaption>
   {:else if topic === "modes"}
     {#if page === 0}
-      <div class="paths"><div><strong>⚔ Campaign</strong><span>Region → fights → boss</span><b>Win Tribute</b></div><div><strong>↓ The Depths</strong><span>Clear 5 → 10 → 15…</span><b>Grow passive income</b></div></div>
+      <div class="paths"><div><strong>⚔ Campaign</strong><span>Region → fights → boss</span><b>Win Tribute</b></div><div><strong>↓ The Abyss</strong><span>Clear 5 → 10 → 15…</span><b>Grow passive income</b></div></div>
     {:else}
       <div class="cards"><div><UnitCard unitId="mage" stars={3} size="sm" /><span>Starting pool · up to 3★</span></div><div><UnitCard unitId="swordsman" stars={4} size="sm" /><span>Iron Age · unlock 4★</span></div><div><UnitCard unitId="champion" stars={5} size="sm" /><span>Medieval · unlock 5★</span></div></div>
     {/if}

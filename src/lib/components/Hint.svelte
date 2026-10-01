@@ -6,6 +6,8 @@
   // Hover card for any element: a short `text`, or a `title` + body via `content`.
   // The trigger is a span, so it can wrap disabled buttons (which swallow
   // pointer events) and sit inside other buttons without nesting interactive elements.
+  // To hint an enabled button, pass `trigger` instead of children and spread its
+  // props onto the button, so the button is the one tab stop.
   let {
     text,
     title,
@@ -15,6 +17,7 @@
     contentClass,
     disabled = false,
     children,
+    trigger,
   }: {
     text?: string;
     title?: string;
@@ -23,7 +26,9 @@
     class?: string;
     contentClass?: string;
     disabled?: boolean;
-    children: Snippet;
+    children?: Snippet;
+    /** Renders the trigger element itself; `props` are the tooltip's (empty when there is no hint). */
+    trigger?: Snippet<[{ props: Record<string, unknown> }]>;
   } = $props();
 
   // Touch has no hover, so a tap toggles the hint instead. The tooltip's own
@@ -40,24 +45,28 @@
   <Tooltip.Root bind:open>
     <Tooltip.Trigger>
       {#snippet child({ props })}
-        <span
-          {...props}
-          class={cn("inline-flex rounded-sm", className)}
-          onpointerdown={(e) => {
-            touch = e.pointerType !== "mouse";
-            wasOpen = open;
-            if (!touch) (props.onpointerdown as Handler)?.(e);
-          }}
-          onpointerup={(e) => {
-            (props.onpointerup as Handler)?.(e);
-            if (touch && !(e.target as Element).closest("button:not(:disabled)")) open = !wasOpen;
-          }}
-          onclick={(e) => {
-            if (!touch) (props.onclick as Handler)?.(e);
-          }}
-        >
-          {@render children()}
-        </span>
+        {#if trigger}
+          {@render trigger({ props })}
+        {:else}
+          <span
+            {...props}
+            class={cn("inline-flex rounded-sm", className)}
+            onpointerdown={(e) => {
+              touch = e.pointerType !== "mouse";
+              wasOpen = open;
+              if (!touch) (props.onpointerdown as Handler)?.(e);
+            }}
+            onpointerup={(e) => {
+              (props.onpointerup as Handler)?.(e);
+              if (touch && !(e.target as Element).closest("button:not(:disabled)")) open = !wasOpen;
+            }}
+            onclick={(e) => {
+              if (!touch) (props.onclick as Handler)?.(e);
+            }}
+          >
+            {@render children?.()}
+          </span>
+        {/if}
       {/snippet}
     </Tooltip.Trigger>
     <Tooltip.Content {side} class={contentClass}>
@@ -66,6 +75,8 @@
       {@render content?.()}
     </Tooltip.Content>
   </Tooltip.Root>
+{:else if trigger}
+  {@render trigger({ props: {} })}
 {:else}
-  {@render children()}
+  {@render children?.()}
 {/if}

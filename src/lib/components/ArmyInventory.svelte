@@ -1,420 +1,352 @@
 <script lang="ts">
-  import { ATTACK_TYPES, UNITS, type AttackType, type Trait, type UnitCard as UnitCardT } from "$lib/combatData";
-  import { TRAIT_SYNERGIES } from "$lib/traits";
+  import { UNITS, ATTACK_TYPES, type Trait, type UnitCard as UnitCardT } from "$lib/combatData";
   import { Button } from "$lib/components/ui/button";
+  import { tick } from "svelte";
   import Hint from "./Hint.svelte";
   import UnitCard from "./UnitCard.svelte";
   import { cn } from "$lib/utils";
-  import { BASE_RATES, FEAST_HALL_RATES, GRAND_FEAST_RATES, ROYAL_FEAST_RATES, EMPERORS_BANQUET_RATES, HEROIC_TRIBUTE_RATES, DIVINE_SUMMONS_RATES, type RollRate } from "$lib/settlementData";
-  import { rarityColor, RARITY_NAMES } from "$lib/rarity";
-
-  type SortKey = "stars" | "trait" | "name";
+  import { RARITY_NAMES } from "$lib/rarity";
+  import { dragPlace, slotName, slotTag, type DragState, type DropResult } from "$lib/dragPlace";
+  import {
+    NO_FILTER,
+    SORT_LABELS,
+    activeFilterLabel,
+    filterArmy,
+    isFiltered,
+    ownedTraits,
+    promotableIds,
+    sortArmy,
+    sortDirectionLabel,
+    starCounts,
+    starLabel,
+    traitLabel,
+    typeCounts,
+    typeLabel,
+    type ArmyFilter,
+    type SortKey,
+    type StarFilter,
+    type TypeFilter,
+  } from "$lib/view/armyFilter";
 
   let {
     cards,
-    partyIds,
-    gold,
-    rollCost,
-    packCost,
+    party,
     locked = false,
     draggingId = null,
-    dropActive = false,
-    dragOver = false,
-    onDragStart,
-    onDragEnd,
-    onDragOverChange,
+    onTap,
     onDrop,
-    onSelect,
-    maxStars = 5,
-    rollRates = BASE_RATES,
-    hasCelestialAltar = false,
-    glory = 0,
-    legendaryPackCost = 100,
-    legendarySingleCost = 10,
-    hasHallOfLegends = false,
-    tributeLegendaryPackCost = 1000,
-    onSummon,
-    onOpenPack,
-    onOpenLegendaryPack,
-    onLegendarySummon,
-    onOpenTributeLegendaryPack,
+    onDragState,
+    onOpenSummon,
+    covering = $bindable(false),
   }: {
     cards: UnitCardT[];
-    partyIds: Set<string>;
-    gold: number;
-    rollCost: number;
-    packCost: number;
-    maxStars?: number;
-    rollRates?: RollRate[];
-    hasCelestialAltar?: boolean;
-    /** Glory from the Conquest skill — pays for the Celestial Altar's 5★-only summons. */
-    glory?: number;
-    legendaryPackCost?: number;
-    legendarySingleCost?: number;
-    /** The Hall of Legends sells a 5★-only pack for Tribute. */
-    hasHallOfLegends?: boolean;
-    tributeLegendaryPackCost?: number;
+    /** Card ids by board slot (null for an empty slot). */
+    party: (string | null)[];
     locked?: boolean;
     /** Card currently being dragged anywhere on the screen. */
     draggingId?: string | null;
-    /** True when the dragged card is in the party, so dropping here removes it. */
-    dropActive?: boolean;
-    /** True while a party card is hovering over this panel. */
-    dragOver?: boolean;
-    onDragStart: (e: DragEvent, cardId: string) => void;
-    onDragEnd: () => void;
-    onDragOverChange: (over: boolean) => void;
-    onDrop: (cardId: string) => void;
-    onSelect: (cardId: string) => void;
-    onSummon: () => void;
-    onOpenPack: () => void;
-    onOpenLegendaryPack?: () => void;
-    onLegendarySummon?: () => void;
-    onOpenTributeLegendaryPack?: () => void;
+    /** A card was tapped: show its details. */
+    onTap: (cardId: string) => void;
+    /** A card was dragged onto the board. */
+    onDrop: (result: DropResult) => void;
+    onDragState: (state: DragState | null) => void;
+    /** Opens the summon panel. */
+    onOpenSummon: () => void;
+    /** Phone: the expanded view is showing over the board (the rest should be inert). */
+    covering?: boolean;
   } = $props();
 
-  function handleDragOver(e: DragEvent) {
-    if (!dropActive || locked) return;
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-    onDragOverChange(true);
-  }
-
-  function handleDragLeave(e: DragEvent) {
-    // Ignore leave events fired when moving between children of the panel.
-    const next = e.relatedTarget as Node | null;
-    if (next && e.currentTarget instanceof Node && e.currentTarget.contains(next)) return;
-    onDragOverChange(false);
-  }
-
-  function handleDrop(e: DragEvent) {
-    if (!dropActive || locked) return;
-    e.preventDefault();
-    const id = draggingId ?? e.dataTransfer?.getData("text/plain");
-    if (id) onDrop(id);
-  }
+  // A slim dock (one row of cards) with an expandable filter view, so the board keeps the
+  // screen on phones and desktops alike.
 
   let sortKey = $state<SortKey>("stars");
   let sortDesc = $state(true);
-  let showRates = $state(false);
+  // What the player picked; `filter` drops a trait whose last card was promoted away.
+  let picked = $state<ArmyFilter>({ ...NO_FILTER });
 
-  const RATE_TIERS = [
-    { label: "Base", rates: BASE_RATES },
-    { label: "Feast Hall", rates: FEAST_HALL_RATES },
-    { label: "Grand Feast", rates: GRAND_FEAST_RATES },
-    { label: "Royal Feast", rates: ROYAL_FEAST_RATES },
-    { label: "Emperor's Banquet", rates: EMPERORS_BANQUET_RATES },
-    { label: "Heroic Tribute", rates: HEROIC_TRIBUTE_RATES },
-    { label: "Divine Summons", rates: DIVINE_SUMMONS_RATES },
-  ] as const;
-  let activeTierLabel = $derived(RATE_TIERS.find(t => t.rates === rollRates)?.label ?? "Base");
-
-  const SORT_LABELS: Record<SortKey, string> = {
-    stars: "Stars",
-    trait: "Trait",
-    name: "Name",
-  };
-
-  function compare(a: UnitCardT, b: UnitCardT): number {
-    const da = UNITS[a.unitId];
-    const db = UNITS[b.unitId];
-    let c = 0;
-    switch (sortKey) {
-      case "stars":
-        c = a.stars - b.stars || da.baseStars - db.baseStars;
-        break;
-      case "trait":
-        c = da.traits[0].localeCompare(db.traits[0]) || a.stars - b.stars;
-        break;
-      case "name":
-        c = da.name.localeCompare(db.name) || a.stars - b.stars;
-        break;
-    }
-    if (c === 0) c = da.name.localeCompare(db.name);
-    return sortDesc ? -c : c;
-  }
-
-  let typeFilter = $state<AttackType | "all">("all");
-  let traitFilter = $state<Trait | "all">("all");
+  // Phone: the filter view over the board, and whether a drag started from its grid.
+  let expanded = $state(false);
+  let gridDrag = $state(false);
 
   // Only offer traits the player actually owns.
-  let traitOptions = $derived(
-    [...new Set(cards.flatMap((card) => UNITS[card.unitId].traits))]
-      .map((id) => ({ id, name: TRAIT_SYNERGIES[id].name }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  );
+  let traits = $derived(ownedTraits(cards));
+  let filter = $derived(picked.trait !== null && !traits.includes(picked.trait) ? { ...picked, trait: null } : picked);
 
-  // Drop a trait filter whose last card was promoted away.
+  let filtered = $derived(isFiltered(filter));
+  let shown = $derived(sortArmy(filterArmy(cards, filter), sortKey, sortDesc));
+  let starRows = $derived(starCounts(cards, filter));
+  let typeRows = $derived(typeCounts(cards, filter));
+  let filterLabel = $derived(activeFilterLabel(filter));
+  let countLabel = $derived(filtered ? `${shown.length}/${cards.length}` : `${cards.length}`);
+  let promotable = $derived(promotableIds(cards));
+  let slotOf = $derived(new Map(party.flatMap((id, slot) => (id ? [[id, slot] as const] : []))));
+
+  const clearFilters = () => (picked = { ...NO_FILTER });
+  const setStars = (stars: StarFilter) => (picked = { ...filter, stars });
+  const setType = (type: TypeFilter) => (picked = { ...filter, type });
+  const setTrait = (trait: Trait | null) => (picked = { ...filter, trait });
+  const toggleTrait = (trait: Trait) => setTrait(filter.trait === trait ? null : trait);
+
+  let toggleButton = $state<HTMLElement | null>(null);
+  let doneButton = $state<HTMLElement | null>(null);
+  let expandedView = $state<HTMLElement | null>(null);
+
   $effect(() => {
-    if (traitFilter !== "all" && !traitOptions.some((t) => t.id === traitFilter)) traitFilter = "all";
+    covering = expanded && !gridDrag;
   });
 
-  let filtered = $derived(
-    cards.filter((card) => {
-      const def = UNITS[card.unitId];
-      if (typeFilter !== "all" && def.attackType !== typeFilter) return false;
-      if (traitFilter !== "all" && !def.traits.includes(traitFilter)) return false;
-      return true;
-    }),
-  );
-  let isFiltered = $derived(typeFilter !== "all" || traitFilter !== "all");
-  let sorted = $derived([...filtered].sort(compare));
+  async function openExpanded() {
+    expanded = true;
+    await tick();
+    doneButton?.focus();
+  }
 
-  const TYPE_FILTERS: (AttackType | "all")[] = ["all", "melee", "ranged", "magic"];
+  async function closeExpanded() {
+    // Hand focus back to the toggle unless it already moved somewhere else on purpose.
+    const active = document.activeElement;
+    const hadFocus = !active || active === document.body || !!expandedView?.contains(active);
+    expanded = false;
+    await tick();
+    if (hadFocus) toggleButton?.focus();
+  }
 
-  let promotable = $derived.by(() => {
-    const set = new Set<string>();
-    for (const a of cards) {
-      if (a.stars >= 10) continue;
-      if (cards.some((b) => b.id !== a.id && b.unitId === a.unitId)) set.add(a.id);
+  // Dragging from the expanded grid hides it so the board is free to drop on. It stays
+  // mounted (the card holds the pointer capture). A hero placed closes it; a cancelled
+  // drag (Esc, a lost pointer, a drop that placed nothing) comes back to the grid.
+  let gridPlaced = false;
+  function gridDrop(result: DropResult) {
+    gridPlaced = true;
+    onDrop(result);
+  }
+  function gridDragState(state: DragState | null) {
+    if (state && !gridDrag) {
+      gridDrag = true;
+      gridPlaced = false;
     }
-    return set;
-  });
+    if (!state && gridDrag) {
+      gridDrag = false;
+      if (gridPlaced) void closeExpanded();
+    }
+    onDragState(state);
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    // An Esc meant for a sheet or dialog on top (hero details) leaves the army open.
+    const inDialog = e.target instanceof Element && e.target.closest("[role='dialog']");
+    if (e.key === "Escape" && expanded && !gridDrag && !inDialog) void closeExpanded();
+  }
 </script>
 
-<div
-  role="group"
-  aria-label="Army inventory"
-  class={cn(
-    "flex flex-col gap-2 rounded-lg border bg-muted/20 transition-colors max-md:h-full max-md:min-h-0",
-    dropActive && dragOver ? "border-primary bg-primary/10" : "border-border",
-  )}
-  ondragover={handleDragOver}
-  ondragenter={handleDragOver}
-  ondragleave={handleDragLeave}
-  ondrop={handleDrop}
->
-  <div class="flex flex-wrap items-center justify-between gap-2 px-3 pt-2">
-    <div class="flex items-center gap-2">
-      <h3 class="text-[17px] font-semibold tracking-wider text-muted-foreground uppercase">
-        Army ({isFiltered ? `${filtered.length}/${cards.length}` : cards.length})
-      </h3>
-      {#if dropActive}
-        <span class="rounded bg-primary/20 px-1.5 py-0.5 text-[15px] text-primary">
-          Drop here to remove from battlefield
-        </span>
-      {:else if promotable.size > 0}
-        <Hint text="Cards with enough copies to promote. Open one to promote it.">
-          <span class="cursor-help rounded bg-green-500/20 px-1.5 py-0.5 text-[15px] text-green-300">
-            <span class="font-black">+</span> {promotable.size} promotable
-          </span>
-        </Hint>
-      {/if}
-    </div>
-    <div class="flex flex-wrap items-center gap-1.5">
-      <Button size="sm" disabled={locked || gold < rollCost} onclick={onSummon} class="h-8 px-2.5 text-[15px]">
-        Summon {rollCost} ⚔
-      </Button>
-      <Hint text="Open 10 cards at once">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={locked || gold < packCost}
-          onclick={onOpenPack}
-          class="h-8 px-2.5 text-[15px]"
-        >
-          Open 10 · {packCost} ⚔
-        </Button>
-      </Hint>
-      {#if hasCelestialAltar && onLegendarySummon}
-        <Hint text="1 guaranteed 5★ hero, paid in Glory ({glory} held)">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={locked || glory < legendarySingleCost}
-            onclick={onLegendarySummon}
-            class="h-8 border-yellow-500/40 px-2 text-[15px] text-yellow-300 hover:bg-yellow-500/10"
-          >
-            5★ · {legendarySingleCost} Glory
-          </Button>
-        </Hint>
-      {/if}
-      {#if hasCelestialAltar && onOpenLegendaryPack}
-        <Hint text="10 guaranteed 5★ heroes, paid in Glory ({glory} held)">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={locked || glory < legendaryPackCost}
-            onclick={onOpenLegendaryPack}
-            class="h-8 border-yellow-500/40 px-2 text-[15px] text-yellow-300 hover:bg-yellow-500/10"
-          >
-            10× 5★ · {legendaryPackCost} Glory
-          </Button>
-        </Hint>
-      {/if}
-      {#if hasHallOfLegends && onOpenTributeLegendaryPack}
-        <Hint text="10 guaranteed 5★ heroes, paid in Tribute">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={locked || gold < tributeLegendaryPackCost}
-            onclick={onOpenTributeLegendaryPack}
-            class="h-8 border-yellow-500/40 px-2 text-[15px] text-yellow-300 hover:bg-yellow-500/10"
-          >
-            10× 5★ · {tributeLegendaryPackCost} ⚔
-          </Button>
-        </Hint>
-      {/if}
-      {#if maxStars < 5}
-        <Hint title="Star cap" text="Advance to the Iron Age for 4★ and Medieval for 5★ summons.">
-          <span class="cursor-help rounded bg-amber-500/20 px-1.5 py-0.5 text-[15px] font-semibold text-amber-300">
-            Max {maxStars}★
-          </span>
-        </Hint>
-      {/if}
-      <button
-        class="rounded border border-border bg-muted px-1.5 py-0.5 text-[15px] text-muted-foreground hover:bg-accent hover:text-foreground"
-        onclick={() => showRates = !showRates}
-        aria-expanded={showRates}
+<svelte:window onkeydown={handleKeydown} />
+
+{#snippet cardButton(card: UnitCardT, variant: "strip" | "grid")}
+  {@const slot = slotOf.get(card.id)}
+  {@const inParty = slot !== undefined}
+  {@const name = UNITS[card.unitId].name}
+  <button
+    class={cn(
+      "relative shrink-0 rounded-lg transition-transform select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring [-webkit-touch-callout:none]",
+      variant === "strip" ? "touch-pan-x" : "touch-pan-y",
+      variant === "grid" && "w-full",
+      !locked && "cursor-grab active:cursor-grabbing",
+      inParty && "ring-2 ring-primary ring-offset-1 ring-offset-background",
+      draggingId === card.id && "opacity-40",
+    )}
+    use:dragPlace={{
+      source: { type: "card", cardId: card.id },
+      locked,
+      onTap: () => onTap(card.id),
+      onDrop: variant === "grid" ? gridDrop : onDrop,
+      onDragState: variant === "grid" ? gridDragState : onDragState,
+    }}
+    aria-label={`${name}, ${card.stars} stars${inParty ? `, deployed at ${slotName(slot)}` : ""}`}
+    title={`${name} — drag onto the battlefield, or click for details`}
+  >
+    <UnitCard
+      unitId={card.unitId}
+      stars={card.stars}
+      ascended={card.ascended}
+      size="tile"
+      class={cn(
+        "rounded-md border",
+        variant === "strip" && "h-[72px] w-16",
+        variant === "grid" && "h-[76px] w-full",
+      )}
+    />
+    {#if inParty}
+      <!-- Where it stands on the board, e.g. F2 for Front · 2. -->
+      <span class="absolute -top-1 -left-1 rounded bg-primary px-1 text-[12px] leading-[18px] font-bold text-primary-foreground md:text-[14px]" aria-hidden="true">{slotTag(slot)}</span>
+    {/if}
+    {#if promotable.has(card.id)}
+      <span
+        class="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full bg-green-500 text-[14px] leading-none font-black text-white shadow ring-2 ring-background md:size-6 md:text-[17px]"
+        title="Copies available for promotion">+</span
       >
-        Rates
+    {/if}
+  </button>
+{/snippet}
+
+{#snippet emptyFiltered(cls: string)}
+  <div class={cls}>
+    No heroes match these filters.
+    <button class="tap-target h-9 rounded-[10px] border border-border px-3.5 text-sm font-semibold text-foreground" onclick={clearFilters}>
+      Clear filters
+    </button>
+  </div>
+{/snippet}
+
+  <!-- Phone dock: one header row and one strip of cards that scrolls sideways; a vertical
+       drag, or a hold, lifts a card onto the board. Filters and sorting live in the expanded view. -->
+  <div role="group" aria-label="Army" class="flex flex-col" inert={covering}>
+    <div class="flex min-w-0 items-center gap-2">
+      <button
+        bind:this={toggleButton}
+        class="tap-target flex h-9 shrink-0 items-center gap-1.5"
+        aria-expanded={expanded}
+        aria-controls="army-expanded"
+        aria-label={expanded ? "Collapse army" : `Expand army, ${countLabel} heroes`}
+        onclick={() => (expanded ? closeExpanded() : openExpanded())}
+      >
+        <span class="text-[15px] font-bold whitespace-nowrap tabular-nums">Army · {countLabel}</span>
+        <span class="flex size-6 items-center justify-center rounded-[7px] bg-accent text-[13px] text-muted-foreground" aria-hidden="true">{expanded ? "▾" : "▴"}</span>
       </button>
+      {#if filtered}
+        <button
+          class="tap-target flex h-7 min-w-0 items-center gap-1.5 rounded-lg border border-foreground/30 bg-card pr-1.5 pl-2.5 text-xs font-semibold"
+          aria-label={`Clear filters: ${filterLabel}`}
+          onclick={clearFilters}
+        >
+          <span class="truncate">{filterLabel}</span><span class="text-sm text-muted-foreground" aria-hidden="true">×</span>
+        </button>
+      {:else if promotable.size > 0}
+        <span class="rounded-md bg-green-500/15 px-2 py-[3px] text-xs font-semibold whitespace-nowrap text-green-400" title="Heroes with a spare copy to promote. Tap one to promote it.">
+          +{promotable.size} promotable
+        </span>
+      {/if}
+      <span class="flex-1"></span>
+      <button class="tap-target h-9 shrink-0 rounded-[10px] bg-primary px-3 text-sm font-semibold whitespace-nowrap text-primary-foreground" aria-haspopup="dialog" onclick={onOpenSummon}>
+        Summon ›
+      </button>
+    </div>
+    <div class="flex min-h-[84px] gap-2 overflow-x-auto overscroll-x-contain px-1.5 pt-1.5 pb-1.5 [scrollbar-width:none]" data-drag-scroll="x">
+      {#if cards.length === 0}
+        <p class="self-center text-[13px] text-muted-foreground">No heroes yet — summon some with Tribute.</p>
+      {:else if shown.length === 0}
+        <p class="self-center text-[13px] whitespace-nowrap text-muted-foreground">
+          No heroes match. <button class="tap-target font-semibold text-foreground underline underline-offset-2" onclick={clearFilters}>Clear filters</button>
+        </p>
+      {:else}
+        {#each shown as card (card.id)}
+          {@render cardButton(card, "strip")}
+        {/each}
+      {/if}
     </div>
   </div>
 
-  {#if cards.length > 0}
-    <div class="flex flex-wrap items-center gap-1.5 px-3">
-      <div class="flex overflow-hidden rounded border border-border" role="group" aria-label="Filter by attack type">
-        {#each TYPE_FILTERS as t (t)}
-          <button
-            class={cn(
-              "px-1.5 py-0.5 text-[17px] transition-colors",
-              typeFilter === t ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent",
-            )}
-            aria-pressed={typeFilter === t}
-            title={t === "all" ? "All attack types" : ATTACK_TYPES[t].name}
-            onclick={() => (typeFilter = t)}
-          >
-            {t === "all" ? "All" : `${ATTACK_TYPES[t].icon} ${ATTACK_TYPES[t].name}`}
-          </button>
-        {/each}
-      </div>
-      <select
-        class={cn(
-          "rounded border bg-muted px-1.5 py-0.5 text-[17px]",
-          traitFilter === "all" ? "border-border" : "border-primary",
-        )}
-        aria-label="Filter by trait"
-        bind:value={traitFilter}
-      >
-        <option value="all">All traits</option>
-        {#each traitOptions as t (t.id)}
-          <option value={t.id}>{t.name}</option>
-        {/each}
-      </select>
-      {#if isFiltered}
-        <button
-          class="text-[15px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-          onclick={() => { typeFilter = "all"; traitFilter = "all"; }}
-        >
-          Clear
-        </button>
-      {/if}
-      <div class="ml-auto flex items-center gap-1.5">
-        <label class="text-[15px] text-muted-foreground" for="army-sort">Sort</label>
-        <select
-          id="army-sort"
-          class="rounded border border-border bg-muted px-1.5 py-0.5 text-[17px]"
-          bind:value={sortKey}
-        >
+  {#if expanded || gridDrag}
+    <!-- Covers the battle area above the nav; hidden (but mounted) while a card from it is dragged. -->
+    <button class={cn("absolute inset-0 z-30 bg-black/50", gridDrag && "invisible")} aria-label="Close army" tabindex="-1" onclick={closeExpanded}></button>
+  {/if}
+  <!-- Always in the DOM (empty and hidden when closed) so the toggle's aria-controls resolves. -->
+  <div
+    bind:this={expandedView}
+    id="army-expanded"
+    role="region"
+    aria-label="Army"
+    hidden={!expanded && !gridDrag}
+    class={cn(
+      "absolute inset-x-0 bottom-0 z-30 flex h-[88%] flex-col gap-2.5 rounded-t-[18px] border-t border-foreground/10 bg-background pt-3 shadow-[0_-12px_32px_rgb(0_0_0/0.55)]",
+      gridDrag && "invisible",
+    )}
+  >
+    {#if expanded || gridDrag}
+      <div class="flex shrink-0 items-center gap-2 px-3">
+        <span class="min-w-0 flex-1 truncate text-[17px] font-bold whitespace-nowrap tabular-nums">Army · {countLabel}</span>
+        <label class="sr-only" for="army-sort-phone">Sort by</label>
+        <select id="army-sort-phone" class="h-11 shrink-0 rounded-[10px] border border-border bg-card px-2 text-[13px]" bind:value={sortKey}>
           {#each Object.entries(SORT_LABELS) as [key, label] (key)}
             <option value={key}>{label}</option>
           {/each}
         </select>
-        <button
-          class="rounded border border-border bg-muted px-1.5 py-0.5 text-[17px] hover:bg-accent"
-          title={sortDesc ? "Descending" : "Ascending"}
-          onclick={() => (sortDesc = !sortDesc)}
-        >
-          {sortDesc ? "▼" : "▲"}
-        </button>
+        <button class="h-11 min-w-11 shrink-0 rounded-[10px] border border-border px-2 text-[12px] whitespace-nowrap text-muted-foreground" aria-label={`Sorted ${sortDirectionLabel(sortKey, sortDesc)}. Reverse`}
+          onclick={() => (sortDesc = !sortDesc)}>{sortDirectionLabel(sortKey, sortDesc)}</button>
+        <button bind:this={doneButton} class="h-11 shrink-0 rounded-[10px] border border-border px-3.5 text-sm font-semibold" onclick={closeExpanded}>Done</button>
       </div>
-    </div>
-  {/if}
 
-  {#if showRates}
-    <div class="mx-3 rounded-lg border border-border bg-muted/40 p-3">
-      <div class="mb-2 flex items-center justify-between">
-        <span class="text-[17px] font-semibold tracking-wider text-muted-foreground uppercase">Summon Rates</span>
-        <button class="text-[15px] text-muted-foreground hover:text-foreground" onclick={() => showRates = false}>Close</button>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-[16px]">
-          <thead>
-            <tr class="text-left text-muted-foreground">
-              <th class="pb-1 pr-3 font-medium">Rarity</th>
-              {#each RATE_TIERS as tier}
-                <th class="pb-1 pr-3 font-medium" class:text-foreground={tier.label === activeTierLabel}>
-                  {tier.label}{tier.label === activeTierLabel ? " ✓" : ""}
-                </th>
-              {/each}
-            </tr>
-          </thead>
-          <tbody>
-            {#each [5, 4, 3, 2, 1] as stars}
-              <tr>
-                <td class="py-0.5 pr-3 font-medium" style:color={rarityColor(stars)}>
-                  {"★".repeat(stars)} {RARITY_NAMES[stars]}
-                </td>
-                {#each RATE_TIERS as tier}
-                  {@const rate = tier.rates.find(r => r.stars === stars)?.rate ?? 0}
-                  <td class="py-0.5 pr-3 tabular-nums" class:font-semibold={tier.label === activeTierLabel} class:text-foreground={tier.label === activeTierLabel}>
-                    {(rate * 100).toFixed(0)}%
-                  </td>
-                {/each}
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-      {#if maxStars < 5}
-        <p class="mt-2 text-[15px] text-muted-foreground">
-          {maxStars < 4 ? "Advance to the Iron Age to unlock 4★ units, then Medieval for 5★." : "Advance to Medieval to unlock 5★ units."}
-          Rates above max star are redistributed to lower tiers.
-        </p>
-      {/if}
-    </div>
-  {/if}
-
-  <div class="max-h-[26rem] overflow-y-auto px-3 pb-1 max-md:max-h-none max-md:min-h-0 max-md:flex-1">
-    {#if cards.length > 0 && sorted.length === 0}
-      <p class="py-6 text-center text-[19px] text-muted-foreground">
-        No units match these filters.
-        <button class="underline underline-offset-2 hover:text-foreground" onclick={() => { typeFilter = "all"; traitFilter = "all"; }}>Clear filters</button>
-      </p>
-    {:else if sorted.length === 0}
-      <p class="py-6 text-center text-[19px] text-muted-foreground">
-        No units yet — summon one with Tribute.{gold < rollCost ? " Win battles to earn more." : ""}
-      </p>
-    {:else}
-      <div class="flex flex-wrap gap-2 pt-1.5">
-        {#each sorted as card (card.id)}
-          {@const inParty = partyIds.has(card.id)}
+      <div class="mx-3 flex shrink-0 gap-0.5 rounded-[11px] bg-card p-[3px]" role="group" aria-label="Filter by attack type">
+        {#each typeRows as row (row.type)}
+          {@const on = filter.type === row.type}
           <button
-            class={cn(
-              "relative rounded-lg transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              !locked && "cursor-grab active:cursor-grabbing",
-              inParty && "ring-2 ring-primary ring-offset-1 ring-offset-background",
-              draggingId === card.id && "opacity-40",
-            )}
-            draggable={!locked}
-            ondragstart={(e) => onDragStart(e, card.id)}
-            ondragend={onDragEnd}
-            onclick={() => onSelect(card.id)}
-            aria-label={`${UNITS[card.unitId].name}, ${card.stars} stars${inParty ? ", deployed" : ""}`}
-            title={`${UNITS[card.unitId].name} — drag onto the battlefield, or click for details`}
+            class={cn("tap-target flex h-[34px] flex-1 items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold", on ? "bg-accent text-foreground" : "text-muted-foreground")}
+            aria-pressed={on}
+            onclick={() => setType(row.type)}
           >
-            <UnitCard unitId={card.unitId} stars={card.stars} ascended={card.ascended} size="tile" class="h-24 w-24 rounded-md border" />
-            {#if inParty}
-              <span class="absolute -top-1 -left-1 rounded bg-primary px-1 text-[14px] font-bold text-primary-foreground">P</span>
-            {/if}
-            {#if promotable.has(card.id)}
-              <span class="absolute -right-1 -bottom-1 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-[17px] leading-none font-black text-white shadow ring-2 ring-background" title="Copies available for promotion">+</span>
-            {/if}
+            {typeLabel(row.type)}<span class="text-[11px] font-medium text-muted-foreground tabular-nums">{row.n}</span>
           </button>
         {/each}
       </div>
+      <div class="mx-3 flex shrink-0 gap-0.5 rounded-[11px] bg-card p-[3px]" role="group" aria-label="Filter by rarity">
+        {#each starRows as row (row.stars)}
+          {@const on = filter.stars === row.stars}
+          <button
+            class={cn("tap-target flex h-[34px] min-w-0 flex-1 flex-col items-center justify-center gap-px rounded-lg", on && "bg-accent", row.n === 0 && !on && "opacity-40")}
+            aria-pressed={on}
+            aria-label={`${row.stars === 0 ? "Any rarity" : `${row.stars} star`}, ${row.n}`}
+            onclick={() => setStars(row.stars)}
+          >
+            <span class={cn("text-[13px] leading-none font-semibold", on ? "text-foreground" : "text-muted-foreground")}>{starLabel(row.stars)}</span>
+            <span class="text-[10px] leading-none text-muted-foreground tabular-nums">{row.n}</span>
+          </button>
+        {/each}
+      </div>
+      {#if traits.length > 0 || filtered}
+        <!-- The vertical padding keeps the chips' 44px hit areas inside the scroller's clip.
+             Clear sits here rather than in the header, which has no room for it on small phones. -->
+        <div class="-my-1.5 flex shrink-0 gap-1.5 overflow-x-auto px-3 py-1.5 [scrollbar-width:none]" role="group" aria-label="Filter by trait">
+          {#if filtered}
+            <button
+              class="tap-target flex h-8 shrink-0 items-center gap-1 rounded-full border border-foreground/30 px-3 text-[13px] font-semibold whitespace-nowrap"
+              aria-label="Clear filters"
+              onclick={clearFilters}
+            >
+              Clear<span class="text-muted-foreground" aria-hidden="true">×</span>
+            </button>
+          {/if}
+          {#each traits as t (t)}
+            {@const on = filter.trait === t}
+            <button
+              class={cn(
+                "tap-target h-8 shrink-0 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap",
+                on ? "border-primary bg-primary text-primary-foreground" : "border-border text-foreground",
+              )}
+              aria-pressed={on}
+              onclick={() => toggleTrait(t)}
+            >
+              {traitLabel(t)}
+            </button>
+          {/each}
+        </div>
+      {/if}
+
+      <p class="shrink-0 px-3 pt-2 text-center text-xs text-muted-foreground">
+        {#if locked}Formation locked until the battle ends · <span class="md:hidden">tap</span><span class="max-md:hidden">click</span> for details
+        {:else}<span class="md:hidden">Hold a hero, then drag it onto the board · tap for details</span><span class="max-md:hidden">Drag a hero onto the board · click for details</span>{/if}
+      </p>
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-2 pb-3" data-drag-scroll="y">
+        {#if cards.length > 0 && shown.length === 0}
+          {@render emptyFiltered("flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground")}
+        {:else if cards.length === 0}
+          <p class="py-8 text-center text-sm text-muted-foreground">No heroes yet — summon some with Tribute.</p>
+        {:else}
+          <div class="grid grid-cols-4 gap-x-2.5 gap-y-3 md:grid-cols-6 lg:grid-cols-8">
+            {#each shown as card (card.id)}
+              <div class="flex min-w-0 flex-col items-center gap-1">
+                {@render cardButton(card, "grid")}
+                <span class="max-w-full truncate text-[11px] leading-tight text-muted-foreground">{UNITS[card.unitId].name}</span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
     {/if}
   </div>
-  <p class="px-3 pb-2 text-[15px] text-muted-foreground max-md:hidden">{locked ? "Your formation is locked until the battle finishes." : "Drag a unit onto the battlefield, or tap an empty position and then a card."}</p>
-</div>

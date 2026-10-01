@@ -3,6 +3,11 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
+// @types/node isn't installed; this is all the config needs from it.
+declare const process: { env: Record<string, string | undefined> };
+
+const port = Number(process.env.PORT) || undefined;
+
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
@@ -19,6 +24,9 @@ export default defineConfig({
 		})
 	],
 	server: {
+		// The preview tool passes the port it expects in PORT.
+		port,
+		strictPort: port !== undefined,
 		// The `skaffold dev` pod is reached through the ingress under this host,
 		// which Vite would otherwise reject.
 		allowedHosts: ['civdle-dev.bevsoft.com']

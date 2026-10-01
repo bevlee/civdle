@@ -239,6 +239,95 @@ describe("save lifecycle", () => {
   });
 });
 
+describe("training clock", () => {
+  beforeEach(() => {
+    vi.setSystemTime(1_000_000);
+    game.state.skills.crafting.xp = xpForLevel(5);
+    game.state.resources = { ...game.state.resources, wood: 100, stone: 100, plantFibres: 100 };
+  });
+
+  it("starts idle and records when training begins", () => {
+    expect(game.state.trainingStartedAt).toBeNull();
+    game.startTraining("crafting", "tools");
+    expect(game.state.trainingStartedAt).toBe(1_000_000);
+  });
+
+  it("keeps the start when the same skill and recipe are started again", () => {
+    game.startTraining("crafting", "tools");
+    vi.advanceTimersByTime(5_000);
+    game.startTraining("crafting", "tools");
+    game.startTraining("crafting");
+    expect(game.state.trainingStartedAt).toBe(1_000_000);
+  });
+
+  it("restarts the clock when the recipe or skill changes", () => {
+    game.startTraining("crafting", "tools");
+    vi.advanceTimersByTime(5_000);
+    game.startTraining("crafting", "cordage");
+    expect(game.state.trainingStartedAt).toBe(1_005_000);
+    vi.advanceTimersByTime(5_000);
+    game.startTraining("foraging");
+    expect(game.state.trainingStartedAt).toBe(1_010_000);
+  });
+
+  it("does not move the clock when a start is refused", () => {
+    game.startTraining("crafting", "tools");
+    vi.advanceTimersByTime(5_000);
+    expect(game.startTraining("crafting", "baskets")).toBe(false);
+    expect(game.state.trainingStartedAt).toBe(1_000_000);
+  });
+
+  it("clears on stop and when materials run out", () => {
+    game.startTraining("crafting", "tools");
+    game.stopTraining();
+    expect(game.state.trainingStartedAt).toBeNull();
+
+    game.state.resources = { wood: 1, stone: 1 };
+    game.startTraining("crafting", "tools");
+    expect(game.state.trainingStartedAt).not.toBeNull();
+    for (let i = 0; i < 100 && game.state.activeSkill; i++) vi.advanceTimersToNextTimer();
+    expect(game.state.activeSkill).toBeNull();
+    expect(game.state.trainingStartedAt).toBeNull();
+  });
+
+  describe("loading an older save", () => {
+    function loadSave(save: Record<string, unknown>) {
+      const storage = new Map<string, string>([["civdle-save", JSON.stringify(save)]]);
+      vi.stubGlobal("window", {
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+          removeItem: (key: string) => storage.delete(key),
+        },
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      });
+      cleanup = game.init();
+    }
+
+    function oldSave(activeSkill: string | null) {
+      const { trainingStartedAt: _, ...rest } = new CivdleGame().state;
+      return { ...rest, activeSkill, lastSavedAt: 1_000_000 };
+    }
+
+    it("treats training as running since the last save", () => {
+      loadSave(oldSave("foraging"));
+      expect(game.state.activeSkill).toBe("foraging");
+      expect(game.state.trainingStartedAt).toBe(1_000_000);
+    });
+
+    it("stays idle when nothing was training", () => {
+      loadSave(oldSave(null));
+      expect(game.state.trainingStartedAt).toBeNull();
+    });
+
+    it("drops a start time saved without an active skill", () => {
+      loadSave({ ...new CivdleGame().state, activeSkill: null, trainingStartedAt: 1_000_000 });
+      expect(game.state.trainingStartedAt).toBeNull();
+    });
+  });
+});
+
 describe("battle playback controls", () => {
   it.each(["story", "depths"] as const)("pauses %s combat and resumes without skipping a turn", mode => {
     equipWinner();
@@ -332,7 +421,11 @@ describe("legendary summons", () => {
 });
 
 describe("Hall of Legends", () => {
+  const MEDIEVAL = AGES.findIndex((a) => a.id === "medieval");
+  const IRON_AGE = AGES.findIndex((a) => a.id === "ironAge");
+
   function buyHall() {
+    game.state.ageIndex = MEDIEVAL;
     game.state.resources = { enchantedGear: 10, fineClothing: 40, furniture: 40, bricks: 30 };
     game.buySettlementUpgradeAction("hallOfLegends");
     expect(game.hasHallOfLegends).toBe(true);
@@ -340,6 +433,16 @@ describe("Hall of Legends", () => {
 
   it("is needed for the Tribute 5★ pack", () => {
     game.state.gacha.gold = TRIBUTE_LEGENDARY_PACK_COST;
+    game.rollTributeLegendaryPack();
+    expect(game.state.gacha.cards).toHaveLength(0);
+    expect(game.state.gacha.gold).toBe(TRIBUTE_LEGENDARY_PACK_COST);
+  });
+
+  it("stays shut before 5★ summons, even with the Hall already built", () => {
+    game.state.ageIndex = IRON_AGE;
+    game.state.settlementUpgrades = ["hallOfLegends"]; // an old save built it early
+    game.state.gacha.gold = TRIBUTE_LEGENDARY_PACK_COST;
+    expect(game.tributeLegendaryPackUnlocked).toBe(false);
     game.rollTributeLegendaryPack();
     expect(game.state.gacha.cards).toHaveLength(0);
     expect(game.state.gacha.gold).toBe(TRIBUTE_LEGENDARY_PACK_COST);
@@ -393,5 +496,56 @@ describe("debug ages", () => {
     game.debugSetAge(2);
     expect(game.state.skills.conquest.unlocked).toBe(false);
     expect(game.maxSummonStars).toBe(4);
+  });
+});
+
+describe("startTraining with a recipe", () => {
+  beforeEach(() => {
+    game.state.skills.crafting.xp = xpForLevel(5);
+    game.state.resources = { ...game.state.resources, wood: 10, stone: 10, plantFibres: 10 };
+  });
+
+  it("commits the recipe and starts training the skill", () => {
+    expect(game.startTraining("crafting", "cordage")).toBe(true);
+    expect(game.state.activeSkill).toBe("crafting");
+    expect(game.state.skills.crafting.selectedRecipeId).toBe("cordage");
+  });
+
+  it("keeps the selected recipe when none is given", () => {
+    game.startTraining("crafting", "cordage");
+    game.stopTraining();
+    game.startTraining("crafting");
+    expect(game.state.skills.crafting.selectedRecipeId).toBe("cordage");
+  });
+
+  it("restarts the action from zero when switching recipe on the active skill", () => {
+    const toolsTime = computeActionResult("crafting", 5, [], 0, "tools", [])!.time * 1000;
+    game.startTraining("crafting");
+    vi.advanceTimersByTime(toolsTime / 2);
+    expect(game.displayProgress).toBeGreaterThan(0);
+
+    game.startTraining("crafting", "cordage");
+    expect(game.displayProgress).toBe(0);
+    // The half-finished Tools action never completes; the next one makes Cordage.
+    vi.advanceTimersByTime(toolsTime / 2 + 1);
+    expect(game.state.resources.tools ?? 0).toBe(0);
+    for (let i = 0; i < 1000 && game.state.stats.actions === 0; i++) vi.advanceTimersToNextTimer();
+    expect(game.state.stats.actions).toBeGreaterThan(0);
+    expect(game.state.resources.cordage).toBeGreaterThan(0);
+    expect(game.state.resources.tools ?? 0).toBe(0);
+  });
+
+  it("refuses to start when the recipe is locked or belongs to another skill", () => {
+    expect(game.startTraining("crafting", "baskets")).toBe(false); // needs level 15
+    expect(game.state.skills.crafting.selectedRecipeId).toBe("tools");
+    expect(game.state.activeSkill).toBeNull();
+
+    expect(game.startTraining("crafting", "forage")).toBe(false);
+    expect(game.state.skills.crafting.selectedRecipeId).toBe("tools");
+    expect(game.state.activeSkill).toBeNull();
+
+    game.startTraining("foraging");
+    expect(game.startTraining("crafting", "baskets")).toBe(false);
+    expect(game.state.activeSkill).toBe("foraging");
   });
 });

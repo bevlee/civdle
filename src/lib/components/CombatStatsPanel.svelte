@@ -19,7 +19,7 @@
 <section class="combat-stats" aria-label="Combat statistics">
   <div class="metric-tabs" aria-label="Statistic">
     {#each metrics as item}
-      <button class:active={metric === item.key} aria-pressed={metric === item.key} onclick={() => metric = item.key}>{item.label}</button>
+      <button class="tap-target" class:active={metric === item.key} aria-pressed={metric === item.key} onclick={() => metric = item.key}>{item.label}</button>
     {/each}
   </div>
   <p class="totals">You {fmt.format(playerTotal)} <span>·</span> Enemy {fmt.format(enemyTotal)}</p>

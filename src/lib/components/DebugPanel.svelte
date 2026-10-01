@@ -36,7 +36,7 @@
   </button>
 {:else}
   <div
-    class="fixed bottom-0 right-0 z-50 flex max-h-[60vh] w-80 flex-col rounded-tl-xl border-l border-t border-yellow-500/30 bg-background/95 shadow-2xl backdrop-blur"
+    class="fixed bottom-0 right-0 z-50 flex max-h-[60dvh] w-80 max-w-full flex-col rounded-tl-xl border-l border-t border-yellow-500/30 bg-background/95 shadow-2xl backdrop-blur"
   >
     <div
       class="flex items-center justify-between border-b border-yellow-500/20 px-4 py-2"
@@ -50,7 +50,9 @@
       </button>
     </div>
 
-    <div class="flex flex-col gap-3 overflow-y-auto p-3 text-sm">
+    <!-- min-h-0 lets the list shrink to the panel and scroll; dvh and the safe-area padding keep
+         its end above a phone's browser bar and home indicator. -->
+    <div class="flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-sm">
       <!-- Skill Levels -->
       <section>
         <h4

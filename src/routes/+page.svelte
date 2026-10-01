@@ -1,44 +1,119 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { CivdleGame } from "$lib/gameState.svelte";
-  import { SKILL_ORDER, SKILLS, type SkillId } from "$lib/gameData";
+  import { AGES, SKILL_ORDER, SKILLS, type SkillId } from "$lib/gameData";
   import AgeDisplay from "$lib/components/AgeDisplay.svelte";
+  import PhoneHeader from "$lib/components/mobile/PhoneHeader.svelte";
+  import AgeSheet from "$lib/components/mobile/AgeSheet.svelte";
+  import SkillPicker from "$lib/components/mobile/SkillPicker.svelte";
+  import ActionBar from "$lib/components/mobile/ActionBar.svelte";
+  import { ageChecklist, checklistProgress } from "$lib/view/ageChecklist";
   import SkillPanel from "$lib/components/SkillPanel.svelte";
   import TrainingView from "$lib/components/TrainingView.svelte";
   import Inventory from "$lib/components/Inventory.svelte";
-  import Shop from "$lib/components/Shop.svelte";
   import CombatView from "$lib/components/CombatView.svelte";
-  import SettlementView from "$lib/components/SettlementView.svelte";
+  import TownView from "$lib/components/TownView.svelte";
+  import type { TownSegment } from "$lib/view/townView";
   import SkillUnlockModal from "$lib/components/SkillUnlockModal.svelte";
   import AnimationOverlay from "$lib/components/AnimationOverlay.svelte";
   import GainToastStack from "$lib/components/GainToastStack.svelte";
   import AchievementsView from "$lib/components/AchievementsView.svelte";
   import AchievementToasts from "$lib/components/AchievementToasts.svelte";
   import { ACHIEVEMENTS } from "$lib/achievements";
+  import { OverlayQueue } from "$lib/view/overlayQueue.svelte";
   import DebugPanel from "$lib/components/DebugPanel.svelte";
   import { page } from "$app/state";
+  import { popupHold } from "$lib/view/popupHold.svelte";
+  import type { BattleMode } from "$lib/combatEngine";
 
   const game = new CivdleGame();
 
+  // One popup at a time: age advance, then a new-skill sheet, then one grouped achievements toast.
+  const overlays = new OverlayQueue();
+  $effect(() => overlays.sync(game.pendingUnlocks, game.events));
+  let overlay = $derived(overlays.current);
+  let ageOverlayEvent = $derived(overlay?.kind === "ageAdvance" ? overlay.event : null);
+  // Summon reveals, and sheets the player opened, are modal too; the queued sheet and
+  // toast wait for them to close.
+  let revealOpen = $derived(
+    game.events.some((e) => e.type === "summon" || e.type === "summonPack" || e.type === "starUp"),
+  );
+  let popupsWait = $derived(revealOpen || popupHold.active);
+
   let isDebug = $derived(page.url.searchParams.has("debug"));
 
-  type CenterTab = "train" | "story" | "depths" | "settlement" | "items" | "achievements";
+  type CenterTab = "train" | "battle" | "settlement" | "items" | "achievements";
 
   let selectedSkill = $state<SkillId | null>(null);
   let centerTab = $state<CenterTab>("train");
-  let achievementCount = $derived(Object.keys(game.state.achievements).length);
-  let rightTab = $state<"inventory" | "shop">("inventory");
-  let isCombatTab = $derived(centerTab === "story" || centerTab === "depths");
+  // Only ids the game still defines, so the count matches the Achievements view.
+  let achievementCount = $derived(ACHIEVEMENTS.filter((a) => game.state.achievements[a.id] !== undefined).length);
+  let isCombatTab = $derived(centerTab === "battle");
 
-  // "items" is the Inventory/Shop sidebar folded into a tab for narrow screens,
+  // Each tab opens at its top, so a jump from far down Town lands on the skill picker.
+  let centerScroll = $state<HTMLDivElement>();
+  $effect(() => {
+    void centerTab;
+    if (centerScroll) centerScroll.scrollTop = 0;
+  });
+
+  // Campaign and The Abyss share the Battle tab. It turns to a mode when a battle
+  // starts there, so it opens on the fight that is running, but either mode can
+  // still be viewed (the other one says a battle is running elsewhere).
+  let battleMode = $state<BattleMode>("story");
+  let battleActive = $derived(game.state.gacha.battle !== null);
+  // Plain, not state: only a change of the running mode should move the tab.
+  let lastRunningMode: BattleMode | null = null;
+  $effect(() => {
+    const running = game.state.gacha.battleMode;
+    if (running && running !== lastRunningMode) battleMode = running;
+    lastRunningMode = running;
+  });
+
+  let tributeHintOpen = $state(false);
+  let tributeChip = $state<HTMLElement | null>(null);
+
+  // Town opens on the segment last used this session.
+  const TOWN_SEGMENT_KEY = "civdle.townSegment";
+  function savedTownSegment(): TownSegment {
+    try {
+      return sessionStorage.getItem(TOWN_SEGMENT_KEY) === "settlement" ? "settlement" : "shop";
+    } catch {
+      return "shop"; // No session storage (or no window during SSR).
+    }
+  }
+  let townSegment = $state<TownSegment>(savedTownSegment());
+  let shopHintOpen = $state(false);
+  $effect(() => {
+    try {
+      sessionStorage.setItem(TOWN_SEGMENT_KEY, townSegment);
+    } catch {
+      // Storage may be unavailable; the choice then lasts until the page reloads.
+    }
+  });
+
+  /** Open the Town tab on a segment; the skill-point link also explains skill points. */
+  function openTown(segment: TownSegment, explainSkillPoints = false) {
+    townSegment = segment;
+    shopHintOpen = segment === "shop" && explainSkillPoints;
+    // Switching tabs scrolls to the top on its own; staying on Town doesn't.
+    if (centerTab === "settlement" && centerScroll) centerScroll.scrollTop = 0;
+    centerTab = "settlement";
+  }
+
+  const BATTLE_MODES: { id: BattleMode; label: string }[] = [
+    { id: "story", label: "Campaign" },
+    { id: "depths", label: "The Abyss" },
+  ];
+
+  // "items" is the Inventory sidebar folded into a tab for narrow screens,
   // so it is hidden where the sidebar is shown (lg and up).
-  const TABS: { id: CenterTab; label: string; short: string; icon: string; combat?: boolean; narrowOnly?: boolean }[] = [
-    { id: "train", label: "Train", short: "Train", icon: "⚒" },
-    { id: "story", label: "Campaign", short: "Campaign", icon: "⚔", combat: true },
-    { id: "depths", label: "The Abyss", short: "Abyss", icon: "🌀", combat: true },
-    { id: "settlement", label: "Settlement", short: "Town", icon: "🏘" },
-    { id: "items", label: "Items", short: "Items", icon: "🎒", narrowOnly: true },
-    { id: "achievements", label: "Achievements", short: "Awards", icon: "🏆" },
+  const TABS: { id: CenterTab; label: string; icon: string; combat?: boolean; narrowOnly?: boolean }[] = [
+    { id: "train", label: "Train", icon: "⚒" },
+    { id: "battle", label: "Battle", icon: "⚔", combat: true },
+    { id: "settlement", label: "Town", icon: "🏘" },
+    { id: "items", label: "Items", icon: "🎒", narrowOnly: true },
+    { id: "achievements", label: "Achievements", icon: "🏆" },
   ];
 
   onMount(() => {
@@ -57,6 +132,7 @@
 
     return () => {
       wide.removeEventListener("change", leaveItemsTab);
+      overlays.destroy();
       cleanup();
     };
   });
@@ -66,21 +142,60 @@
     centerTab = "train";
   }
 
+  // Which recipe the Train tab shows per skill. Viewing never changes training;
+  // it defaults to the skill's selected (last trained) recipe.
+  let viewedRecipe = $state<Partial<Record<SkillId, string>>>({});
+  const viewedRecipeOf = (id: SkillId) =>
+    viewedRecipe[id] ?? game.state.skills[id].selectedRecipeId;
+  let viewedRecipeId = $derived(selectedSkill ? viewedRecipeOf(selectedSkill) : null);
+
+  function viewRecipe(id: SkillId, recipeId: string) {
+    viewedRecipe = { ...viewedRecipe, [id]: recipeId };
+  }
+
+  // Jump chips and "Back" open a skill, on a given recipe when there is one (the
+  // phone picker follows).
+  function openRecipe(id: SkillId, recipeId: string | null) {
+    if (recipeId) viewRecipe(id, recipeId);
+    handleSelectSkill(id);
+  }
+
   function handleStartTraining() {
-    if (!selectedSkill) return;
-    game.startTraining(selectedSkill);
+    if (!selectedSkill || !viewedRecipeId) return;
+    game.startTraining(selectedSkill, viewedRecipeId);
   }
 
   function handleStopTraining() {
     game.stopTraining();
   }
 
+  // Phone header and age sheet.
+  let ageSheetOpen = $state(false);
+  let ageItems = $derived(
+    ageChecklist({
+      ageAdvanceStatus: game.ageAdvanceStatus,
+      levels: game.levels,
+      unlocked: (id) => game.state.skills[id].unlocked,
+      resources: game.state.resources,
+    }),
+  );
+  let ageProgress = $derived(checklistProgress(ageItems));
+
+  // Bumped when the header opens the training skill, so the phone picker reopens
+  // its group even when that skill was already selected.
+  let revealNonce = $state(0);
+
+  function openTraining() {
+    const active = game.state.activeSkill;
+    if (active) openRecipe(active, game.state.skills[active].selectedRecipeId);
+    centerTab = "train";
+    revealNonce += 1;
+  }
+
   let highlightedResources = $derived.by(() => {
     if (!selectedSkill) return undefined;
     const def = SKILLS[selectedSkill];
-    const recipe = def.recipes.find(
-      (r) => r.id === game.state.skills[selectedSkill!].selectedRecipeId,
-    );
+    const recipe = def.recipes.find((r) => r.id === viewedRecipeId);
     if (!recipe) return undefined;
     return new Set([
       ...recipe.inputs.map((i) => i.resource),
@@ -88,50 +203,22 @@
     ]);
   });
 
-  $effect(() => {
-    if (game.pendingUnlocks.length > 0) {
-      const newSkill = game.pendingUnlocks[0];
-      selectedSkill = newSkill;
-      centerTab = "train";
-    }
-  });
+  function startUnlockedSkill(id: SkillId, recipeId: string) {
+    game.startTraining(id, recipeId);
+    openRecipe(id, recipeId);
+    game.dismissUnlock();
+  }
+
+  function dismissAchievementToast() {
+    for (const id of overlays.dismissAchievements()) game.dismissEvent(id);
+  }
 </script>
 
-{#snippet itemsPanel()}
-  <div class="flex shrink-0 border-b border-border">
-    <button
-      class="flex-1 px-3 py-2 text-sm font-medium transition-colors {rightTab ===
-      'inventory'
-        ? 'border-b-2 border-primary text-foreground'
-        : 'text-muted-foreground hover:text-foreground'}"
-      onclick={() => (rightTab = "inventory")}
-    >
-      Inventory
-    </button>
-    <button
-      class="flex-1 px-3 py-2 text-sm font-medium transition-colors {rightTab ===
-      'shop'
-        ? 'border-b-2 border-primary text-foreground'
-        : 'text-muted-foreground hover:text-foreground'}"
-      onclick={() => (rightTab = "shop")}
-    >
-      Shop
-    </button>
-  </div>
+<!-- The sidebar beside the Train view marks what the viewed recipe uses and makes; the
+     Items tab stands alone, so it doesn't. -->
+{#snippet itemsPanel(highlight: boolean)}
   <div class="flex-1 overflow-y-auto">
-    {#if rightTab === "inventory"}
-      <Inventory
-        resources={game.state.resources}
-        {highlightedResources}
-      />
-    {:else}
-      <Shop
-        state={game.state}
-        onBuy={(skillId, upgradeId) =>
-          game.buyUpgrade(skillId, upgradeId)}
-        onBuyGlobal={(upgradeId) => game.buyGlobalUpgrade(upgradeId)}
-      />
-    {/if}
+    <Inventory resources={game.state.resources} highlightedResources={highlight ? highlightedResources : undefined} />
   </div>
 {/snippet}
 
@@ -140,20 +227,49 @@
     <p class="text-muted-foreground">Loading…</p>
   </div>
 {:else}
-  <div class="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-    <AgeDisplay
-      ageIndex={game.ageIndex}
-      ageBonus={game.ageBonus}
-      skillPoints={game.state.skillPoints}
-      warSpoils={game.state.gacha.gold}
-      levels={game.levels}
-      unlocked={(id) => game.state.skills[id].unlocked}
-      resources={game.state.resources}
-      ageAdvanceStatus={game.ageAdvanceStatus}
-      onAdvance={() => game.advanceAgeAction()}
-      events={game.events}
-      onDismissEvent={(id) => game.dismissEvent(id)}
+  <!-- Side insets for notched phones in landscape (which get the md layout); the
+       phone nav pads the bottom itself, so only md and up pad it here. -->
+  <div
+    class="flex h-dvh flex-col overflow-hidden bg-background pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] text-foreground md:pb-[env(safe-area-inset-bottom)]"
+  >
+    <PhoneHeader
+      class="md:hidden"
+      ageName={AGES[game.ageIndex].name}
+      nextAgeName={game.ageAdvanceStatus.nextAge?.name ?? null}
+      met={ageProgress.met}
+      total={ageProgress.total}
+      activeSkill={game.state.activeSkill}
+      level={game.state.activeSkill ? game.levels[game.state.activeSkill] : 0}
+      xp={game.state.activeSkill ? game.state.skills[game.state.activeSkill].xp : 0}
+      onOpenAge={() => (ageSheetOpen = true)}
+      onOpenTrain={openTraining}
+      onStop={handleStopTraining}
     />
+    <!-- Hidden rather than removed on phones: its floating texts dismiss their queued events. -->
+    <div class="hidden md:contents">
+      <AgeDisplay
+        ageIndex={game.ageIndex}
+        ageBonus={game.ageBonus}
+        skillPoints={game.state.skillPoints}
+        warSpoils={game.state.gacha.gold}
+        checklist={ageItems}
+        ageAdvanceStatus={game.ageAdvanceStatus}
+        onAdvance={() => game.advanceAgeAction()}
+        events={game.events}
+        ageEvent={ageOverlayEvent}
+        onDismissEvent={(id) => game.dismissEvent(id)}
+        onOpenShop={() => openTown("shop", true)}
+        unlocked={(id) => game.state.skills[id].unlocked}
+        onJump={openRecipe}
+        training={{
+          activeSkill: game.state.activeSkill,
+          level: game.state.activeSkill ? game.levels[game.state.activeSkill] : 0,
+          xp: game.state.activeSkill ? game.state.skills[game.state.activeSkill].xp : 0,
+          onOpenTrain: openTraining,
+          onStop: handleStopTraining,
+        }}
+      />
+    </div>
 
     {#if game.message}
       <div
@@ -171,7 +287,7 @@
     {/if}
 
     <div class="flex min-h-0 flex-1">
-      <!-- Left: Skill panel (the Train tab shows it as a strip on phones) -->
+      <!-- Left: Skill panel (phones use the SkillPicker on the Train tab) -->
       <SkillPanel
         class="hidden md:flex"
         state={game.state}
@@ -187,6 +303,7 @@
         <div class="hidden shrink-0 overflow-x-auto whitespace-nowrap border-b border-border md:flex">
           {#each TABS as tab (tab.id)}
             <button
+              aria-current={centerTab === tab.id ? "page" : undefined}
               class="px-4 py-2 text-sm font-medium transition-colors {centerTab ===
               tab.id
                 ? 'border-b-2 border-primary text-foreground'
@@ -204,30 +321,31 @@
           {/each}
         </div>
 
-        <div class="flex flex-1 flex-col overflow-y-auto {isCombatTab ? 'max-md:overflow-hidden' : ''}">
+        <div bind:this={centerScroll} class="flex flex-1 flex-col overflow-y-auto {isCombatTab ? 'max-md:overflow-hidden min-[900px]:overflow-hidden' : ''}">
           {#if centerTab === "train"}
-            <SkillPanel
-              horizontal
+            <SkillPicker
               class="md:hidden"
               state={game.state}
               levels={game.levels}
               {selectedSkill}
+              {revealNonce}
               onSelect={handleSelectSkill}
-              events={game.events}
-              onDismissEvent={(id) => game.dismissEvent(id)}
             />
           {/if}
-          {#if centerTab === "train" && selectedSkill}
+          {#if centerTab === "train" && selectedSkill && viewedRecipeId}
             <TrainingView
               skillId={selectedSkill}
+              {viewedRecipeId}
               state={game.state}
+              levels={game.levels}
               level={game.levels[selectedSkill]}
               ageIndex={game.ageIndex}
               progress={game.displayProgress}
+              events={game.events}
               onStart={handleStartTraining}
               onStop={handleStopTraining}
-              onSelectRecipe={(recipeId) =>
-                game.selectRecipe(selectedSkill!, recipeId)}
+              onViewRecipe={(recipeId) => viewRecipe(selectedSkill!, recipeId)}
+              onJump={openRecipe}
             />
           {:else if centerTab === "train"}
             <div class="flex flex-1 items-center justify-center p-6">
@@ -244,22 +362,81 @@
                 and The Abyss, and a 4★ hero joins your cause.
               </p>
             </div>
-          {:else if centerTab === "story"}
-            <div class="flex min-h-0 flex-1 flex-col p-2 sm:p-3">
-              <CombatView {game} mode="story" />
-            </div>
-          {:else if centerTab === "depths"}
-            <div class="flex min-h-0 flex-1 flex-col p-2 sm:p-3">
-              <CombatView {game} mode="depths" />
+          {:else if centerTab === "battle"}
+            <div class="flex min-h-0 flex-1 flex-col gap-2 p-2 sm:p-3">
+              <!-- Phone: what Tribute is, opened from the chip beside the mode switch. -->
+              <!-- Always in the DOM (hidden when closed) so the chip's aria-controls resolves. -->
+              <div
+                id="tribute-hint"
+                hidden={!tributeHintOpen}
+                class="flex shrink-0 items-start gap-2.5 rounded-xl border border-primary/25 bg-card py-2.5 pr-2 pl-3 md:hidden"
+              >
+                <span
+                  class="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-xs font-bold text-primary-foreground italic"
+                  aria-hidden="true">i</span
+                >
+                <p class="flex-1 text-[13px] leading-snug text-pretty">
+                  <b class="font-semibold">Tribute</b> is earned by winning Campaign levels and descending
+                  the Abyss. Spend it on summons, and on Legendary Packs once the Hall of Legends is built.
+                </p>
+                <button
+                  class="tap-target -my-1 flex size-7 shrink-0 items-center justify-center text-base text-muted-foreground"
+                  aria-label="Dismiss"
+                  onclick={() => {
+                    tributeHintOpen = false;
+                    tributeChip?.focus();
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div class="flex shrink-0 items-center gap-3 md:justify-center">
+                <div
+                  role="group"
+                  aria-label="Battle mode"
+                  class="grid shrink-0 grid-cols-2 gap-1 rounded-full border border-border bg-card p-1 max-md:min-w-0 max-md:flex-1 max-md:rounded-xl"
+                >
+                  {#each BATTLE_MODES as m (m.id)}
+                    <button
+                      class="tap-target min-h-9 rounded-full px-4 text-sm font-medium transition-colors max-md:rounded-lg max-md:px-2 max-md:font-semibold {battleMode ===
+                      m.id
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'}"
+                      aria-pressed={battleMode === m.id}
+                      onclick={() => (battleMode = m.id)}
+                    >
+                      {m.label}
+                    </button>
+                  {/each}
+                </div>
+                <!-- Desktop shows Tribute in the age header. -->
+                <button
+                  class="flex min-h-11 shrink-0 flex-col items-end justify-center gap-0.5 leading-tight md:hidden"
+                  aria-label={`${game.state.gacha.gold} Tribute. About Tribute`}
+                  aria-expanded={tributeHintOpen}
+                  bind:this={tributeChip}
+                  aria-controls="tribute-hint"
+                  onclick={() => (tributeHintOpen = !tributeHintOpen)}
+                >
+                  <span class="text-[17px] font-bold tabular-nums">{game.state.gacha.gold.toLocaleString()}</span>
+                  <span
+                    class="flex items-center gap-1 text-[11px] font-semibold tracking-wide whitespace-nowrap text-muted-foreground"
+                  >
+                    TRIBUTE
+                    <span
+                      class="flex size-3 items-center justify-center rounded-full border border-muted-foreground/70 font-serif text-[9px] font-bold tracking-normal italic"
+                      aria-hidden="true">i</span
+                    >
+                  </span>
+                </button>
+              </div>
+              <CombatView {game} mode={battleMode} onOpenSettlement={() => openTown("settlement")} />
             </div>
           {:else if centerTab === "settlement"}
-            <SettlementView
-              state={game.state}
-              onBuy={(upgradeId) => game.buySettlementUpgradeAction(upgradeId)}
-            />
+            <TownView {game} bind:segment={townSegment} bind:shopHintOpen onJump={openRecipe} />
           {:else if centerTab === "items"}
             <div class="flex min-h-0 flex-1 flex-col">
-              {@render itemsPanel()}
+              {@render itemsPanel(false)}
             </div>
           {:else if centerTab === "achievements"}
             <AchievementsView state={game.state} levels={game.levels} />
@@ -267,66 +444,117 @@
         </div>
       </main>
 
-      <!-- Right: Inventory / Shop -->
+      <!-- Right: Inventory -->
       {#if !isCombatTab}
-        <aside class="hidden w-72 shrink-0 flex-col border-l border-border lg:flex">
-          {@render itemsPanel()}
+        <aside class="hidden w-72 shrink-0 flex-col border-l border-border lg:flex" aria-label="Inventory">
+          <h2 class="shrink-0 border-b border-border px-3 py-2 text-sm font-medium">Inventory</h2>
+          {@render itemsPanel(true)}
         </aside>
       {/if}
     </div>
 
+    <!-- Phone training controls, above the nav and never over the content -->
+    {#if centerTab === "train" && selectedSkill && viewedRecipeId}
+      <ActionBar
+        class="md:hidden"
+        skillId={selectedSkill}
+        recipeId={viewedRecipeId}
+        state={game.state}
+        level={game.levels[selectedSkill]}
+        ageIndex={game.ageIndex}
+        events={game.events}
+        onTrain={handleStartTraining}
+        onStop={handleStopTraining}
+      />
+    {/if}
+
+
     <!-- Phone navigation: thumb-reachable tabs along the bottom edge -->
     <nav
       aria-label="Sections"
-      class="grid shrink-0 grid-cols-6 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+      class="grid shrink-0 grid-cols-5 border-t border-border bg-background pt-1.5 pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       {#each TABS as tab (tab.id)}
         {@const active = centerTab === tab.id}
+        {@const dot =
+          tab.id === "train" && game.state.activeSkill
+            ? { color: "bg-green-500", label: "training" }
+            : tab.id === "battle" && battleActive
+              ? { color: "bg-amber-400", label: "battle running" }
+              : null}
         <button
-          class="relative flex flex-col items-center gap-0.5 px-0.5 pt-2 pb-1.5 text-[10px] font-medium transition-colors {active
+          class="flex min-h-13 min-w-0 flex-col items-center gap-1 px-0.5 pt-0.5 pb-1 text-[11px] font-semibold tracking-[-0.01em] transition-colors {active
             ? 'text-foreground'
             : 'text-muted-foreground'}"
           aria-current={active ? "page" : undefined}
           onclick={() => (centerTab = tab.id)}
         >
-          {#if active}<span class="absolute inset-x-3 top-0 h-0.5 rounded-full bg-primary"></span>{/if}
-          <span class="text-base leading-none {active ? '' : 'opacity-70 grayscale'}" aria-hidden="true">
-            {tab.combat && !game.combatUnlocked ? "🔒" : tab.icon}
+          <span
+            class="relative flex h-7 w-11 items-center justify-center rounded-full text-lg leading-none transition-colors duration-200 {active
+              ? 'bg-accent'
+              : ''}"
+            aria-hidden="true"
+          >
+            <span class={active ? "" : "opacity-70 grayscale"}>
+              {tab.combat && !game.combatUnlocked ? "🔒" : tab.icon}
+            </span>
+            {#if dot}
+              <span class="absolute -top-0.5 -right-0.5 size-2 rounded-full border-2 border-background box-content {dot.color}"></span>
+            {/if}
           </span>
-          <span class="truncate">{tab.short}</span>
-          {#if game.state.gacha.battle && game.state.gacha.battleMode === tab.id}
-            <span class="absolute top-1.5 right-1/4 size-1.5 rounded-full bg-amber-400" aria-label="Battle running"></span>
-          {:else if tab.id === "train" && game.state.activeSkill}
-            <span class="absolute top-1.5 right-1/4 size-1.5 rounded-full bg-green-500" aria-label="Training"></span>
-          {/if}
+          <!-- "Achievements" is the longest label; a touch smaller, it fits a 375px-wide phone. -->
+          <span class="max-w-full truncate {tab.id === 'achievements' ? 'text-[10.5px] tracking-tight' : ''}">{tab.label}</span>
+          {#if dot}<span class="sr-only">({dot.label})</span>{/if}
         </button>
       {/each}
     </nav>
   </div>
 
-  {#if game.pendingUnlocks.length > 0}
-    {#key game.pendingUnlocks[0]}
+  {#if overlay?.kind === "skillUnlock" && !popupsWait}
+    {@const skillId = overlay.skillId}
+    {#key skillId}
       <SkillUnlockModal
-        skillId={game.pendingUnlocks[0]}
-        level={game.levels[game.pendingUnlocks[0]]}
-        onDismiss={() => game.dismissUnlock()}
+        {skillId}
+        level={game.levels[skillId]}
+        onStart={(recipeId) => startUnlockedSkill(skillId, recipeId)}
+        onLater={() => game.dismissUnlock()}
       />
     {/key}
   {/if}
 
-  <GainToastStack
-    events={game.events}
-    onDismiss={(id) => game.dismissEvent(id)}
+  <AgeSheet
+    open={ageSheetOpen}
+    onClose={() => (ageSheetOpen = false)}
+    nextAge={game.ageAdvanceStatus.nextAge}
+    checklist={ageItems}
+    canAdvance={game.ageAdvanceStatus.canAdvance}
+    onAdvance={() => game.advanceAgeAction()}
+    unlocked={(id) => game.state.skills[id].unlocked}
+    onJump={openRecipe}
   />
+
+  <!-- Desktop only, and not over the battlefield: phones show gains in the action bar.
+       Hidden rather than removed, since the toasts dismiss their events. -->
+  <div class="hidden {isCombatTab ? '' : 'md:contents'}">
+    <GainToastStack
+      events={game.events}
+      onDismiss={(id) => game.dismissEvent(id)}
+    />
+  </div>
 
   <AnimationOverlay
     events={game.events}
+    ageEvent={ageOverlayEvent}
     onDismiss={(id) => game.dismissEvent(id)}
   />
 
   <AchievementToasts
-    events={game.events}
-    onDismiss={(id) => game.dismissEvent(id)}
+    overlay={overlay?.kind === "achievements" && !popupsWait ? overlay : null}
+    onOpen={() => {
+      centerTab = "achievements";
+      dismissAchievementToast();
+    }}
+    onDismiss={dismissAchievementToast}
   />
 
   {#if isDebug}

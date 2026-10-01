@@ -15,8 +15,6 @@
     onSelect,
     events,
     onDismissEvent,
-    compact = false,
-    class: className,
   }: {
     id: SkillId;
     level: number;
@@ -26,8 +24,6 @@
     onSelect: (id: SkillId) => void;
     events: QueuedEvent[];
     onDismissEvent: (id: string) => void;
-    compact?: boolean;
-    class?: string;
   } = $props();
 
   let levelUpEvent = $derived(
@@ -44,13 +40,6 @@
     ),
   );
 
-  let button: HTMLButtonElement;
-
-  // Keep the selected skill visible in the phone strip, e.g. after an unlock selects it.
-  $effect(() => {
-    if (compact && isSelected) button.scrollIntoView({ block: "nearest", inline: "nearest" });
-  });
-
   $effect(() => {
     if (!unlockEvent) return;
     const timeout = setTimeout(() => onDismissEvent(unlockEvent!.id), 1500);
@@ -59,15 +48,11 @@
 </script>
 
 <button
-  bind:this={button}
   onclick={() => onSelect(id)}
   class={cn(
     "relative flex flex-col gap-1 overflow-hidden rounded-md px-3 py-2 text-left transition-colors hover:bg-accent",
-    compact && "w-32 shrink-0 border border-border",
     isSelected && "bg-accent",
-    compact && isSelected && "border-primary/60",
     unlockEvent && "animate-slide-in-right",
-    className,
   )}
 >
   {#if levelUpEvent}

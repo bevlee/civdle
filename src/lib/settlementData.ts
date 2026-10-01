@@ -1,7 +1,7 @@
 // Settlement upgrades: one-time resource-costing improvements that bridge
 // skill progression to combat power.
 
-import type { ResourceAmount, SkillId } from "./gameData";
+import type { AgeId, ResourceAmount, SkillId } from "./gameData";
 
 export type SettlementUpgradeId =
   | "treasury"
@@ -24,13 +24,15 @@ export interface SettlementUpgradeDef {
   prereqs: { skill: SkillId; level: number }[];
   /** Upgrade that must be purchased first (linear chains). */
   requires?: SettlementUpgradeId;
+  /** Age that must be reached before building. */
+  ageRequired?: AgeId;
 }
 
 export const SETTLEMENT_UPGRADES: Record<SettlementUpgradeId, SettlementUpgradeDef> = {
   treasury: {
     id: "treasury",
     name: "Treasury",
-    description: "Doubles Tribute earned from the Depths.",
+    description: "Doubles Tribute earned from The Abyss.",
     icon: "🏛",
     cost: [
       { resource: "stone", amount: 100 },
@@ -144,6 +146,8 @@ export const SETTLEMENT_UPGRADES: Record<SettlementUpgradeId, SettlementUpgradeD
       { resource: "bricks", amount: 30 },
     ],
     prereqs: [],
+    // It sells 5★ heroes, so it waits for the age that opens 5★ summons.
+    ageRequired: "medieval",
   },
 };
 
@@ -230,14 +234,23 @@ export const DIVINE_SUMMONS_RATES: RollRate[] = [
   { stars: 1, rate: 0.02 },
 ];
 
+// The buildings that set summon rates, best first: the best one built applies.
+const RATE_UPGRADES: [SettlementUpgradeId, RollRate[]][] = [
+  ["divineSummons", DIVINE_SUMMONS_RATES],
+  ["heroicTribute", HEROIC_TRIBUTE_RATES],
+  ["emperorsBanquet", EMPERORS_BANQUET_RATES],
+  ["royalFeast", ROYAL_FEAST_RATES],
+  ["grandFeast", GRAND_FEAST_RATES],
+  ["feastHall", FEAST_HALL_RATES],
+];
+
+/** The building whose summon rates apply, or null for the base rates. */
+export function rollRateUpgrade(upgrades: Set<SettlementUpgradeId>): SettlementUpgradeId | null {
+  return RATE_UPGRADES.find(([id]) => upgrades.has(id))?.[0] ?? null;
+}
+
 export function getEffectiveRollRates(upgrades: Set<SettlementUpgradeId>): RollRate[] {
-  if (upgrades.has("divineSummons")) return DIVINE_SUMMONS_RATES;
-  if (upgrades.has("heroicTribute")) return HEROIC_TRIBUTE_RATES;
-  if (upgrades.has("emperorsBanquet")) return EMPERORS_BANQUET_RATES;
-  if (upgrades.has("royalFeast")) return ROYAL_FEAST_RATES;
-  if (upgrades.has("grandFeast")) return GRAND_FEAST_RATES;
-  if (upgrades.has("feastHall")) return FEAST_HALL_RATES;
-  return BASE_RATES;
+  return RATE_UPGRADES.find(([id]) => upgrades.has(id))?.[1] ?? BASE_RATES;
 }
 
 export function hasCelestialAltar(upgrades: Set<SettlementUpgradeId>): boolean {

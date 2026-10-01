@@ -5,13 +5,12 @@
   import Sprite, { type Pose } from "./Sprite.svelte";
   import StarRow from "./StarRow.svelte";
 
-  let { card, fighter, enemy = false, pose = "idle", animate = false, ghost = false, ultEvery = 3, castingUltimate = false }: {
+  let { card, fighter, enemy = false, pose = "idle", animate = false, ultEvery = 3, castingUltimate = false }: {
     card: UnitCard;
     fighter?: Fighter;
     enemy?: boolean;
     pose?: Pose;
     animate?: boolean;
-    ghost?: boolean;
     ultEvery?: number;
     castingUltimate?: boolean;
   } = $props();
@@ -21,23 +20,21 @@
   let def = $derived(UNITS[card.unitId]);
 </script>
 
-<div class="battle-unit" class:ghost class:defeated={fighter && fighter.hp <= 0}>
+<div class="battle-unit" class:defeated={fighter && fighter.hp <= 0}>
   <div class="unit-sprite" class:ascended={card.ascended}><Sprite unitId={card.unitId} {pose} {animate} flip={enemy} class="h-full" /></div>
-  {#if !ghost}
-    <span class="unit-name">{def.name}</span>
-    <span class="unit-stars" class:ascended-star={card.stars >= MAX_STARS}><StarRow stars={card.stars} ascended={card.ascended} /></span>
-    {#if fighter}
-      <div class="unit-health" role="meter" aria-label={`${def.name} health`} aria-valuenow={fighter.hp} aria-valuemin={0} aria-valuemax={fighter.maxHp} title={`${fighter.hp} / ${fighter.maxHp} HP`}>
-        <div class:enemy style:width={`${100 * fighter.hp / fighter.maxHp}%`}></div>
-      </div>
-      <div class="ultimate-charge" class:ready={charge.ready && fighter.hp > 0} class:casting={castingUltimate}
-        role="meter" aria-label={`${def.name} ultimate charge`} aria-valuenow={castingUltimate ? ultEvery : charge.filled} aria-valuemin={0} aria-valuemax={ultEvery}
-        aria-valuetext={fighter.hp <= 0 ? "Defeated" : chargeLabel}
-        title={`${ULTIMATES[def.attackType].name}: ${chargeLabel}. Every ${ultEvery} personal actions. ${ULTIMATES[def.attackType].description}`}>
-        {#each Array(ultEvery) as _, index}<span class:filled={castingUltimate || index < charge.filled}></span>{/each}
-        {#if fighter.hp > 0 && (castingUltimate || charge.ready)}<small>{castingUltimate ? "ULT" : "ULT next"}</small>{/if}
-      </div>
-    {/if}
+  <span class="unit-name">{def.name}</span>
+  <span class="unit-stars" class:ascended-star={card.stars >= MAX_STARS}><StarRow stars={card.stars} ascended={card.ascended} /></span>
+  {#if fighter}
+    <div class="unit-health" role="meter" aria-label={`${def.name} health`} aria-valuenow={fighter.hp} aria-valuemin={0} aria-valuemax={fighter.maxHp} title={`${fighter.hp} / ${fighter.maxHp} HP`}>
+      <div class:enemy style:width={`${100 * fighter.hp / fighter.maxHp}%`}></div>
+    </div>
+    <div class="ultimate-charge" class:ready={charge.ready && fighter.hp > 0} class:casting={castingUltimate}
+      role="meter" aria-label={`${def.name} ultimate charge`} aria-valuenow={castingUltimate ? ultEvery : charge.filled} aria-valuemin={0} aria-valuemax={ultEvery}
+      aria-valuetext={fighter.hp <= 0 ? "Defeated" : chargeLabel}
+      title={`${ULTIMATES[def.attackType].name}: ${chargeLabel}. Every ${ultEvery} personal actions. ${ULTIMATES[def.attackType].description}`}>
+      {#each Array(ultEvery) as _, index}<span class:filled={castingUltimate || index < charge.filled}></span>{/each}
+      {#if fighter.hp > 0 && (castingUltimate || charge.ready)}<small>{castingUltimate ? "ULT" : "ULT next"}</small>{/if}
+    </div>
   {/if}
 </div>
 
@@ -57,6 +54,5 @@
   .ascended { filter: drop-shadow(0 0 8px oklch(0.85 0.2 85 / 0.6)) drop-shadow(0 5px 4px #0008); }
   .ascended-star { color: #fcd34d; font-size: 20px; letter-spacing: 0; }
   .defeated { opacity: .35; filter: grayscale(1); }
-  .ghost { opacity: .4; }
   @media (max-width: 640px) { .unit-sprite { height: 64px; } .unit-name { font-size: 15px; max-width: 80px; } }
 </style>

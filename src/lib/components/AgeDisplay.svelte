@@ -3,8 +3,11 @@
   import { Button } from "$lib/components/ui/button";
   import FloatingText from "./FloatingText.svelte";
   import Hint from "./Hint.svelte";
-  import { AGES, RESOURCES, type ResourceId, SKILLS, type SkillId } from "$lib/gameData";
-  import { describeAgeBonus, describeAgeReward, type AgeAdvanceStatus, type AgeBonus } from "$lib/gameEngine";
+  import TrainingStatus from "./TrainingStatus.svelte";
+  import type { ComponentProps } from "svelte";
+  import { AGES, type SkillId } from "$lib/gameData";
+  import { describeAgeBonus, type AgeAdvanceStatus, type AgeBonus } from "$lib/gameEngine";
+  import { ageRewards, checklistJump, checklistProgress, type ChecklistItem } from "$lib/view/ageChecklist";
   import type { AgeAdvanceEventData } from "$lib/gameState.svelte";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
   import { cn } from "$lib/utils";
@@ -14,34 +17,42 @@
     ageBonus,
     skillPoints,
     warSpoils,
-    levels,
-    unlocked,
-    resources,
+    checklist,
     ageAdvanceStatus,
     onAdvance,
     events,
+    ageEvent,
     onDismissEvent,
+    onOpenShop,
+    unlocked,
+    onJump,
+    training,
   }: {
     ageIndex: number;
     ageBonus: AgeBonus;
     skillPoints: number;
     warSpoils: number;
-    levels: Record<SkillId, number>;
-    unlocked: (id: SkillId) => boolean;
-    resources: Partial<Record<ResourceId, number>>;
+    /** What the next age still asks for (see ageChecklist). */
+    checklist: ChecklistItem[];
     ageAdvanceStatus: AgeAdvanceStatus;
     onAdvance: () => void;
     events: QueuedEvent[];
+    /** The age advance being celebrated right now; the overlay owns dismissing it. */
+    ageEvent: QueuedEvent<AgeAdvanceEventData> | null;
     onDismissEvent: (id: string) => void;
+    /** Open the Town's Shop, where skill points are spent. */
+    onOpenShop?: () => void;
+    unlocked: (id: SkillId) => boolean;
+    /** Opens a skill on the Train tab (on a recipe when given), from an unmet requirement. */
+    onJump: (skill: SkillId, recipeId: string | null) => void;
+    /** What is training, shown as on phones (see TrainingStatus). */
+    training: ComponentProps<typeof TrainingStatus>;
   } = $props();
 
   let age = $derived(AGES[ageIndex]);
   let bonusText = $derived(describeAgeBonus(ageBonus));
-  let nextReward = $derived(ageAdvanceStatus.nextAge ? describeAgeReward(ageAdvanceStatus.nextAge, { conceal: true }) : []);
-  let nextBonusText = $derived.by(() => {
-    const next = ageAdvanceStatus.nextAge;
-    return next ? describeAgeBonus({ flatTimeReduction: next.bonus.flatTime, outputMult: next.bonus.outputMult }) : "";
-  });
+  let nextRewards = $derived(ageAdvanceStatus.nextAge ? ageRewards(ageAdvanceStatus.nextAge) : []);
+  let progress = $derived(checklistProgress(checklist));
 
   let skillPointEvents = $derived(
     events.filter(
@@ -54,44 +65,6 @@
       (e): e is QueuedEvent<{ amount: number }> => e.type === "spoilsGain",
     ),
   );
-
-  let ageAdvanceEvents = $derived(
-    events.filter(
-      (e): e is QueuedEvent<AgeAdvanceEventData> =>
-        e.type === "ageAdvance",
-    ),
-  );
-
-  let checklist = $derived.by(() => {
-    const { nextAge, cost } = ageAdvanceStatus;
-    if (!nextAge) return [];
-    // A condition on a still-locked skill (e.g. Smithing) can't be trained
-    // yet, so list the unmet prereqs that unlock it right before it.
-    const items: { label: string; current: number; required: number; met: boolean }[] = [];
-    const seen = new Set<string>();
-    const addSkill = (skill: SkillId, level: number, unlocks?: SkillId) => {
-      if (!unlocked(skill)) {
-        for (const p of SKILLS[skill].prereqs) {
-          if ((levels[p.skill] ?? 0) < p.level) addSkill(p.skill, p.level, skill);
-        }
-      }
-      const label = `${unlocked(skill) ? "" : "🔒 "}${SKILLS[skill].name} Lv ${level}${unlocks ? ` → unlocks ${SKILLS[unlocks].name}` : ""}`;
-      if (seen.has(label)) return;
-      seen.add(label);
-      const current = levels[skill] ?? 0;
-      items.push({ label, current, required: level, met: current >= level });
-    };
-    for (const c of nextAge.condition) addSkill(c.skill, c.level);
-    return [
-      ...items,
-      ...cost.map((c) => ({
-        label: RESOURCES[c.resource].name,
-        current: Math.floor(resources[c.resource] ?? 0),
-        required: c.amount,
-        met: (resources[c.resource] ?? 0) >= c.amount,
-      })),
-    ];
-  });
 
   const statClass =
     "cursor-help items-center gap-2 px-1.5 py-1 -mx-1.5 -my-1 transition-colors hover:bg-muted/60";
@@ -134,7 +107,7 @@
             onclick={handleAdvanceClick}
             variant={ageAdvanceStatus.canAdvance ? "default" : "secondary"}
             class={cn("h-7 rounded-r-none px-2.5 text-xs", ageAdvanceStatus.canAdvance ? "animate-pulse-glow" : "text-muted-foreground")}
-            title={`Advance to ${ageAdvanceStatus.nextAge.name}`}
+            title={ageAdvanceStatus.canAdvance ? `Advance to ${ageAdvanceStatus.nextAge.name}` : `What ${ageAdvanceStatus.nextAge.name} needs`}
           >
             Advance
           </Button>
@@ -144,9 +117,12 @@
             class="relative h-7 rounded-l-none border-l border-background/40 px-1.5 text-xs"
             aria-expanded={detailsOpen}
             aria-controls="age-advance"
-            aria-label={`Requirements and rewards for ${ageAdvanceStatus.nextAge.name}`}
+            aria-label={`Requirements and rewards for ${ageAdvanceStatus.nextAge.name}, ${progress.met} of ${progress.total} met`}
             onclick={() => (detailsOpen = !detailsOpen)}
           >
+            {#if !ageAdvanceStatus.canAdvance}
+              <span class="mr-1 tabular-nums" aria-hidden="true">{progress.met}/{progress.total}</span>
+            {/if}
             <span aria-hidden="true" class={cn("transition-transform", detailsOpen && "rotate-180")}>▾</span>
           </Button>
           {#if detailsOpen}
@@ -158,16 +134,29 @@
               <div class="flex flex-col gap-1.5">
                 <span class="text-xs font-semibold text-muted-foreground">Requirements</span>
                 {#each checklist as item (item.label)}
-                  <div class={cn("flex justify-between gap-4 text-xs", item.met ? "text-emerald-400" : "text-foreground")}>
-                    <span>{item.met ? "✓ " : ""}{item.label}</span>
-                    <span class="tabular-nums">{Math.min(item.current, item.required)} / {item.required}</span>
-                  </div>
+                  {@const jump = checklistJump(item, unlocked)}
+                  {#if jump}
+                    <!-- As on phones: an unmet requirement opens what to train for it. -->
+                    <button
+                      class="-mx-1.5 flex justify-between gap-4 rounded px-1.5 text-left text-xs text-foreground hover:bg-muted/60"
+                      title={jump.label}
+                      onclick={() => { detailsOpen = false; onJump(jump.skill, jump.recipeId); }}
+                    >
+                      <span>{item.label}</span>
+                      <span class="tabular-nums">{Math.min(item.current, item.required)} / {item.required} <span class="text-muted-foreground" aria-hidden="true">›</span></span>
+                    </button>
+                  {:else}
+                    <div class={cn("flex justify-between gap-4 text-xs", item.met ? "text-emerald-400" : "text-foreground")}>
+                      <span>{item.met ? "✓ " : ""}{item.label}</span>
+                      <span class="tabular-nums">{Math.min(item.current, item.required)} / {item.required}</span>
+                    </div>
+                  {/if}
                 {/each}
               </div>
               <div class="flex flex-col gap-1.5">
                 <span class="text-xs font-semibold text-amber-300">Reward</span>
                 <div class="flex flex-wrap gap-1.5 text-xs">
-                  {#each [nextBonusText, ...nextReward].filter(Boolean) as reward (reward)}
+                  {#each nextRewards as reward (reward)}
                     <span class="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-300">
                       {reward}
                     </span>
@@ -187,22 +176,25 @@
       {#if bonusText}
         <span class="hidden text-xs text-muted-foreground sm:inline">{bonusText}</span>
       {/if}
-      {#each ageAdvanceEvents as event (event.id)}
-        <FloatingText
-          id={event.id}
-          text={event.data.bonusText}
-          class="text-sm text-amber-400"
-          duration={1400}
-          onDone={onDismissEvent}
-        />
-      {/each}
+      {#if ageEvent}
+        {#key ageEvent.id}
+          <FloatingText
+            id={ageEvent.id}
+            text={ageEvent.data.bonusText}
+            class="text-sm text-amber-400"
+            duration={1400}
+            onDone={() => {}}
+          />
+        {/key}
+      {/if}
     </div>
     <div class="flex shrink-0 items-center gap-3 sm:gap-4">
+      <TrainingStatus {...training} class="border-r border-border pr-4" />
       <div class="relative flex items-center">
-        <Hint side="bottom" class={statClass} title="⚔ Tribute" text="Earned by winning battles and from the Depths. Spend it on summons and card packs for your army.">
+        <Hint side="bottom" class={statClass} title="⚔ Tribute" text="Earned by winning battles and from The Abyss. Spend it on summons and card packs for your army.">
           <span class="text-sm text-muted-foreground">⚔ <span class="hidden sm:inline">Tribute</span></span>
           <Badge variant="secondary" class="text-sm tabular-nums">
-            {warSpoils}
+            {warSpoils.toLocaleString()}
           </Badge>
         </Hint>
         {#each spoilsEvents as event (event.id)}
@@ -215,9 +207,21 @@
         {/each}
       </div>
       <div class="relative flex items-center">
-        <Hint side="bottom" class={statClass} title="Skill Points" text="Earned each time a skill levels up. Spend them in the Shop on permanent upgrades.">
-          <span class="text-sm text-muted-foreground"><span class="sm:hidden">SP</span><span class="hidden sm:inline">Skill Points</span></span>
-          <Badge class="text-sm tabular-nums">{skillPoints}</Badge>
+        <Hint side="bottom" title="Skill Points" text="Earned each time a skill levels up. Spend them in the Town's Shop on permanent upgrades.">
+          {#snippet trigger({ props })}
+            <button
+              {...props}
+              class={cn(statClass, "flex cursor-pointer rounded-sm")}
+              aria-label={`${skillPoints} skill points. Open the Shop`}
+              onclick={(e) => {
+                (props.onclick as ((e: MouseEvent) => void) | undefined)?.(e);
+                onOpenShop?.();
+              }}
+            >
+              <span class="text-sm text-muted-foreground"><span class="sm:hidden">SP</span><span class="hidden sm:inline">Skill Points</span></span>
+              <Badge class="text-sm tabular-nums">{skillPoints.toLocaleString()}</Badge>
+            </button>
+          {/snippet}
         </Hint>
         {#each skillPointEvents as event (event.id)}
           <FloatingText

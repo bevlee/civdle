@@ -104,6 +104,8 @@ export interface GameState {
   resources: Partial<Record<ResourceId, number>>;
   skillPoints: number;
   activeSkill: SkillId | null;
+  /** When the current skill and recipe started training (ms); null while idle. */
+  trainingStartedAt: number | null;
   lastSavedAt: number;
   globalUpgrades: string[];
   gacha: GachaState;
@@ -134,6 +136,7 @@ export function createInitialState(): GameState {
     resources: {},
     skillPoints: 0,
     activeSkill: null,
+    trainingStartedAt: null,
     lastSavedAt: Date.now(),
     globalUpgrades: [],
     gacha: createInitialGachaState(),
@@ -191,6 +194,11 @@ export function getMaxSummonStars(ageIndex: number): number {
     stars = Math.max(stars, AGES[i].reward.maxSummonStars ?? 0);
   }
   return stars;
+}
+
+/** An age as it reads after "in" or "Reach": "the Iron Age", "the Medieval era", "the Renaissance". */
+export function theAge(name: string): string {
+  return /age$/i.test(name) || name === "Renaissance" ? `the ${name}` : `the ${name} era`;
 }
 
 export function isCombatUnlocked(ageIndex: number): boolean {
@@ -470,8 +478,12 @@ function resolveOutputs(
   levelOverrides: Partial<Record<ResourceId, number>>
 ): ResourceAmount[] {
   const merged: ResourceAmount[] = [];
+  const seen = new Set<ResourceId>();
   for (const o of outputs) {
-    if (!isOutputActive(o, level, ageIndex, levelOverrides)) continue;
+    // An outputLevel effect moves a resource's first entry earlier; its level milestones stay put.
+    const overrides = seen.has(o.resource) ? {} : levelOverrides;
+    seen.add(o.resource);
+    if (!isOutputActive(o, level, ageIndex, overrides)) continue;
     const existing = merged.find((m) => m.resource === o.resource);
     if (existing) existing.amount += o.amount;
     else merged.push({ resource: o.resource, amount: o.amount });
@@ -679,6 +691,8 @@ export interface ApplyActionOutcome {
   newlyUnlockedSkills: SkillId[];
   outOfMaterials: boolean;
   gains: RolledOutput[];
+  // Inputs actually consumed this action (empty when the refund roll kept them).
+  spent: ResourceAmount[];
 }
 
 export function applyAction(state: GameState, skillId: SkillId, rng: () => number = Math.random): ApplyActionOutcome {
@@ -689,11 +703,11 @@ export function applyAction(state: GameState, skillId: SkillId, rng: () => numbe
 
   const result = computeActionResult(skillId, level, skillState.upgrades, ageIndex, skillState.selectedRecipeId, state.globalUpgrades);
   if (!result) {
-    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: false, gains: [] };
+    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: false, gains: [], spent: [] };
   }
 
   if (!canAffordInputs(state.resources, result.inputs)) {
-    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: true, gains: [] };
+    return { state, leveledUp: false, newlyUnlockedSkills: [], outOfMaterials: true, gains: [], spent: [] };
   }
 
   const gains = rollOutputs(result, rng);
@@ -729,7 +743,8 @@ export function applyAction(state: GameState, skillId: SkillId, rng: () => numbe
     newlyUnlockedSkills = unlockResult.newlyUnlocked;
   }
 
-  return { state: nextState, leveledUp: levelsGained > 0, newlyUnlockedSkills, outOfMaterials: false, gains };
+  const spent = refunded ? [] : result.inputs;
+  return { state: nextState, leveledUp: levelsGained > 0, newlyUnlockedSkills, outOfMaterials: false, gains, spent };
 }
 
 // ---------- Offline catch-up ----------
@@ -777,17 +792,42 @@ export function processOfflineProgress(state: GameState, elapsedSeconds: number)
 
 // ---------- Settlement upgrades ----------
 
+// Why a settlement upgrade can't be bought right now, or null if it can.
+// The single source of truth for the buy action and the Settlement screens.
+export interface SettlementBlock {
+  kind: "built" | "locked" | "short";
+  reason: string;
+}
+
+export function settlementPurchaseBlock(
+  state: GameState,
+  levels: Record<SkillId, number>,
+  upgradeId: SettlementUpgradeId,
+): SettlementBlock | null {
+  if (state.settlementUpgrades.includes(upgradeId)) return { kind: "built", reason: "Already built" };
+  const def = SETTLEMENT_UPGRADES[upgradeId];
+  if (!def) return { kind: "locked", reason: "Unknown building" };
+  if (def.requires && !state.settlementUpgrades.includes(def.requires)) {
+    return { kind: "locked", reason: `Build ${SETTLEMENT_UPGRADES[def.requires].name} first` };
+  }
+  if (def.ageRequired) {
+    const requiredAge = ageIndexOf(def.ageRequired);
+    if (state.ageIndex < requiredAge) {
+      return { kind: "locked", reason: `Reach ${theAge(AGES[requiredAge].name)}` };
+    }
+  }
+  const unmet = def.prereqs.find((p) => (levels[p.skill] ?? 0) < p.level);
+  if (unmet) return { kind: "locked", reason: `Needs ${SKILLS[unmet.skill].name} Lv ${unmet.level}` };
+  const missing = def.cost.find((c) => (state.resources[c.resource] ?? 0) < c.amount);
+  if (missing) return { kind: "short", reason: `Needs more ${RESOURCES[missing.resource].name}` };
+  return null;
+}
+
 export function canBuySettlementUpgrade(
   state: GameState,
   upgradeId: SettlementUpgradeId,
 ): boolean {
-  if (state.settlementUpgrades.includes(upgradeId)) return false;
-  const def = SETTLEMENT_UPGRADES[upgradeId];
-  if (!def) return false;
-  if (def.requires && !state.settlementUpgrades.includes(def.requires)) return false;
-  const levels = getSkillLevels(state);
-  if (!def.prereqs.every((p) => (levels[p.skill] ?? 0) >= p.level)) return false;
-  return canAffordInputs(state.resources, def.cost);
+  return settlementPurchaseBlock(state, getSkillLevels(state), upgradeId) === null;
 }
 
 export function buySettlementUpgrade(

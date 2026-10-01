@@ -24,8 +24,9 @@
   let max = $derived(definition.thresholds[definition.thresholds.length - 1]);
 </script>
 
+<!-- Large chips (hero details) get a 44px hit area on phones; the small board chips have no room for one. -->
 <Tooltip.Root>
-  <Tooltip.Trigger class={`synergy ${size} ${active ? "active" : ""} ${lockedLabel ? "locked" : ""}`}
+  <Tooltip.Trigger class={`synergy ${size} ${size === "lg" ? "tap-target" : ""} ${active ? "active" : ""} ${lockedLabel ? "locked" : ""}`}
     style={`--trait-color: ${colors[trait] ?? "#b7a674"}`}>
     <span aria-hidden="true">{lockedLabel ? "🔒" : active ? "✦" : "◇"}</span>
     {definition.name} {lockedLabel ?? `${count}/${max}`}

@@ -5,6 +5,7 @@ import {
   DEBUG_GLOBAL_UPGRADES,
   GLOBAL_UPGRADES,
   type AgeId,
+  type ResourceAmount,
   type ResourceId,
   SKILLS,
   SKILL_ORDER,
@@ -115,7 +116,9 @@ export interface SpoilsGainEventData {
 
 export interface ActionGainEventData {
   skillId: SkillId;
+  recipeId: string;
   gains: RolledOutput[];
+  spent: ResourceAmount[];
 }
 
 export interface AchievementEventData {
@@ -132,6 +135,9 @@ function loadFromStorage(): GameState {
     if (!parsed.globalUpgrades) parsed.globalUpgrades = [];
     if (!parsed.achievements || typeof parsed.achievements !== "object") parsed.achievements = {};
     if (!Array.isArray(parsed.settlementUpgrades)) parsed.settlementUpgrades = [];
+    // Older saves never recorded a start; training has run at least since the last save.
+    if (!parsed.activeSkill) parsed.trainingStartedAt = null;
+    else if (typeof parsed.trainingStartedAt !== "number") parsed.trainingStartedAt = parsed.lastSavedAt ?? Date.now();
     parsed.stats = { ...createInitialStats(), ...(parsed.stats ?? {}) };
 
     const oldGacha = parsed.gacha as (Partial<GachaState> & { heroes?: unknown }) | undefined;
@@ -418,7 +424,7 @@ export class CivdleGame {
 
     if (!result) {
       if (this.state.activeSkill === skillId) {
-        this.state = { ...this.state, activeSkill: null };
+        this.state = { ...this.state, activeSkill: null, trainingStartedAt: null };
       }
       return;
     }
@@ -447,13 +453,19 @@ export class CivdleGame {
       }
 
       if (outcome.gains.length > 0) {
-        this.eventQueue.emit("actionGain", { skillId, gains: outcome.gains } satisfies ActionGainEventData);
+        this.eventQueue.emit("actionGain", {
+          skillId,
+          recipeId: prev.skills[skillId].selectedRecipeId,
+          gains: outcome.gains,
+          spent: outcome.spent,
+        } satisfies ActionGainEventData);
       }
 
       if (outcome.outOfMaterials) {
         nextState = {
           ...nextState,
           activeSkill: null,
+          trainingStartedAt: null,
           stats: { ...nextState.stats, outOfMaterials: nextState.stats.outOfMaterials + 1 },
         };
       }
@@ -570,19 +582,38 @@ export class CivdleGame {
 
   // ----- Training methods -----
 
-  startTraining(skillId: SkillId): void {
-    this.state = { ...this.state, activeSkill: skillId };
+  // A recipeId the skill doesn't have, or hasn't reached the level for, leaves training untouched
+  // and returns false. Restarting the loops below always begins the action from zero, but the
+  // training clock only restarts when the skill or recipe actually changes.
+  startTraining(skillId: SkillId, recipeId?: string): boolean {
+    const wasSkill = this.state.activeSkill;
+    const wasRecipe = wasSkill ? this.state.skills[wasSkill].selectedRecipeId : null;
+    if (recipeId !== undefined) {
+      const recipe = SKILLS[skillId].recipes.find((r) => r.id === recipeId);
+      if (!recipe || recipe.requiredLevel > this.levels[skillId]) return false;
+      this.#selectRecipe(skillId, recipe.id);
+    }
+    const unchanged =
+      wasSkill === skillId &&
+      wasRecipe === this.state.skills[skillId].selectedRecipeId &&
+      this.state.trainingStartedAt !== null;
+    this.state = {
+      ...this.state,
+      activeSkill: skillId,
+      trainingStartedAt: unchanged ? this.state.trainingStartedAt : Date.now(),
+    };
     this.#startActionLoop();
     this.#startProgressLoop();
+    return true;
   }
 
   stopTraining(): void {
-    this.state = { ...this.state, activeSkill: null };
+    this.state = { ...this.state, activeSkill: null, trainingStartedAt: null };
     this.#clearActionLoop();
     this.#clearProgressLoop();
   }
 
-  selectRecipe(skillId: SkillId, recipeId: string): void {
+  #selectRecipe(skillId: SkillId, recipeId: string): void {
     this.state = {
       ...this.state,
       skills: {
@@ -710,6 +741,11 @@ export class CivdleGame {
     return hasHallOfLegends(this.#settlementSet);
   }
 
+  /** The Tribute 5★ pack needs the Hall of Legends and an age that summons 5★ heroes. */
+  get tributeLegendaryPackUnlocked(): boolean {
+    return this.hasHallOfLegends && this.#maxSummonStars >= 5;
+  }
+
   get #hasPendingSummon(): boolean {
     return this.eventQueue.events.some(e => e.type === "summon" || e.type === "summonPack");
   }
@@ -755,10 +791,10 @@ export class CivdleGame {
     });
   }
 
-  /** Summon 10 guaranteed 5★ heroes for Tribute. Needs the Hall of Legends. */
+  /** Summon 10 guaranteed 5★ heroes for Tribute. Needs the Hall of Legends and 5★ summons. */
   rollTributeLegendaryPack(): void {
     const cost = TRIBUTE_LEGENDARY_PACK_COST;
-    if (!this.hasHallOfLegends || this.state.gacha.gold < cost || this.#hasPendingSummon) return;
+    if (!this.tributeLegendaryPackUnlocked || this.state.gacha.gold < cost || this.#hasPendingSummon) return;
     this.#summonLegendary(LEGENDARY_PACK_SIZE, {
       ...this.state,
       gacha: { ...this.state.gacha, gold: this.state.gacha.gold - cost },

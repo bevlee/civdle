@@ -119,6 +119,23 @@ describe("outputs", () => {
     expect(withUpgrade?.outputs.map((o) => o.resource)).toContain("logs");
   });
 
+  it("an outputLevel effect does not pull level-milestone repeats earlier", () => {
+    const upgrades = SKILLS.mining.upgrades;
+    upgrades.push({
+      id: "testOre",
+      name: "Test",
+      cost: 0,
+      description: "",
+      effects: [{ type: "outputLevel", resource: "copperOre", level: 1 }],
+    });
+    try {
+      const r = computeActionResult("mining", 10, ["testOre"], 1, "mineStone");
+      expect(r?.outputs.find((o) => o.resource === "copperOre")?.amount).toBe(1);
+    } finally {
+      upgrades.pop();
+    }
+  });
+
   it("adds a flat primary-output bonus to crafting recipes", () => {
     const r = computeActionResult("cooking", 1, ["bigPot"], 0, "cookedFish");
     expect(r?.outputs).toEqual([{ resource: "cookedFish", amount: 2 }]);
@@ -188,12 +205,17 @@ describe("applyAction dice", () => {
     const out = applyAction(crafting(), "crafting", () => 0);
     expect(out.state.resources.wood).toBe(10);
     expect(out.state.resources.tools).toBe(1);
+    expect(out.spent).toEqual([]);
   });
 
   it("consumes inputs when the refund roll fails", () => {
     const out = applyAction(crafting(), "crafting", () => 0.99);
     expect(out.state.resources.wood).toBe(9);
     expect(out.state.resources.stone).toBe(9);
+    expect(out.spent).toEqual([
+      { resource: "wood", amount: 1 },
+      { resource: "stone", amount: 1 },
+    ]);
   });
 
   it("doubles outputs when the double roll succeeds", () => {
