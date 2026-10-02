@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { nice } from "$lib/utils";
   import { syncBattleAnimations, type BattleSpeed } from "$lib/battlePlayback";
   import { tick, untrack } from "svelte";
   import { attackMotion, blinkDistance, projectilePath, timeline } from "$lib/combatAnimation";
@@ -237,7 +238,7 @@
   <div class="combat-main">
     <header class="combat-header">
       <div class="level-heading" class:stacked={mode === "depths"}>
-        <h2>{mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</h2>
+        <h2>{mode === "story" ? game.storyComplete ? "Campaign conquered" : `${regionForLevel(gacha.storyLevel).name} · Lv ${gacha.storyLevel}` : `Depth ${nice(gacha.depths.level)}`}</h2>
         {#if mode === "depths"}<span>+{game.depthsIncome * game.treasuryMultiplier} ⚔ / min{game.treasuryMultiplier > 1 ? " (2× Treasury)" : ""} · next tier at depth {nextTierAt}</span>
         {:else if !game.storyComplete}<span>{storyBoss ? "Boss battle · " : ""}{storyRewardText}</span>{/if}
         {#if mode === "depths"}<p class="depths-blurb text-[16px] text-muted-foreground">Endless mode that tests your strength. You are awarded every minute with tribute based on your maximum depth.</p>{/if}
@@ -343,10 +344,10 @@
           <div class="battle-result-overlay" aria-live="assertive">
             <div class="battle-result-content" class:win={battle?.status === "won"} class:lose={battle?.status === "lost"}>
               <span class="result-emblem" aria-hidden="true">{battle?.status === "won" ? "✦" : "⚔"}</span>
-              <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</p>
+              <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${nice(gacha.depths.level)}`}</p>
               <span class="result-label">{battle?.status === "won" ? "Victory!" : "Defeated"}</span>
               {#if battle?.status === "won"}
-                <span class="result-detail">{mode === "story" ? storyRewardText : `Depth ${gacha.depths.level} cleared`}</span>
+                <span class="result-detail">{mode === "story" ? storyRewardText : `Depth ${nice(gacha.depths.level)} cleared`}</span>
               {:else}
                 <span class="result-detail">Adjust your formation and try again.</span>
               {/if}

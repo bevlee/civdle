@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { nice } from "$lib/utils";
   import { Button } from "$lib/components/ui/button";
   import { Progress } from "$lib/components/ui/progress";
   import { Separator } from "$lib/components/ui/separator";
@@ -110,7 +111,7 @@
   <div>
     <h2 class="text-2xl font-bold">{def.name}</h2>
     <p class="mt-1 text-sm italic leading-relaxed text-muted-foreground">&ldquo;{def.description}&rdquo;</p>
-    <p class="text-sm text-muted-foreground">Level {level} / 99</p>
+    <p class="text-sm text-muted-foreground">Level {nice(level)} / 99</p>
     <div class="mt-2 flex items-center gap-2">
       <Progress value={xpPct} class="h-2 max-w-sm" />
       <span class="text-xs text-muted-foreground">

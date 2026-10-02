@@ -4,7 +4,7 @@
   import FloatingText from "./FloatingText.svelte";
   import { SKILLS, type SkillId } from "$lib/gameData";
   import type { QueuedEvent } from "$lib/eventQueue.svelte";
-  import { cn } from "$lib/utils";
+  import { cn, nice } from "$lib/utils";
 
   let {
     id,
@@ -87,7 +87,7 @@
         <Badge class="h-4 px-1 text-[10px] leading-none">NEW</Badge>
       {/if}
     </span>
-    <span class="shrink-0 whitespace-nowrap text-muted-foreground">Lv {level}</span>
+    <span class="shrink-0 whitespace-nowrap text-muted-foreground">Lv {nice(level)}</span>
   </div>
   <Progress value={pct} class="h-1.5" />
   {#if levelUpEvent}
