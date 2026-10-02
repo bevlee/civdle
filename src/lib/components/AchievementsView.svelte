@@ -9,6 +9,7 @@
     skillMilestoneId,
     type AchievementCategory,
     type AchievementDef,
+    unlockedCount,
   } from "$lib/achievements";
   import { SKILL_ORDER, SKILLS, type SkillId } from "$lib/gameData";
   import type { GameState } from "$lib/gameEngine";
@@ -22,7 +23,7 @@
     levels: Record<SkillId, number>;
   } = $props();
 
-  let unlockedCount = $derived(Object.keys(state.achievements).length);
+  let unlocked = $derived(unlockedCount(state));
   let total = ACHIEVEMENTS.length;
 
   let byCategory = $derived.by(() => {
@@ -62,10 +63,10 @@
     <div class="flex items-baseline justify-between">
       <h2 class="text-lg font-semibold">Achievements</h2>
       <span class="text-sm tabular-nums text-muted-foreground">
-        {unlockedCount} / {total}
+        {unlocked} / {total}
       </span>
     </div>
-    <Progress value={unlockedCount} max={total} class="h-2" />
+    <Progress value={unlocked} max={total} class="h-2" />
   </header>
 
   <!-- Skill milestones grid -->

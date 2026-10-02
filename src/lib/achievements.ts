@@ -91,6 +91,10 @@ function distinctUnits(state: GameState): number {
   return new Set(state.gacha.cards.map((c) => c.unitId)).size;
 }
 
+function bestStars(state: GameState): number {
+  return state.gacha.cards.reduce((best, c) => Math.max(best, c.stars), 0);
+}
+
 function totalUpgrades(): number {
   return SKILL_ORDER.reduce((sum, id) => sum + SKILLS[id].upgrades.length, 0);
 }
@@ -154,10 +158,11 @@ const resourceAchievements: AchievementDef[] = [
   {
     id: "resources.first",
     name: "Humble Beginnings",
-    description: "Gather your very first resource.",
+    description: "Have 100 resources in your stockpile.",
     icon: "🫐",
     category: "resources",
-    check: (s) => totalResources(s) >= 1,
+    check: (s) => totalResources(s) >= 100,
+    progress: (s) => ({ current: Math.min(Math.floor(totalResources(s)), 100), target: 100 }),
   },
   {
     id: "resources.hoarder",
@@ -189,7 +194,7 @@ const resourceAchievements: AchievementDef[] = [
   {
     id: "resources.wellStocked",
     name: "Well Stocked",
-    description: "Have at least one of every resource at the same time.",
+    description: "Have at least one of every resource.",
     icon: "🧺",
     category: "resources",
     check: (s) => RESOURCE_IDS.every((id) => (s.resources[id] ?? 0) >= 1),
@@ -225,6 +230,24 @@ const ageAchievements: AchievementDef[] = AGES.filter((age) => age.id !== "stone
   };
 });
 
+const STAR_TIERS: { stars: number; id: string; name: string; icon: string }[] = [
+  { stars: 6, id: "army.sixStars", name: "Rising Star", icon: "⭐" },
+  { stars: 7, id: "army.sevenStars", name: "Lucky Seven", icon: "🎲" },
+  { stars: 8, id: "army.eightStars", name: "Pieces of Eight", icon: "🏴‍☠️" },
+  { stars: 9, id: "army.nineStars", name: "Cloud Nine", icon: "☁️" },
+  { stars: MAX_STARS, id: "army.maxStars", name: "Shiny!", icon: "🌟" },
+];
+
+const starAchievements: AchievementDef[] = STAR_TIERS.map((tier) => ({
+  id: tier.id,
+  name: tier.name,
+  description: `Own a ${tier.stars}-star hero.`,
+  icon: tier.icon,
+  category: "army" as const,
+  check: (s) => bestStars(s) >= tier.stars,
+  progress: (s) => ({ current: Math.min(bestStars(s), tier.stars), target: tier.stars }),
+}));
+
 const armyAchievements: AchievementDef[] = [
   {
     id: "army.firstSummon",
@@ -233,14 +256,6 @@ const armyAchievements: AchievementDef[] = [
     icon: "🎴",
     category: "army",
     check: (s) => s.stats.cardsSummoned >= 1,
-  },
-  {
-    id: "army.pack",
-    name: "Whale Watching",
-    description: "Open a 10-card pack.",
-    icon: "🐋",
-    category: "army",
-    check: (s) => s.stats.packsOpened >= 1,
   },
   {
     id: "army.hundred",
@@ -252,6 +267,15 @@ const armyAchievements: AchievementDef[] = [
     progress: (s) => ({ current: Math.min(s.stats.cardsSummoned, 100), target: 100 }),
   },
   {
+    id: "army.whale",
+    name: "Whale Watching",
+    description: "Summon 10,000 heroes in total.",
+    icon: "🐋",
+    category: "army",
+    check: (s) => s.stats.cardsSummoned >= 10_000,
+    progress: (s) => ({ current: Math.min(s.stats.cardsSummoned, 10_000), target: 10_000 }),
+  },
+  {
     id: "army.lucky",
     name: "Blessed RNG",
     description: "Pull a 5-star or better hero straight from a summon.",
@@ -259,43 +283,15 @@ const armyAchievements: AchievementDef[] = [
     category: "army",
     check: (s) => s.stats.bestSummonStars >= 5,
   },
-  {
-    id: "army.merge",
-    name: "Fusion Dance",
-    description: "Merge two heroes into a stronger one.",
-    icon: "✨",
-    category: "army",
-    check: (s) => s.stats.merges >= 1,
-  },
-  {
-    id: "army.maxStars",
-    name: "Shiny!",
-    description: `Own a ${MAX_STARS}-star hero.`,
-    icon: "🌟",
-    category: "army",
-    check: (s) => s.gacha.cards.some((c) => c.stars >= MAX_STARS),
-    progress: (s) => ({
-      current: s.gacha.cards.reduce((best, c) => Math.max(best, c.stars), 0),
-      target: MAX_STARS,
-    }),
-  },
+  ...starAchievements,
   {
     id: "army.collector",
     name: "Gotta Catch 'Em All",
-    description: "Own at least one of every hero at the same time.",
+    description: "Own at least one of every hero.",
     icon: "📖",
     category: "army",
     check: (s) => distinctUnits(s) >= UNIT_IDS.length,
     progress: (s) => ({ current: distinctUnits(s), target: UNIT_IDS.length }),
-  },
-  {
-    id: "army.kondo",
-    name: "Does It Spark Joy?",
-    description: "Discard 10 heroes. They had families.",
-    icon: "🗑️",
-    category: "army",
-    hidden: true,
-    check: (s) => s.stats.cardsDiscarded >= 10,
   },
 ];
 
@@ -375,11 +371,11 @@ const miscAchievements: AchievementDef[] = [
   {
     id: "misc.supplyChain",
     name: "Supply Chain Issues",
-    description: "Run out of materials mid-training 10 times.",
+    description: "Run out of materials mid-training.",
     icon: "🚚",
     category: "misc",
     hidden: true,
-    check: (s) => s.stats.outOfMaterials >= 10,
+    check: (s) => s.stats.outOfMaterials >= 1,
   },
   {
     id: "misc.pointless",
@@ -438,8 +434,9 @@ export function checkAchievements(state: GameState, now: number = Date.now()): A
   return { state: { ...state, achievements }, newlyUnlocked };
 }
 
+/** Counts only achievements that still exist; old saves can hold ids that were since removed. */
 export function unlockedCount(state: GameState): number {
-  return Object.keys(state.achievements).length;
+  return Object.keys(state.achievements).filter((id) => id in ACHIEVEMENTS_BY_ID).length;
 }
 
 export const ACHIEVEMENT_MILESTONES = [25, 50, 75, 100];

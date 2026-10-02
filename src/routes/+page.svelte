@@ -14,7 +14,7 @@
   import GainToastStack from "$lib/components/GainToastStack.svelte";
   import AchievementsView from "$lib/components/AchievementsView.svelte";
   import AchievementToasts from "$lib/components/AchievementToasts.svelte";
-  import { ACHIEVEMENTS } from "$lib/achievements";
+  import { ACHIEVEMENTS, unlockedCount } from "$lib/achievements";
   import DebugPanel from "$lib/components/DebugPanel.svelte";
   import { page } from "$app/state";
 
@@ -26,7 +26,7 @@
 
   let selectedSkill = $state<SkillId | null>(null);
   let centerTab = $state<CenterTab>("train");
-  let achievementCount = $derived(Object.keys(game.state.achievements).length);
+  let achievementCount = $derived(unlockedCount(game.state));
   let rightTab = $state<"inventory" | "shop">("inventory");
   let isCombatTab = $derived(centerTab === "story" || centerTab === "depths");
 

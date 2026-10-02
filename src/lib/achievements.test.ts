@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID, checkAchievements, skillMilestoneId } from "./achievements";
+import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID, checkAchievements, skillMilestoneId, unlockedCount } from "./achievements";
 import { createInitialState, xpForLevel, type GameState } from "./gameEngine";
 import { SKILL_ORDER } from "./gameData";
 import { createCard } from "./combatData";
@@ -89,5 +89,36 @@ describe("checkAchievements", () => {
     const state = fresh();
     state.gacha.cards.push(createCard("peasant", 10));
     expect(checkAchievements(state).newlyUnlocked).toContain("army.maxStars");
+  });
+
+  it("requires 100 stockpiled resources for Humble Beginnings", () => {
+    const state = fresh();
+    state.resources.food = 99;
+    expect(checkAchievements(state).newlyUnlocked).not.toContain("resources.first");
+    state.resources.wood = 1;
+    expect(checkAchievements(state).newlyUnlocked).toContain("resources.first");
+  });
+
+  it("unlocks each star tier up to the best owned hero", () => {
+    const state = fresh();
+    state.gacha.cards.push(createCard("peasant", 8));
+    const { newlyUnlocked } = checkAchievements(state);
+    expect(newlyUnlocked).toEqual(expect.arrayContaining(["army.sixStars", "army.sevenStars", "army.eightStars"]));
+    expect(newlyUnlocked).not.toContain("army.nineStars");
+    expect(newlyUnlocked).not.toContain("army.maxStars");
+  });
+
+  it("unlocks Supply Chain Issues on the first shortage", () => {
+    const state = fresh();
+    state.stats.outOfMaterials = 1;
+    expect(checkAchievements(state).newlyUnlocked).toContain("misc.supplyChain");
+  });
+});
+
+describe("unlockedCount", () => {
+  it("ignores ids from old saves that no longer exist", () => {
+    const state = fresh();
+    state.achievements = { "army.kondo": 1, "army.merge": 1, "combat.firstWin": 1 };
+    expect(unlockedCount(state)).toBe(1);
   });
 });
