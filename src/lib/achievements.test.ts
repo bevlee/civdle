@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID, checkAchievements, isLateNight, skillMilestoneId, unlockedCount } from "./achievements";
+import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID, checkAchievements, isLateNight, unlockedCount } from "./achievements";
 import { createInitialState, xpForLevel, type GameState } from "./gameEngine";
-import { SKILL_ORDER } from "./gameData";
 import { createCard } from "./combatData";
 
 function fresh(): GameState {
@@ -14,11 +13,9 @@ describe("achievement definitions", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("include lv 50/99 milestones for every skill", () => {
-    for (const skill of SKILL_ORDER) {
-      for (const level of [50, 99]) {
-        expect(ACHIEVEMENTS_BY_ID[skillMilestoneId(skill, level)]).toBeDefined();
-      }
+  it("include best-skill milestones at 10/25/50/75/99", () => {
+    for (const level of [10, 25, 50, 75, 99]) {
+      expect(ACHIEVEMENTS_BY_ID[`skills.best${level}`]).toBeDefined();
     }
   });
 
@@ -34,13 +31,14 @@ describe("checkAchievements", () => {
     expect(checkAchievements(state).state).toBe(state);
   });
 
-  it("unlocks skill milestones up to the current level", () => {
+  it("unlocks skill milestones up to the best skill's level", () => {
     const state = fresh();
-    state.skills.foraging.xp = xpForLevel(50);
+    state.skills.foraging.xp = xpForLevel(30);
+    state.skills.mining.xp = xpForLevel(50);
     const { state: next, newlyUnlocked } = checkAchievements(state, 123);
-    expect(newlyUnlocked).toContain(skillMilestoneId("foraging", 50));
-    expect(newlyUnlocked).not.toContain(skillMilestoneId("foraging", 99));
-    expect(next.achievements[skillMilestoneId("foraging", 50)]).toBe(123);
+    expect(newlyUnlocked).toEqual(expect.arrayContaining(["skills.best10", "skills.best25", "skills.best50"]));
+    expect(newlyUnlocked).not.toContain("skills.best75");
+    expect(next.achievements["skills.best50"]).toBe(123);
   });
 
   it("does not re-report an achievement that is already unlocked", () => {

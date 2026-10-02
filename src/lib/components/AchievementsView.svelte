@@ -1,17 +1,14 @@
 <script lang="ts">
   import { Progress } from "$lib/components/ui/progress";
-  import Hint from "./Hint.svelte";
   import {
     ACHIEVEMENTS,
     CATEGORY_LABELS,
     CATEGORY_ORDER,
-    SKILL_MILESTONE_LEVELS,
-    skillMilestoneId,
     type AchievementCategory,
     type AchievementDef,
     unlockedCount,
   } from "$lib/achievements";
-  import { SKILL_ORDER, SKILLS, type SkillId } from "$lib/gameData";
+  import type { SkillId } from "$lib/gameData";
   import type { GameState } from "$lib/gameEngine";
   import { cn } from "$lib/utils";
 
@@ -32,12 +29,6 @@
     for (const def of ACHIEVEMENTS) map.get(def.category)!.push(def);
     return map;
   });
-
-  // Skill milestones render as a compact chip grid; the other "skills"
-  // entries (combos) render as ordinary cards.
-  let skillCombos = $derived(
-    (byCategory.get("skills") ?? []).filter((d) => !d.id.startsWith("skill.")),
-  );
 
   function isUnlocked(id: string): boolean {
     return state.achievements[id] !== undefined;
@@ -69,55 +60,7 @@
     <Progress value={unlocked} max={total} class="h-2" />
   </header>
 
-  <!-- Skill milestones grid -->
-  {#if true}
-    {@const count = categoryCount("skills")}
-    <section class="flex flex-col gap-2">
-      <div class="flex items-baseline justify-between">
-        <h3 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          {CATEGORY_LABELS.skills}
-        </h3>
-        <span class="text-xs tabular-nums text-muted-foreground">{count.done} / {count.total}</span>
-      </div>
-      <div class="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
-        {#each SKILL_ORDER as skillId (skillId)}
-          {@const level = levels[skillId]}
-          <div
-            class="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2"
-          >
-            <div class="min-w-0">
-              <p class="truncate text-sm font-medium">{SKILLS[skillId].name}</p>
-              <p class="text-xs tabular-nums text-muted-foreground">Lv {level}</p>
-            </div>
-            <div class="flex shrink-0 gap-1">
-              {#each SKILL_MILESTONE_LEVELS as milestone (milestone)}
-                {@const done = isUnlocked(skillMilestoneId(skillId, milestone))}
-                <Hint text={`${done ? "✓ " : ""}Reach level ${milestone} in ${SKILLS[skillId].name}`}>
-                  <span
-                    class={cn(
-                      "cursor-help rounded px-1.5 py-0.5 text-xs font-semibold tabular-nums transition-colors",
-                      done
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground/60",
-                    )}
-                  >
-                    {milestone}
-                  </span>
-                </Hint>
-              {/each}
-            </div>
-          </div>
-        {/each}
-      </div>
-      <div class="mt-1 grid grid-cols-1 gap-2 md:grid-cols-2">
-        {#each skillCombos as def (def.id)}
-          {@render achievementCard(def)}
-        {/each}
-      </div>
-    </section>
-  {/if}
-
-  {#each CATEGORY_ORDER.filter((c) => c !== "skills") as cat (cat)}
+  {#each CATEGORY_ORDER as cat (cat)}
     {@const defs = byCategory.get(cat) ?? []}
     {@const count = categoryCount(cat)}
     <section class="flex flex-col gap-2">

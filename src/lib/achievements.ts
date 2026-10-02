@@ -39,23 +39,15 @@ export const CATEGORY_LABELS: Record<AchievementCategory, string> = {
 
 export const CATEGORY_ORDER: AchievementCategory[] = ["skills", "resources", "ages", "army", "combat", "depths", "misc"];
 
-// Levels 10 and 20 arrive within minutes, so per-skill milestones start at 50;
-// Jack of All Trades covers the early game.
-export const SKILL_MILESTONE_LEVELS = [50, 99] as const;
-
-const MILESTONE_ICONS: Record<(typeof SKILL_MILESTONE_LEVELS)[number], string> = {
-  50: "⚔️",
-  99: "👑",
-};
-
-const MILESTONE_TITLES: Record<(typeof SKILL_MILESTONE_LEVELS)[number], string> = {
-  50: "Expert",
-  99: "Grandmaster",
-};
-
-export function skillMilestoneId(skillId: SkillId, level: number): string {
-  return `skill.${skillId}.${level}`;
-}
+// Milestones are for your best skill, whichever it is, rather than one set per
+// skill; Jack of All Trades rewards breadth.
+const SKILL_MILESTONES: { level: number; name: string; icon: string }[] = [
+  { level: 10, name: "Apprentice", icon: "🌱" },
+  { level: 25, name: "Journeyman", icon: "🔨" },
+  { level: 50, name: "Expert", icon: "⚔️" },
+  { level: 75, name: "Master", icon: "🎖️" },
+  { level: 99, name: "Grandmaster", icon: "👑" },
+];
 
 const AGE_ICONS: Record<AgeId, string> = {
   stoneAge: "🪨",
@@ -112,17 +104,19 @@ function ownedUpgrades(state: GameState): number {
   return SKILL_ORDER.reduce((sum, id) => sum + state.skills[id].upgrades.length, 0);
 }
 
-const skillMilestones: AchievementDef[] = SKILL_ORDER.flatMap((skillId) =>
-  SKILL_MILESTONE_LEVELS.map((level) => ({
-    id: skillMilestoneId(skillId, level),
-    name: `${SKILLS[skillId].name} ${MILESTONE_TITLES[level]}`,
-    description: `Reach level ${level} in ${SKILLS[skillId].name}.`,
-    icon: MILESTONE_ICONS[level],
-    category: "skills" as const,
-    check: (_state, levels) => levels[skillId] >= level,
-    progress: (_state, levels) => ({ current: Math.min(levels[skillId], level), target: level }),
-  })),
-);
+function bestLevel(levels: Record<SkillId, number>): number {
+  return Math.max(0, ...SKILL_ORDER.map((id) => levels[id]));
+}
+
+const skillMilestones: AchievementDef[] = SKILL_MILESTONES.map((m) => ({
+  id: `skills.best${m.level}`,
+  name: m.name,
+  description: `Reach level ${m.level} in any skill.`,
+  icon: m.icon,
+  category: "skills" as const,
+  check: (_state, levels) => bestLevel(levels) >= m.level,
+  progress: (_state, levels) => ({ current: Math.min(bestLevel(levels), m.level), target: m.level }),
+}));
 
 const skillCombos: AchievementDef[] = [
   {
@@ -133,24 +127,6 @@ const skillCombos: AchievementDef[] = [
     category: "skills",
     check: (_s, levels) => countAt(levels, 10) === SKILL_ORDER.length,
     progress: (_s, levels) => ({ current: countAt(levels, 10), target: SKILL_ORDER.length }),
-  },
-  {
-    id: "skills.allFifty",
-    name: "Renaissance Polymath",
-    description: "Reach level 50 in every skill.",
-    icon: "📚",
-    category: "skills",
-    check: (_s, levels) => countAt(levels, 50) === SKILL_ORDER.length,
-    progress: (_s, levels) => ({ current: countAt(levels, 50), target: SKILL_ORDER.length }),
-  },
-  {
-    id: "skills.allMax",
-    name: "Master of All",
-    description: "Reach level 99 in every skill. Touch grass.",
-    icon: "🏆",
-    category: "skills",
-    check: (_s, levels) => countAt(levels, 99) === SKILL_ORDER.length,
-    progress: (_s, levels) => ({ current: countAt(levels, 99), target: SKILL_ORDER.length }),
   },
   {
     id: "skills.nice",
