@@ -353,13 +353,11 @@ const combatAchievements: AchievementDef[] = [
   },
 ];
 
-// Under current tuning a maxed 10-star party stalls around depth 60, so the
-// 100 tier needs Depths rebalanced before it can be earned.
+// A maxed 10-star party stalls around depth 60, so 50 is the top goal.
 const DEPTHS_TIERS: { cleared: number; id: string; name: string; icon: string }[] = [
   { cleared: 10, id: "depths.ten", name: "Spelunker", icon: "🔦" },
   { cleared: 25, id: "depths.twentyFive", name: "Going Down?", icon: "🛗" },
   { cleared: 50, id: "depths.fifty", name: "Diggy Diggy Hole", icon: "⛏️" },
-  { cleared: 100, id: "depths.hundred", name: "They Delved Too Greedily", icon: "🔥" },
 ];
 
 const depthsAchievements: AchievementDef[] = DEPTHS_TIERS.map((tier) => ({

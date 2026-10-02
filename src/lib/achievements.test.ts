@@ -126,8 +126,8 @@ describe("depths achievements", () => {
     unlocked = checkAchievements(state).newlyUnlocked;
     expect(unlocked).toContain("depths.twentyFive");
     expect(unlocked).not.toContain("depths.fifty");
-    state.gacha.depths.level = 101;
-    expect(checkAchievements(state).newlyUnlocked).toContain("depths.hundred");
+    state.gacha.depths.level = 51;
+    expect(checkAchievements(state).newlyUnlocked).toContain("depths.fifty");
   });
 });
 
