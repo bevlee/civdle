@@ -14,9 +14,9 @@ describe("achievement definitions", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("include lv 10/20/50/99 milestones for every skill", () => {
+  it("include lv 50/99 milestones for every skill", () => {
     for (const skill of SKILL_ORDER) {
-      for (const level of [10, 20, 50, 99]) {
+      for (const level of [50, 99]) {
         expect(ACHIEVEMENTS_BY_ID[skillMilestoneId(skill, level)]).toBeDefined();
       }
     }
@@ -36,17 +36,16 @@ describe("checkAchievements", () => {
 
   it("unlocks skill milestones up to the current level", () => {
     const state = fresh();
-    state.skills.foraging.xp = xpForLevel(20);
+    state.skills.foraging.xp = xpForLevel(50);
     const { state: next, newlyUnlocked } = checkAchievements(state, 123);
-    expect(newlyUnlocked).toContain(skillMilestoneId("foraging", 10));
-    expect(newlyUnlocked).toContain(skillMilestoneId("foraging", 20));
-    expect(newlyUnlocked).not.toContain(skillMilestoneId("foraging", 50));
-    expect(next.achievements[skillMilestoneId("foraging", 10)]).toBe(123);
+    expect(newlyUnlocked).toContain(skillMilestoneId("foraging", 50));
+    expect(newlyUnlocked).not.toContain(skillMilestoneId("foraging", 99));
+    expect(next.achievements[skillMilestoneId("foraging", 50)]).toBe(123);
   });
 
   it("does not re-report an achievement that is already unlocked", () => {
     const state = fresh();
-    state.skills.foraging.xp = xpForLevel(10);
+    state.skills.foraging.xp = xpForLevel(50);
     const first = checkAchievements(state);
     const second = checkAchievements(first.state);
     expect(second.newlyUnlocked).toEqual([]);

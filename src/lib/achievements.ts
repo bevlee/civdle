@@ -39,18 +39,16 @@ export const CATEGORY_LABELS: Record<AchievementCategory, string> = {
 
 export const CATEGORY_ORDER: AchievementCategory[] = ["skills", "resources", "ages", "army", "combat", "depths", "misc"];
 
-export const SKILL_MILESTONE_LEVELS = [10, 20, 50, 99] as const;
+// Levels 10 and 20 arrive within minutes, so per-skill milestones start at 50;
+// Jack of All Trades covers the early game.
+export const SKILL_MILESTONE_LEVELS = [50, 99] as const;
 
 const MILESTONE_ICONS: Record<(typeof SKILL_MILESTONE_LEVELS)[number], string> = {
-  10: "🌱",
-  20: "🔨",
   50: "⚔️",
   99: "👑",
 };
 
 const MILESTONE_TITLES: Record<(typeof SKILL_MILESTONE_LEVELS)[number], string> = {
-  10: "Apprentice",
-  20: "Journeyman",
   50: "Expert",
   99: "Grandmaster",
 };
