@@ -353,25 +353,23 @@ const combatAchievements: AchievementDef[] = [
   },
 ];
 
-// A maxed 10-star party stalls around depth 60, so 50 is the top goal.
+// Under current tuning a maxed 10-star party stalls around depth 60, so the
+// 100 tier needs Depths rebalanced before it can be earned.
 const DEPTHS_TIERS: { cleared: number; id: string; name: string; icon: string }[] = [
-  { cleared: 1, id: "depths.first", name: "Spelunker", icon: "🔦" },
-  { cleared: 10, id: "depths.ten", name: "Going Down?", icon: "🛗" },
-  { cleared: 25, id: "depths.twentyFive", name: "Diggy Diggy Hole", icon: "⛏️" },
-  { cleared: 50, id: "depths.fifty", name: "They Delved Too Greedily", icon: "🔥" },
+  { cleared: 10, id: "depths.ten", name: "Spelunker", icon: "🔦" },
+  { cleared: 25, id: "depths.twentyFive", name: "Going Down?", icon: "🛗" },
+  { cleared: 50, id: "depths.fifty", name: "Diggy Diggy Hole", icon: "⛏️" },
+  { cleared: 100, id: "depths.hundred", name: "They Delved Too Greedily", icon: "🔥" },
 ];
 
 const depthsAchievements: AchievementDef[] = DEPTHS_TIERS.map((tier) => ({
   id: tier.id,
   name: tier.name,
-  description: tier.cleared === 1 ? "Clear your first depth." : `Clear ${tier.cleared} depths.`,
+  description: `Clear ${tier.cleared} depths.`,
   icon: tier.icon,
   category: "depths" as const,
   check: (s) => depthsCleared(s) >= tier.cleared,
-  progress:
-    tier.cleared === 1
-      ? undefined
-      : (s) => ({ current: Math.min(depthsCleared(s), tier.cleared), target: tier.cleared }),
+  progress: (s) => ({ current: Math.min(depthsCleared(s), tier.cleared), target: tier.cleared }),
 }));
 
 const miscAchievements: AchievementDef[] = [

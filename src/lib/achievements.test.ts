@@ -120,12 +120,14 @@ describe("depths achievements", () => {
     const state = fresh();
     state.gacha.depths.level = 25; // fighting depth 25, 24 cleared
     let unlocked = checkAchievements(state).newlyUnlocked;
-    expect(unlocked).toEqual(expect.arrayContaining(["depths.first", "depths.ten"]));
+    expect(unlocked).toContain("depths.ten");
     expect(unlocked).not.toContain("depths.twentyFive");
     state.gacha.depths.level = 26;
     unlocked = checkAchievements(state).newlyUnlocked;
     expect(unlocked).toContain("depths.twentyFive");
     expect(unlocked).not.toContain("depths.fifty");
+    state.gacha.depths.level = 101;
+    expect(checkAchievements(state).newlyUnlocked).toContain("depths.hundred");
   });
 });
 
