@@ -66,7 +66,7 @@ import {
 import { TOTAL_TUTORIAL_STEPS } from "./tutorial";
 import { movePartyCard } from "./party";
 import { EventQueue, type QueuedEvent } from "./eventQueue.svelte";
-import { checkAchievements, checkAchievementMilestones } from "./achievements";
+import { checkAchievements, checkAchievementMilestones, isLateNight } from "./achievements";
 import { timeline } from "./combatAnimation";
 import { untrack } from "svelte";
 import type { SettlementUpgradeId } from "./settlementData";
@@ -455,6 +455,13 @@ export class CivdleGame {
           ...nextState,
           activeSkill: null,
           stats: { ...nextState.stats, outOfMaterials: nextState.stats.outOfMaterials + 1 },
+        };
+      }
+
+      if (isLateNight(new Date())) {
+        nextState = {
+          ...nextState,
+          stats: { ...nextState.stats, lateNightActions: nextState.stats.lateNightActions + 1 },
         };
       }
 

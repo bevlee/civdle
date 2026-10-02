@@ -8,7 +8,7 @@ import { AGES, RESOURCES, SKILLS, SKILL_ORDER, type AgeId, type ResourceId, type
 import { getSkillLevels, type GameState } from "./gameEngine";
 import { MAX_ENEMY_LEVEL, MAX_STARS, UNIT_IDS } from "./combatData";
 
-export type AchievementCategory = "skills" | "resources" | "ages" | "army" | "combat" | "misc";
+export type AchievementCategory = "skills" | "resources" | "ages" | "army" | "combat" | "depths" | "misc";
 
 export interface AchievementProgress {
   current: number;
@@ -33,10 +33,11 @@ export const CATEGORY_LABELS: Record<AchievementCategory, string> = {
   ages: "Ages",
   army: "Army",
   combat: "Combat",
+  depths: "The Depths",
   misc: "Miscellaneous",
 };
 
-export const CATEGORY_ORDER: AchievementCategory[] = ["skills", "resources", "ages", "army", "combat", "misc"];
+export const CATEGORY_ORDER: AchievementCategory[] = ["skills", "resources", "ages", "army", "combat", "depths", "misc"];
 
 export const SKILL_MILESTONE_LEVELS = [10, 20, 50, 99] as const;
 
@@ -93,6 +94,16 @@ function distinctUnits(state: GameState): number {
 
 function bestStars(state: GameState): number {
   return state.gacha.cards.reduce((best, c) => Math.max(best, c.stars), 0);
+}
+
+function depthsCleared(state: GameState): number {
+  return state.gacha.depths.level - 1;
+}
+
+/** 2am up to (not including) 5am, local time. */
+export function isLateNight(date: Date): boolean {
+  const hour = date.getHours();
+  return hour >= 2 && hour < 5;
 }
 
 function totalUpgrades(): number {
@@ -342,6 +353,27 @@ const combatAchievements: AchievementDef[] = [
   },
 ];
 
+// A maxed 10-star party stalls around depth 60, so 50 is the top goal.
+const DEPTHS_TIERS: { cleared: number; id: string; name: string; icon: string }[] = [
+  { cleared: 1, id: "depths.first", name: "Spelunker", icon: "🔦" },
+  { cleared: 10, id: "depths.ten", name: "Going Down?", icon: "🛗" },
+  { cleared: 25, id: "depths.twentyFive", name: "Diggy Diggy Hole", icon: "⛏️" },
+  { cleared: 50, id: "depths.fifty", name: "They Delved Too Greedily", icon: "🔥" },
+];
+
+const depthsAchievements: AchievementDef[] = DEPTHS_TIERS.map((tier) => ({
+  id: tier.id,
+  name: tier.name,
+  description: tier.cleared === 1 ? "Clear your first depth." : `Clear ${tier.cleared} depths.`,
+  icon: tier.icon,
+  category: "depths" as const,
+  check: (s) => depthsCleared(s) >= tier.cleared,
+  progress:
+    tier.cleared === 1
+      ? undefined
+      : (s) => ({ current: Math.min(depthsCleared(s), tier.cleared), target: tier.cleared }),
+}));
+
 const miscAchievements: AchievementDef[] = [
   {
     id: "misc.helloWorld",
@@ -367,6 +399,15 @@ const miscAchievements: AchievementDef[] = [
     icon: "🌙",
     category: "misc",
     check: (s) => s.stats.bestOfflineHaul >= 500,
+  },
+  {
+    id: "misc.oneMoreTurn",
+    name: "Just One More Turn",
+    description: "Still training between 2am and 5am. Go to bed.",
+    icon: "🕒",
+    category: "misc",
+    hidden: true,
+    check: (s) => s.stats.lateNightActions >= 1,
   },
   {
     id: "misc.supplyChain",
@@ -404,6 +445,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   ...ageAchievements,
   ...armyAchievements,
   ...combatAchievements,
+  ...depthsAchievements,
   ...miscAchievements,
 ];
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID, checkAchievements, skillMilestoneId, unlockedCount } from "./achievements";
+import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID, checkAchievements, isLateNight, skillMilestoneId, unlockedCount } from "./achievements";
 import { createInitialState, xpForLevel, type GameState } from "./gameEngine";
 import { SKILL_ORDER } from "./gameData";
 import { createCard } from "./combatData";
@@ -112,6 +112,35 @@ describe("checkAchievements", () => {
     const state = fresh();
     state.stats.outOfMaterials = 1;
     expect(checkAchievements(state).newlyUnlocked).toContain("misc.supplyChain");
+  });
+});
+
+describe("depths achievements", () => {
+  it("unlock by depths cleared, not the depth being fought", () => {
+    const state = fresh();
+    state.gacha.depths.level = 25; // fighting depth 25, 24 cleared
+    let unlocked = checkAchievements(state).newlyUnlocked;
+    expect(unlocked).toEqual(expect.arrayContaining(["depths.first", "depths.ten"]));
+    expect(unlocked).not.toContain("depths.twentyFive");
+    state.gacha.depths.level = 26;
+    unlocked = checkAchievements(state).newlyUnlocked;
+    expect(unlocked).toContain("depths.twentyFive");
+    expect(unlocked).not.toContain("depths.fifty");
+  });
+});
+
+describe("Just One More Turn", () => {
+  it("counts 2am up to but not including 5am", () => {
+    expect(isLateNight(new Date(2026, 0, 1, 1, 59))).toBe(false);
+    expect(isLateNight(new Date(2026, 0, 1, 2, 0))).toBe(true);
+    expect(isLateNight(new Date(2026, 0, 1, 4, 59))).toBe(true);
+    expect(isLateNight(new Date(2026, 0, 1, 5, 0))).toBe(false);
+  });
+
+  it("unlocks after one late-night action", () => {
+    const state = fresh();
+    state.stats.lateNightActions = 1;
+    expect(checkAchievements(state).newlyUnlocked).toContain("misc.oneMoreTurn");
   });
 });
 

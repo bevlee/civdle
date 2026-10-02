@@ -174,6 +174,17 @@ it("emits one managed gain toast per training action without orphaned resource e
   expect(game.state.stats.actions).toBe(100);
 });
 
+it("counts live training actions finished between 2am and 5am", () => {
+  vi.setSystemTime(new Date(2026, 0, 1, 1, 0, 0));
+  game.startTraining("foraging");
+  while (game.state.stats.actions < 1) vi.advanceTimersToNextTimer();
+  expect(game.state.stats.lateNightActions).toBe(0);
+  vi.setSystemTime(new Date(2026, 0, 1, 3, 0, 0));
+  while (game.state.stats.actions < 2) vi.advanceTimersToNextTimer();
+  game.stopTraining();
+  expect(game.state.stats.lateNightActions).toBe(1);
+});
+
 it("prices summons at 10 Tribute and a 10-pack at 90", () => {
   expect(GACHA_COST).toBe(10);
   expect(PACK_COST).toBe(90);

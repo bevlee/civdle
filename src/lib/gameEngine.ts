@@ -74,6 +74,8 @@ export interface GameStats {
   merges: number;
   cardsDiscarded: number;
   bestOfflineHaul: number;
+  /** Actions finished during live play between 2am and 5am local time. */
+  lateNightActions: number;
 }
 
 export function createInitialStats(): GameStats {
@@ -89,6 +91,7 @@ export function createInitialStats(): GameStats {
     merges: 0,
     cardsDiscarded: 0,
     bestOfflineHaul: 0,
+    lateNightActions: 0,
   };
 }
 
