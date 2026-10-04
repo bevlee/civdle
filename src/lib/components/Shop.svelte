@@ -28,6 +28,8 @@
     cost: number;
     owned: boolean;
     canBuy: boolean;
+    /** Skill level the upgrade still waits for. */
+    lockedUntil: number | null;
     buy: () => void;
   }
 
@@ -52,6 +54,7 @@
           cost: u.cost,
           owned: state.globalUpgrades.includes(u.id),
           canBuy: canBuyGlobalUpgrade(state, u.id),
+          lockedUntil: null,
           buy: () => onBuyGlobal(u.id),
         })),
       });
@@ -63,15 +66,19 @@
         id: skillId,
         name: `${SKILLS[skillId].name} · Lv ${levels[skillId]}`,
         mastery: false,
-        rows: SKILLS[skillId].upgrades.map((u) => ({
-          id: u.id,
-          name: u.name,
-          description: u.description,
-          cost: u.cost,
-          owned: owned.includes(u.id),
-          canBuy: !owned.includes(u.id) && state.skillPoints >= u.cost,
-          buy: () => onBuy(skillId, u.id),
-        })),
+        rows: SKILLS[skillId].upgrades.map((u) => {
+          const lockedUntil = levels[skillId] < (u.requiredLevel ?? 0) ? u.requiredLevel! : null;
+          return {
+            id: u.id,
+            name: u.name,
+            description: u.description,
+            cost: u.cost,
+            owned: owned.includes(u.id),
+            canBuy: !owned.includes(u.id) && lockedUntil === null && state.skillPoints >= u.cost,
+            lockedUntil,
+            buy: () => onBuy(skillId, u.id),
+          };
+        }),
       });
     }
     return out;
@@ -151,13 +158,20 @@
       >
         {#each group.rows as row (row.id)}
           <li class="flex min-h-15 items-center gap-3 border-b border-border/60 py-2 pr-2 pl-3.5 last:border-b-0">
-            <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span class={cn("flex min-w-0 flex-1 flex-col gap-0.5", row.lockedUntil !== null && "opacity-60")}>
               <span class={cn("text-[15px] font-semibold", row.owned && "text-muted-foreground")}>{row.name}</span>
               <span class="text-[13px] leading-snug text-pretty text-muted-foreground">{row.description}</span>
             </span>
             {#if row.owned}
               <span class="flex h-10 min-w-19 shrink-0 items-center justify-center px-3 text-sm font-semibold text-emerald-400">
                 Owned
+              </span>
+            {:else if row.lockedUntil !== null}
+              <span
+                class="flex h-10 min-w-19 shrink-0 items-center justify-center gap-1 px-3 text-sm font-semibold whitespace-nowrap text-muted-foreground"
+                aria-label={`Unlocks at level ${row.lockedUntil}`}
+              >
+                <span aria-hidden="true">🔒</span> Lv {row.lockedUntil}
               </span>
             {:else}
               <button

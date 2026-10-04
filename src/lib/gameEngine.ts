@@ -340,7 +340,6 @@ interface ActionEffects {
   refundChance: number;
   xpMult: number;
   byproducts: ChancedOutput[];
-  outputLevelOverrides: Partial<Record<ResourceId, number>>;
   timeModifiers: Modifier[];
   xpModifiers: Modifier[];
 }
@@ -399,11 +398,6 @@ function foldUpgrade(effects: ActionEffects, upgrade: SkillUpgrade, isDebug = fa
       case "byproduct":
         effects.byproducts.push({ resource: e.resource, amount: e.amount, chance: e.chance ?? 1 });
         break;
-      case "outputLevel": {
-        const current = effects.outputLevelOverrides[e.resource];
-        effects.outputLevelOverrides[e.resource] = current === undefined ? e.level : Math.min(current, e.level);
-        break;
-      }
     }
   }
 }
@@ -423,7 +417,6 @@ function getActionEffects(skillId: SkillId, owned: string[], ageIndex: number, g
     refundChance: 0,
     xpMult: 1,
     byproducts: [],
-    outputLevelOverrides: {},
     timeModifiers: [],
     xpModifiers: [],
   };
@@ -458,16 +451,8 @@ function ageIndexOf(id: AgeId): number {
   return AGES.findIndex((a) => a.id === id);
 }
 
-function isOutputActive(
-  o: ConditionalOutput,
-  level: number,
-  ageIndex: number,
-  levelOverrides: Partial<Record<ResourceId, number>>,
-): boolean {
-  const override = levelOverrides[o.resource];
-  const effectiveLevelRequired =
-    override !== undefined && o.levelRequired !== undefined ? Math.min(override, o.levelRequired) : o.levelRequired;
-  if (effectiveLevelRequired !== undefined && level < effectiveLevelRequired) return false;
+function isOutputActive(o: ConditionalOutput, level: number, ageIndex: number): boolean {
+  if (o.levelRequired !== undefined && level < o.levelRequired) return false;
   if (o.ageRequired !== undefined && ageIndex < ageIndexOf(o.ageRequired)) return false;
   return true;
 }
@@ -477,16 +462,11 @@ function isOutputActive(
 function resolveOutputs(
   outputs: ConditionalOutput[],
   level: number,
-  ageIndex: number,
-  levelOverrides: Partial<Record<ResourceId, number>>
+  ageIndex: number
 ): ResourceAmount[] {
   const merged: ResourceAmount[] = [];
-  const seen = new Set<ResourceId>();
   for (const o of outputs) {
-    // An outputLevel effect moves a resource's first entry earlier; its level milestones stay put.
-    const overrides = seen.has(o.resource) ? {} : levelOverrides;
-    seen.add(o.resource);
-    if (!isOutputActive(o, level, ageIndex, overrides)) continue;
+    if (!isOutputActive(o, level, ageIndex)) continue;
     const existing = merged.find((m) => m.resource === o.resource);
     if (existing) existing.amount += o.amount;
     else merged.push({ resource: o.resource, amount: o.amount });
@@ -508,7 +488,7 @@ export interface LockedOutput {
 export function getLockedOutputs(recipe: Recipe, level: number, ageIndex: number): LockedOutput[] {
   const locked: LockedOutput[] = [];
   recipe.outputs.forEach((o, i) => {
-    if (isOutputActive(o, level, ageIndex, {})) return;
+    if (isOutputActive(o, level, ageIndex)) return;
     const ageLocked = o.ageRequired !== undefined && ageIndex < ageIndexOf(o.ageRequired);
     const isRepeat = recipe.outputs.slice(0, i).some((prev) => prev.resource === o.resource);
     if (isRepeat && ageLocked) return;
@@ -574,7 +554,7 @@ export function computeActionResult(
   const scaledBaseXp = Math.round(XP_PER_ACTION * Math.pow(XP_SCALING_RATE, level));
   const xp = Math.round(scaledBaseXp * effects.xpMult);
 
-  const outputs = resolveOutputs(recipe.outputs, level, ageIndex, effects.outputLevelOverrides).map((o, i) => {
+  const outputs = resolveOutputs(recipe.outputs, level, ageIndex).map((o, i) => {
     let amount = o.amount + (effects.outputBonuses[o.resource] ?? 0);
     if (i === 0) amount += effects.primaryOutputBonus;
     return { resource: o.resource, amount: amount * effects.outputMult };

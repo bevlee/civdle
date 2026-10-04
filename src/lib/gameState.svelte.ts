@@ -36,6 +36,7 @@ import {
   getSkillLevels,
   getTreasuryMultiplier,
   hasMaxedSkill,
+  levelForXp,
   migrateUpgradeIds,
   processOfflineProgress,
 } from "./gameEngine";
@@ -634,7 +635,12 @@ export class CivdleGame {
     const def = SKILLS[skillId];
     const upgrade = def.upgrades.find((u) => u.id === upgradeId);
     const skillState = this.state.skills[skillId];
-    if (!upgrade || skillState.upgrades.includes(upgradeId) || this.state.skillPoints < upgrade.cost) {
+    if (
+      !upgrade ||
+      skillState.upgrades.includes(upgradeId) ||
+      this.state.skillPoints < upgrade.cost ||
+      levelForXp(skillState.xp) < (upgrade.requiredLevel ?? 0)
+    ) {
       return;
     }
     this.state = {

@@ -112,28 +112,19 @@ describe("outputs", () => {
     expect(r?.outputs).toEqual([{ resource: "rawFish", amount: 2 }]);
   });
 
-  it("lowers a conditional output's level with an outputLevel effect", () => {
-    const without = computeActionResult("woodcutting", 5, [], 0, "chopWood");
-    const withUpgrade = computeActionResult("woodcutting", 5, ["timberExpert"], 0, "chopWood");
-    expect(without?.outputs.map((o) => o.resource)).toEqual(["wood"]);
-    expect(withUpgrade?.outputs.map((o) => o.resource)).toContain("logs");
+  it("Timber Expert yields a Log every chop, even before Logs unlock", () => {
+    const early = computeActionResult("woodcutting", 5, ["timberExpert"], 0, "chopWood");
+    expect(early?.outputs).toEqual([
+      { resource: "wood", amount: 1 },
+      { resource: "logs", amount: 1 },
+    ]);
+    const late = computeActionResult("woodcutting", 20, ["timberExpert"], 0, "chopWood");
+    expect(late?.outputs).toContainEqual({ resource: "logs", amount: 3 });
   });
 
-  it("an outputLevel effect does not pull level-milestone repeats earlier", () => {
-    const upgrades = SKILLS.mining.upgrades;
-    upgrades.push({
-      id: "testOre",
-      name: "Test",
-      cost: 0,
-      description: "",
-      effects: [{ type: "outputLevel", resource: "copperOre", level: 1 }],
-    });
-    try {
-      const r = computeActionResult("mining", 10, ["testOre"], 1, "mineStone");
-      expect(r?.outputs.find((o) => o.resource === "copperOre")?.amount).toBe(1);
-    } finally {
-      upgrades.pop();
-    }
+  it("Bountiful Harvest yields Clay every forage", () => {
+    const r = computeActionResult("foraging", 1, ["bountifulHarvest"], 0, "forage");
+    expect(r?.outputs).toContainEqual({ resource: "clay", amount: 1 });
   });
 
   it("adds a flat primary-output bonus to crafting recipes", () => {
@@ -275,15 +266,23 @@ describe("mastery (global) upgrades", () => {
 });
 
 describe("upgrade data", () => {
-  it("gives every non-combat skill three upgrades with at least one effect each", () => {
+  it("gives every non-combat skill six upgrades with at least one effect each", () => {
     for (const id of SKILL_ORDER) {
       if (SKILLS[id].category === "combat") {
         expect(SKILLS[id].upgrades, id).toEqual([]);
         continue;
       }
       const ups = SKILLS[id].upgrades;
-      expect(ups, id).toHaveLength(3);
+      expect(ups, id).toHaveLength(6);
       for (const u of ups) expect(u.effects.length, `${id}/${u.id}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("gates the last three upgrades of each skill behind rising levels", () => {
+    for (const id of SKILL_ORDER) {
+      const levels = SKILLS[id].upgrades.slice(3).map((u) => u.requiredLevel);
+      if (levels.length === 0) continue;
+      expect(levels, id).toEqual([15, 30, 50]);
     }
   });
 

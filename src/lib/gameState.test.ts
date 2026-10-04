@@ -560,3 +560,18 @@ describe("startTraining with a recipe", () => {
     expect(game.state.activeSkill).toBe("foraging");
   });
 });
+
+describe("level-gated skill upgrades", () => {
+  it("can't be bought until the skill reaches the required level", () => {
+    game.state.skillPoints = 100;
+    game.state.skills.foraging.xp = xpForLevel(14);
+    game.buyUpgrade("foraging", "wildSeeds");
+    expect(game.state.skills.foraging.upgrades).not.toContain("wildSeeds");
+    expect(game.state.skillPoints).toBe(100);
+
+    game.state.skills.foraging.xp = xpForLevel(15);
+    game.buyUpgrade("foraging", "wildSeeds");
+    expect(game.state.skills.foraging.upgrades).toContain("wildSeeds");
+    expect(game.state.skillPoints).toBe(90);
+  });
+});
