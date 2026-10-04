@@ -131,7 +131,7 @@ const skillCombos: AchievementDef[] = [
   {
     id: "skills.nice",
     name: "Nice.",
-    description: "Have a skill sitting at exactly level 69.",
+    description: "Have a skill at level 69.",
     icon: "😏",
     category: "skills",
     hidden: true,
