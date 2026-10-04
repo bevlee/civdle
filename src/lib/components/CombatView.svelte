@@ -206,6 +206,11 @@
     if (auto) game.startDepthsFight();
   }
 
+  function summonAfterDefeat() {
+    game.dismissBattle();
+    summonOpen = true;
+  }
+
   $effect(() => {
     game.battleMuted;
     game.battleAudio.setMusicPlaying(isPlaying && !game.battlePaused);
@@ -372,11 +377,16 @@
               <p class="result-eyebrow">{mode === "story" ? `Level ${gacha.storyLevel}` : `Depth ${gacha.depths.level}`}</p>
               <span class="result-label">{battle?.status === "won" ? "Victory!" : "Defeated"}</span>
               {#if battle?.status === "won"}
-                <span class="result-detail">{mode === "story" ? storyRewardText : `Depth ${gacha.depths.level} cleared`}</span>
+                {#if mode === "story"}<span class="result-detail">{storyRewardText}</span>{/if}
               {:else}
-                <span class="result-detail">Adjust your formation and try again.</span>
+                <span class="result-detail">Adjust your formation or summon more heroes.</span>
               {/if}
-              <Button size="sm" class="max-md:mt-1 max-md:h-11 max-md:rounded-xl max-md:px-5 max-md:text-[15px] max-md:font-semibold" onclick={continueBattle}>Continue <span aria-hidden="true">→</span></Button>
+              <div class="result-actions">
+                {#if battle?.status === "lost"}
+                  <Button size="sm" class="summon-cta max-md:h-11 max-md:rounded-xl max-md:px-5 max-md:text-[15px] max-md:font-semibold" aria-haspopup="dialog" onclick={summonAfterDefeat}>Summon</Button>
+                {/if}
+                <Button size="sm" class="max-md:h-11 max-md:rounded-xl max-md:px-5 max-md:text-[15px] max-md:font-semibold" onclick={continueBattle}>Continue <span aria-hidden="true">→</span></Button>
+              </div>
               {#if mode === "depths" && gacha.depths.auto}
                 <button class="stop-auto" onclick={() => game.setDepthsAuto(false)}>Auto continuing · Stop auto</button>
               {/if}
@@ -519,6 +529,9 @@
   .battle-result-content.win .result-label { color: #9fca98; }
   .battle-result-content.lose .result-label { color: #cf6b62; }
   .result-detail { font-size: 21px; color: #aaa; }
+  .result-actions { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 4px; }
+  .battle-result-content :global(.summon-cta) { background: #d9b66d; color: #1a1408; }
+  .battle-result-content :global(.summon-cta:hover) { background: #e6c47c; }
   @keyframes result-fade-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
   /* Just the ultimate's name, over the VS and clear of the trait chips (the log has the details). */
   .ultimate-overlay { position: absolute; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; pointer-events: none; }
@@ -545,6 +558,16 @@
     .battle-stage { flex: 1; min-height: 0; height: auto; container: desk-stage / size; }
     .formation { --unit-h: 106px; }
     .field-position { top: calc((var(--position) - 1) * (100% - var(--unit-h)) / 4); }
+    /* A short stage (laptop-height windows): a compact result card, actions side by side. */
+    @container desk-stage (max-height: 320px) {
+      .battle-result-content { gap: 4px; padding: 10px 20px; max-width: calc(100% - 16px); text-align: center; }
+      .result-emblem { display: none; }
+      .result-eyebrow { font-size: 12px; }
+      .result-label { font-size: 26px; }
+      .result-detail { font-size: 15px; }
+      .result-actions { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+      .stop-auto { font-size: 14px; }
+    }
     .battle-sidebar { min-height: 0; overflow-y: auto; }
     .army-dock { flex: none; }
     /* The placing hint only while the party is empty (as on phones). */
