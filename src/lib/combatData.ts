@@ -144,7 +144,7 @@ export interface AttackTypeDef {
 }
 
 export const ATTACK_TYPES: Record<AttackType, AttackTypeDef> = {
-  melee: { id: "melee", name: "Melee", icon: "⚔", beats: "ranged", weakTo: "magic", blurb: "Closes the gap on ranged units." },
+  melee: { id: "melee", name: "Melee", icon: "🗡️", beats: "ranged", weakTo: "magic", blurb: "Closes the gap on ranged units." },
   ranged: { id: "ranged", name: "Ranged", icon: "🏹", beats: "magic", weakTo: "melee", blurb: "Picks off spellcasters from afar." },
   magic: { id: "magic", name: "Magic", icon: "✨", beats: "melee", weakTo: "ranged", blurb: "Tears through armoured brutes." },
 };

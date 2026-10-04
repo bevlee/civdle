@@ -16,6 +16,7 @@
     class: className,
     contentClass,
     disabled = false,
+    portalTo,
     children,
     trigger,
   }: {
@@ -26,6 +27,11 @@
     class?: string;
     contentClass?: string;
     disabled?: boolean;
+    /**
+     * Where the card mounts. Inside a native modal <dialog>, pass the dialog: the top layer hides
+     * anything outside it. The card is then positioned against the viewport so the dialog's scroll box can't clip it.
+     */
+    portalTo?: string | HTMLElement;
     children?: Snippet;
     /** Renders the trigger element itself; `props` are the tooltip's (empty when there is no hint). */
     trigger?: Snippet<[{ props: Record<string, unknown> }]>;
@@ -68,8 +74,7 @@
           </span>
         {/if}
       {/snippet}
-    </Tooltip.Trigger>
-    <Tooltip.Content {side} class={contentClass}>
+    </Tooltip.Trigger><!-- No gap: a whitespace node here would put a space after inline triggers. --><Tooltip.Content {side} class={contentClass} portalProps={portalTo ? { to: portalTo } : undefined} strategy={portalTo ? "fixed" : undefined}>
       {#if title}<p class="font-semibold">{title}</p>{/if}
       {#if text}<p class={title ? "text-muted-foreground" : undefined}>{text}</p>{/if}
       {@render content?.()}

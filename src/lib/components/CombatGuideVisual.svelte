@@ -5,6 +5,8 @@
   import UnitCard from "./UnitCard.svelte";
   import HeroStats from "./HeroStats.svelte";
   import Sprite from "./Sprite.svelte";
+  import GuideText from "./GuideText.svelte";
+  import { ATTACK_ORDER } from "$lib/position";
 
   let { topic, page }: { topic: string; page: number } = $props();
   let attackType = $state<AttackType>("melee");
@@ -35,13 +37,35 @@
         </div>
       {/each}
     </div>
-    <figcaption>Reverse an arrow for a weak hit (×0.75). The hero’s type determines the matchup.</figcaption>
-  {:else if topic === "positions" || topic === "attacks" || topic === "ready"}
-    {#if topic === "attacks"}
+    <figcaption><GuideText text="Reverse an arrow for a weak hit (×0.75). The hero’s type determines the matchup." /></figcaption>
+  {:else if topic === "attacks"}
+    <!-- One mini battlefield per hit: everyone the earlier hits defeated is crossed out, the next target is highlighted. -->
+    <ol class="sequence">
+      {#each ATTACK_ORDER as target, hit}
+        {@const defeated: number[] = ATTACK_ORDER.slice(0, hit)}
+        <li>
+          <p>Hit {hit + 1}</p>
+          <div class="mini-formation" aria-hidden="true">
+            {#each formation as slot}
+              {@const front = [2, 4].includes(slot.position)}
+              <div class="mini-slot" class:targeted={slot.position === target} class:defeated={defeated.includes(slot.position)}
+                style:grid-column={front ? 2 : 1} style:grid-row={`${slot.position} / span 2`}>
+                <Sprite unitId={slot.unitId} class="h-8" /><span>{slot.position}</span>
+              </div>
+            {/each}
+          </div>
+          <small>{target} · {UNITS[formation.find(slot => slot.position === target)!.unitId].name}</small>
+        </li>
+      {/each}
+    </ol>
+    <figcaption><GuideText text="Each panel is the next basic attack after the previous target falls. Back row on the left, front row on the right, attacker to the right." /></figcaption>
+  {:else if topic === "positions" || topic === "ultimates" || topic === "ready"}
+    {#if topic === "ultimates"}
       <div class="type-picker" role="group" aria-label="Preview ultimate targeting">
         {#each Object.values(ATTACK_TYPES) as type}<button class="tap-target" aria-pressed={attackType === type.id} onclick={() => attackType = type.id}>{type.icon} {type.name}</button>{/each}
       </div>
       <p class="visual-heading">{ULTIMATES[attackType].name} · highlighted targets</p>
+      <p class="visual-detail"><GuideText text={ULTIMATES[attackType].description} /></p>
     {:else}<p class="visual-heading">{topic === "ready" ? "Example five-hero formation" : "Incoming basic attacks"}</p>{/if}
     <!-- Same zigzag as the battlefield: positions 1–5 top to bottom, front row offset toward the attacker. -->
     <div class="formation">
@@ -49,25 +73,22 @@
       <span class="column-label" style:grid-column="3">Front</span>
       {#each [...formation].sort((a, b) => a.position - b.position) as slot}
         {@const front = [2, 4].includes(slot.position)}
-        {@const targeted = topic === "attacks" ? attackType === "magic" || (attackType === "ranged" ? !front : slot.position === 2) : topic === "positions" && slot.position === 2}
+        {@const targeted = topic === "ultimates" ? attackType === "magic" || (attackType === "ranged" ? !front : slot.position === 2) : topic === "positions" && slot.position === 2}
         <div class="slot" class:targeted style:grid-column={front ? 3 : 2} style:grid-row={`${slot.position + 1} / span 2`}>
-          <Sprite unitId={slot.unitId} class="h-14" />
+          <Sprite unitId={slot.unitId} class="h-12" />
           <b>{slot.position} · {UNITS[slot.unitId].name}</b>
           {#if targeted}<small>Target</small>{/if}
         </div>
       {/each}
       {#if topic !== "ready"}<span class="attacker-side" aria-hidden="true">←<span class="attacker-word">Attacker</span></span>{/if}
     </div>
-    {#if topic === "attacks"}
-      <div class="cycle"><span>1 · Basic</span><span>→</span><span>2 · Basic</span><span>→</span><strong>3 · Ultimate</strong></div>
-      <figcaption>{ULTIMATES[attackType].description}</figcaption>
-    {:else}<figcaption>Basic target order: 2 → 4 → 1 → 3 → 5. Speed controls who acts next.</figcaption>{/if}
+    {#if topic !== "ultimates"}<figcaption><GuideText text="Basic target order: 2 → 4 → 1 → 3 → 5. Speed controls who acts next." /></figcaption>{/if}
   {:else if topic === "stats"}
     <div class="hero-preview">
       <UnitCard unitId="swordsman" stars={5} size="sm" />
       <div class="detail-preview">
         <h3>Swordsman <span>· Hero details</span></h3>
-        <p>⚔ Melee · 5 stars</p>
+        <p>🗡️ Melee · 5 stars</p>
         <HeroStats stats={computeCardStats("swordsman", 5)} />
         <div class="annotations">
           {#if page === 0}<p><b>HP</b> is the health pool you protect.</p><p><b>ATK</b> powers each hit.</p>
@@ -75,7 +96,7 @@
         </div>
       </div>
     </div>
-    <figcaption>This is the same attributes panel used in hero details. Click an allied hero during combat to see current HP and stats with battle bonuses.</figcaption>
+    <figcaption><GuideText text="This is the same attributes panel used in hero details. Click an allied hero during combat to see current HP and stats with battle bonuses." /></figcaption>
   {:else if topic === "traits" && page === 0}
     <div class="hero-preview">
       <UnitCard unitId={hero.unitId} stars={hero.stars} size="sm" />
@@ -87,11 +108,11 @@
       </div>
     </div>
     <div class="thresholds">{#each TRAIT_SYNERGIES.brawler.thresholds as threshold, index}<div><b>{threshold} Brawlers</b><small>{TRAIT_SYNERGIES.brawler.tiers[index]}</small></div>{/each}</div>
-    <figcaption>At 5 stars only the first regular trait contributes. More stars unlock the others; more matching heroes unlock stronger army bonuses.</figcaption>
+    <figcaption><GuideText text="At 5 stars only the first regular trait contributes. More stars unlock the others; more matching heroes unlock stronger army bonuses." /></figcaption>
   {:else if topic === "traits"}
     <div class="cards">{#each army as card}<div><UnitCard unitId={card.unitId} stars={card.stars} size="sm" /><span class="badge">Brawler +1</span></div>{/each}</div>
     <div class="synergy-result"><strong>Brawler {brawlers}/{TRAIT_SYNERGIES.brawler.thresholds.at(-1)}</strong><span>{TRAIT_SYNERGIES.brawler.tiers[brawlers - 2]} · Active</span><small>One more contribution reaches Army ATK +35%.</small></div>
-    <figcaption>Only deployed heroes count. An ascended hero contributes +2 to each unlocked trait instead of +1.</figcaption>
+    <figcaption><GuideText text="Only deployed heroes count. An ascended hero contributes +2 to each unlocked trait instead of +1." /></figcaption>
   {:else if topic === "promotion"}
     <div class="promotion">
       <div><p>Before · {fromStars} stars</p><UnitCard unitId="swordsman" stars={fromStars} size="sm" /></div>
@@ -100,20 +121,21 @@
     </div>
     <div class="cost"><h3>Promotion cost · consumed</h3><p>{cost.copies} extra Swordsman {cost.copies === 1 ? "copy" : "copies"}</p>{#each cost.resources as resource}<span>{resource.amount} {RESOURCES[resource.resource].name}</span>{/each}</div>
     <div class="stat-comparison">{#each ["hp", "atk", "def", "spd"] as key}<div><b>{key.toUpperCase()}</b><span>{beforeStats[key as keyof typeof beforeStats]} → {afterStats[key as keyof typeof afterStats]}</span></div>{/each}</div>
-    <figcaption>{toStars === 10 ? "One gold star marks rank 10. Ascension adds extra stats and doubles trait contributions." : `Promoting to 6 stars unlocks ${TRAIT_SYNERGIES[UNITS.swordsman.traits[1]].name}, the Swordsman’s second trait.`}</figcaption>
+    <!-- The ascension page's "10 stars" point already explains the gold star. -->
+    {#if toStars < 10}<figcaption><GuideText text={`Promoting to 6 stars unlocks ${TRAIT_SYNERGIES[UNITS.swordsman.traits[1]].name}, the Swordsman’s second trait.`} /></figcaption>{/if}
   {:else if topic === "modes"}
     {#if page === 0}
       <div class="paths"><div><strong>⚔ Campaign</strong><span>Region → fights → boss</span><b>Win Tribute</b></div><div><strong>↓ The Abyss</strong><span>Clear 5 → 10 → 15…</span><b>Grow passive income</b></div></div>
     {:else}
       <div class="cards"><div><UnitCard unitId="mage" stars={3} size="sm" /><span>Starting pool · up to 3★</span></div><div><UnitCard unitId="swordsman" stars={4} size="sm" /><span>Iron Age · unlock 4★</span></div><div><UnitCard unitId="champion" stars={5} size="sm" /><span>Medieval · unlock 5★</span></div></div>
     {/if}
-    <figcaption>Use Tribute to recruit heroes; use your growing army to progress in both modes.</figcaption>
+    <figcaption><GuideText text="Use Tribute to recruit heroes; use your growing army to progress in both modes." /></figcaption>
   {/if}
 </figure>
 
 <style>
-  figure { margin: 18px 0 0; padding: 18px; border: 1px solid #d9b66d40; border-radius: 12px; background: #d9b66d06; }
-  figcaption { margin-top: 14px; font-size: 16px; line-height: 1.6; color: var(--muted-foreground); }
+  figure { margin: 18px 0 0; padding: 16px; border: 1px solid #d9b66d40; border-radius: 12px; background: #d9b66d06; }
+  figcaption { margin-top: 12px; font-size: 15px; line-height: 1.6; color: var(--muted-foreground); }
   .hero-preview { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; align-items: center; }
   .detail-preview { flex: 1; min-width: 180px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--popover); }
   h3, .visual-heading { font-size: 18px; font-weight: 650; margin-bottom: 8px; }
@@ -126,22 +148,32 @@
   .matchup > span { color: #edcf93; font-size: 16px; text-align: center; }
   small { display: block; font-size: 15px; }
   .visual-heading { text-align: center; }
-  .formation { display: grid; grid-template-columns: 1fr minmax(0, 110px) minmax(0, 110px) 1fr; grid-template-rows: auto repeat(6, 58px); column-gap: 10px; }
+  .visual-detail { max-width: 46ch; margin: -2px auto 6px; text-align: center; font-size: 15px; line-height: 1.5; color: var(--muted-foreground); }
+  .sequence { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .sequence li { flex: 1 1 88px; max-width: 130px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 6px; border: 1px solid var(--border); border-radius: 8px; }
+  .sequence p { font-size: 13px; color: var(--muted-foreground); }
+  .sequence small { font-size: 13px; color: #edcf93; text-align: center; }
+  .mini-formation { display: grid; grid-template-columns: repeat(2, minmax(0, 50px)); grid-template-rows: repeat(6, 20px); column-gap: 4px; }
+  .mini-slot { position: relative; margin: 1px 0; display: flex; align-items: center; justify-content: center; gap: 1px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; font-weight: 650; }
+  .mini-slot.targeted { border-color: #edcf93; background: #d9b66d30; color: #edcf93; }
+  .mini-slot.defeated > * { opacity: .3; filter: grayscale(1); }
+  .mini-slot.defeated::after { content: "✕"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; color: #e5484d; opacity: .85; }
+  .formation { display: grid; grid-template-columns: 1fr minmax(0, 110px) minmax(0, 110px) 1fr; grid-template-rows: auto repeat(6, 52px); column-gap: 10px; }
   .column-label { grid-row: 1; text-align: center; font-size: 15px; color: var(--muted-foreground); margin-bottom: 6px; }
   .attacker-word { margin-left: 4px; }
   .attacker-side { grid-column: 4; grid-row: 2 / -1; align-self: center; font-size: 15px; color: var(--muted-foreground); white-space: nowrap; }
-  .slot { min-width: 0; margin: 3px 0; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 6px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .slot b { display: block; font-size: 14px; }
+  .slot { min-width: 0; margin: 3px 0; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .slot b { display: block; font-size: 14px; line-height: 1.25; }
   .slot.targeted { border-color: #edcf93; background: #d9b66d18; }
-  .slot small { color: #edcf93; }
-  .type-picker, .cycle { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0; font-size: 17px; }
+  .slot small { color: #edcf93; font-size: 12px; line-height: 1.25; }
+  .type-picker { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 8px 0; font-size: 17px; }
   button { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
   button[aria-pressed="true"] { color: #edcf93; border-color: #d9b66d; }
   button:focus-visible { outline: 2px solid #edcf93; outline-offset: 2px; }
   .trait-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 17px; }
   .trait-row span { color: #edcf93; font-size: 15px; }
   .locked { opacity: .55; }
-  .thresholds, .stat-comparison { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 14px; }
+  .thresholds, .stat-comparison { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
   .thresholds > div, .stat-comparison > div { padding: 8px; background: var(--muted); border-radius: 6px; font-size: 16px; text-align: center; }
   .stat-comparison span { display: block; margin-top: 4px; color: #edcf93; }
   .cards { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
@@ -152,10 +184,10 @@
   .promotion > div { display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .promotion p { font-size: 16px; }
   .arrow { color: #edcf93; font-size: 29px; }
-  .cost { background: var(--muted); padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 17px; }
+  .cost { background: var(--muted); padding: 10px 12px; border-radius: 8px; margin-top: 12px; font-size: 17px; }
   .cost span { display: inline-block; margin: 6px 10px 0 0; font-size: 16px; color: var(--muted-foreground); }
   .paths { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .paths > div { display: grid; gap: 12px; padding: 16px; background: var(--muted); border-radius: 8px; font-size: 17px; }
   .paths b { color: #edcf93; }
-  @media (max-width: 520px) { figure { padding: 12px; } .formation { column-gap: 6px; } .attacker-word { display: none; } .thresholds, .paths { grid-template-columns: repeat(2, 1fr); } .promotion { gap: 8px; } .stat-comparison > div { padding: 6px 2px; } }
+  @media (max-width: 520px) { figure { padding: 12px; } .sequence { gap: 6px; } .sequence li { flex-basis: 80px; padding: 6px 3px; } .mini-formation { column-gap: 3px; } .mini-slot span { font-size: 11px; } .formation { column-gap: 6px; } .attacker-word { display: none; } .thresholds, .paths { grid-template-columns: repeat(2, 1fr); } .promotion { gap: 8px; } .stat-comparison > div { padding: 6px 2px; } }
 </style>

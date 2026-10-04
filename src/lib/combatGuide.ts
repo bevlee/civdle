@@ -1,4 +1,4 @@
-import { DAMAGE_STRONG, DAMAGE_WEAK, STAR_STAT_MULT, ULTIMATES } from "./combatData";
+import { DAMAGE_STRONG, DAMAGE_WEAK, STAR_STAT_MULT } from "./combatData";
 import { ATTACK_ORDER } from "./position";
 
 export interface CombatSlide {
@@ -22,12 +22,12 @@ export const COMBAT_TOPICS: CombatSlide[] = [
     tip: "Inspect the enemy army before fighting. A balanced lineup gives you more ways to counter it.",
   },
   {
-    id: "positions", label: "Positions", title: "Who gets hit first?",
-    intro: `Basic attacks target living enemies in this order: ${ATTACK_ORDER.join(" → ")}. Empty and defeated positions are skipped.`,
+    id: "positions", label: "Positions", title: "Where to place heroes",
+    intro: "Your army has five positions: two in the front row and three behind it. Where a hero stands decides how soon enemies can reach them.",
     points: [
-      { title: "Front row · 2 and 4", body: "Put durable heroes here to absorb early hits. Position 2 is targeted before 4." },
-      { title: "Back row · 1, 3 and 5", body: "Shelter fragile damage dealers here, but watch out for ranged and magic ultimates." },
-      { title: "Move before the fight", body: "Drag heroes onto slots or swap them. You can also click an empty position, then a hero. Formation changes are locked during combat." },
+      { title: "Front row · 2 and 4", body: "Put durable heroes here. Position 2 takes the first hits, then 4." },
+      { title: "Back row · 1, 3 and 5", body: "Shelter fragile damage dealers here, but ranged and magic ultimates still reach them." },
+      { title: "Move before the fight", body: "Drag heroes onto positions or swap them, or click an empty position, then a hero. Locked during combat." },
     ],
     tip: "This is targeting order, not turn order. A fast back-row hero can act before a slow front-row hero.",
   },
@@ -43,10 +43,24 @@ export const COMBAT_TOPICS: CombatSlide[] = [
     tip: "Star up your units to increase their HP, ATK and DEF.",
   },
   {
-    id: "attacks", label: "Attacks", title: "Basic, basic, ultimate",
-    intro: "Combat runs automatically. Normally, every third personal action is an ultimate, replacing that hero’s basic attack.",
-    points: Object.values(ULTIMATES).map(ultimate => ({ title: ultimate.name, body: ultimate.description })),
-    tip: "Ranged ultimates hit the front row if the back row is empty. Ultimates can crit, but cannot be dodged or trigger extra hits. The charge markers show when a hero’s ultimate is coming.",
+    id: "attacks", label: "Attacks", title: "Who basic attacks hit",
+    intro: `Combat runs automatically. Each basic attack hits the first living enemy in order ${ATTACK_ORDER.join(" → ")}. When it falls, the next in line is targeted.`,
+    points: [
+      { title: "Front row first · 2, then 4", body: "Basic attacks stay on the front row until both are defeated." },
+      { title: "Then the back row · 1, 3, 5", body: "Back-row heroes only take basic attacks once the front row falls." },
+      { title: "Gaps are skipped", body: "Empty positions and defeated heroes are passed over." },
+    ],
+    tip: "Both armies follow the same order, so your own position 2 hero takes the first hits too.",
+  },
+  {
+    id: "ultimates", label: "Ultimates", title: "Ultimates: every third action",
+    intro: "Normally, every third personal action is an ultimate, replacing that hero’s basic attack. Each attack type has its own ultimate. Pick a type to see who it hits.",
+    points: [
+      { title: "Watch the charge", body: "The charge markers under each hero show when their ultimate is coming." },
+      { title: "Crits, but no dodges", body: "Ultimates can crit, but cannot be dodged or trigger extra hits." },
+      { title: "Matchups still apply", body: "Strong and weak type multipliers apply to ultimates just like basic attacks." },
+    ],
+    tip: "The back row is safe from basic attacks, not ultimates. Volley and Arcane Burst reach it straight away.",
   },
   {
     id: "traits", label: "Traits", title: "Build bonuses across your army",
