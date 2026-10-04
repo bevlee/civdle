@@ -19,6 +19,8 @@
   import GainToastStack from "$lib/components/GainToastStack.svelte";
   import AchievementsView from "$lib/components/AchievementsView.svelte";
   import AchievementToasts from "$lib/components/AchievementToasts.svelte";
+  import WelcomeBackToast from "$lib/components/WelcomeBackToast.svelte";
+  import MessageToast from "$lib/components/MessageToast.svelte";
   import { ACHIEVEMENTS, unlockedCount } from "$lib/achievements";
   import { OverlayQueue } from "$lib/view/overlayQueue.svelte";
   import DebugPanel from "$lib/components/DebugPanel.svelte";
@@ -269,21 +271,6 @@
         }}
       />
     </div>
-
-    {#if game.message}
-      <div
-        class="flex items-center justify-between gap-3 border-b border-border bg-muted/50 px-3 py-2 sm:px-6"
-      >
-        <p class="text-sm text-muted-foreground">{game.message}</p>
-        <button
-          class="-m-2 p-2 text-xs text-muted-foreground hover:text-foreground"
-          aria-label="Dismiss message"
-          onclick={() => game.dismissMessage()}
-        >
-          ✕
-        </button>
-      </div>
-    {/if}
 
     <div class="flex min-h-0 flex-1">
       <!-- Left: Skill panel (phones use the SkillPicker on the Train tab) -->
@@ -547,8 +534,18 @@
     onDismiss={(id) => game.dismissEvent(id)}
   />
 
+  <!-- Game notices float over the top of the page. Always mounted so screen readers hear each one. -->
+  <div
+    role="status"
+    class="pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+4.25rem)] z-[120] flex flex-col items-center gap-2 md:inset-x-0 md:top-[calc(env(safe-area-inset-top)+0.75rem)]"
+  >
+    <WelcomeBackToast welcome={game.welcome} onDismiss={() => game.dismissWelcome()} />
+    <MessageToast message={game.message} onDismiss={() => game.dismissMessage()} />
+  </div>
+
+  <!-- Shares the notices' spot, so it waits for them to go. -->
   <AchievementToasts
-    overlay={overlay?.kind === "achievements" && !popupsWait ? overlay : null}
+    overlay={overlay?.kind === "achievements" && !popupsWait && !game.welcome && !game.message ? overlay : null}
     onOpen={() => {
       centerTab = "achievements";
       dismissAchievementToast();

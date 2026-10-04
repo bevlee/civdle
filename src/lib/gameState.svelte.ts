@@ -216,7 +216,10 @@ function saveToStorage(state: GameState) {
 export class CivdleGame {
   state = $state<GameState>(createInitialState());
   loaded = $state(false);
-  message = $state<string | null>(null);
+  /** A notice for the player, e.g. training stopping; shown as a toast. */
+  message = $state<{ title: string; detail: string } | null>(null);
+  /** What happened while the player was away, shown once on load. */
+  welcome = $state<{ actions: number; tribute: number } | null>(null);
   pendingUnlocks = $state<SkillId[]>([]);
   #progress = $state(0);
   battlePaused = $state(false);
@@ -319,12 +322,9 @@ export class CivdleGame {
     this.state = finalState;
     this.loaded = true;
 
-    const welcome: string[] = [];
-    if (offline.actionsProcessed > 0) {
-      welcome.push(`${offline.actionsProcessed} action${offline.actionsProcessed === 1 ? "" : "s"} completed`);
+    if (offline.actionsProcessed > 0 || offlineSpoils > 0) {
+      this.welcome = { actions: offline.actionsProcessed, tribute: offlineSpoils };
     }
-    if (offlineSpoils > 0) welcome.push(`${offlineSpoils} Tribute earned from The Abyss`);
-    if (welcome.length > 0) this.message = `Welcome back! ${welcome.join(" and ")} while away.`;
 
     if (this.state.activeSkill) {
       this.#startActionLoop();
@@ -584,7 +584,7 @@ export class CivdleGame {
       }
     }
     if (outcome.outOfMaterials) {
-      this.message = "Out of materials — training stopped.";
+      this.message = { title: "Out of materials", detail: "Training stopped. Gather or craft more to keep going." };
     }
   }
 
@@ -676,6 +676,10 @@ export class CivdleGame {
         ? this.state.globalUpgrades.filter((id) => id !== upgradeId)
         : [...this.state.globalUpgrades, upgradeId],
     };
+  }
+
+  dismissWelcome(): void {
+    this.welcome = null;
   }
 
   dismissMessage(): void {
