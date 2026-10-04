@@ -24,8 +24,7 @@
   let afterStats = $derived(computeCardStats("swordsman", toStars, toStars === 10));
 </script>
 
-<figure aria-label={`${topic} illustrated example`}>
-  <div class="example-label">Illustrated example · uses real hero data</div>
+<figure aria-label={`${topic} example`}>
   {#if topic === "types"}
     <div class="matchups">
       {#each Object.values(ATTACK_TYPES) as type}
@@ -43,20 +42,21 @@
         {#each Object.values(ATTACK_TYPES) as type}<button class="tap-target" aria-pressed={attackType === type.id} onclick={() => attackType = type.id}>{type.icon} {type.name}</button>{/each}
       </div>
       <p class="visual-heading">{ULTIMATES[attackType].name} · highlighted targets</p>
-    {:else}<p class="visual-heading">{topic === "ready" ? "Example five-hero formation" : "Incoming basic attacks ↓"}</p>{/if}
+    {:else}<p class="visual-heading">{topic === "ready" ? "Example five-hero formation" : "Incoming basic attacks"}</p>{/if}
+    <!-- Same zigzag as the battlefield: positions 1–5 top to bottom, front row offset toward the attacker. -->
     <div class="formation">
-      {#each [true, false] as front}
-        <div class="formation-row"><span>{front ? "Front" : "Back"}</span>
-          {#each formation.filter(f => [2, 4].includes(f.position) === front) as slot}
-            {@const targeted = topic === "attacks" ? attackType === "magic" || (attackType === "ranged" ? !front : slot.position === 2) : topic === "positions" && slot.position === 2}
-            <div class="slot" class:targeted>
-              <Sprite unitId={slot.unitId} class="h-14" />
-              <b>{slot.position} · {UNITS[slot.unitId].name}</b>
-              {#if targeted}<small>Target</small>{/if}
-            </div>
-          {/each}
+      <span class="column-label" style:grid-column="2">Back</span>
+      <span class="column-label" style:grid-column="3">Front</span>
+      {#each [...formation].sort((a, b) => a.position - b.position) as slot}
+        {@const front = [2, 4].includes(slot.position)}
+        {@const targeted = topic === "attacks" ? attackType === "magic" || (attackType === "ranged" ? !front : slot.position === 2) : topic === "positions" && slot.position === 2}
+        <div class="slot" class:targeted style:grid-column={front ? 3 : 2} style:grid-row={`${slot.position + 1} / span 2`}>
+          <Sprite unitId={slot.unitId} class="h-14" />
+          <b>{slot.position} · {UNITS[slot.unitId].name}</b>
+          {#if targeted}<small>Target</small>{/if}
         </div>
       {/each}
+      {#if topic !== "ready"}<span class="attacker-side" aria-hidden="true">←<span class="attacker-word">Attacker</span></span>{/if}
     </div>
     {#if topic === "attacks"}
       <div class="cycle"><span>1 · Basic</span><span>→</span><span>2 · Basic</span><span>→</span><strong>3 · Ultimate</strong></div>
@@ -113,7 +113,6 @@
 
 <style>
   figure { margin: 18px 0 0; padding: 18px; border: 1px solid #d9b66d40; border-radius: 12px; background: #d9b66d06; }
-  .example-label { font-size: 14px; color: var(--muted-foreground); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 14px; }
   figcaption { margin-top: 14px; font-size: 16px; line-height: 1.6; color: var(--muted-foreground); }
   .hero-preview { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; align-items: center; }
   .detail-preview { flex: 1; min-width: 180px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--popover); }
@@ -127,10 +126,11 @@
   .matchup > span { color: #edcf93; font-size: 16px; text-align: center; }
   small { display: block; font-size: 15px; }
   .visual-heading { text-align: center; }
-  .formation { display: grid; gap: 12px; }
-  .formation-row { display: flex; justify-content: center; gap: 8px; align-items: center; }
-  .formation-row > span { width: 28px; font-size: 15px; color: var(--muted-foreground); }
-  .slot { width: 100px; min-width: 0; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 6px 2px; }
+  .formation { display: grid; grid-template-columns: 1fr minmax(0, 110px) minmax(0, 110px) 1fr; grid-template-rows: auto repeat(6, 58px); column-gap: 10px; }
+  .column-label { grid-row: 1; text-align: center; font-size: 15px; color: var(--muted-foreground); margin-bottom: 6px; }
+  .attacker-word { margin-left: 4px; }
+  .attacker-side { grid-column: 4; grid-row: 2 / -1; align-self: center; font-size: 15px; color: var(--muted-foreground); white-space: nowrap; }
+  .slot { min-width: 0; margin: 3px 0; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 6px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .slot b { display: block; font-size: 14px; }
   .slot.targeted { border-color: #edcf93; background: #d9b66d18; }
   .slot small { color: #edcf93; }
@@ -157,5 +157,5 @@
   .paths { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .paths > div { display: grid; gap: 12px; padding: 16px; background: var(--muted); border-radius: 8px; font-size: 17px; }
   .paths b { color: #edcf93; }
-  @media (max-width: 520px) { figure { padding: 12px; } .thresholds, .paths { grid-template-columns: repeat(2, 1fr); } .promotion { gap: 8px; } .stat-comparison > div { padding: 6px 2px; } }
+  @media (max-width: 520px) { figure { padding: 12px; } .formation { column-gap: 6px; } .attacker-word { display: none; } .thresholds, .paths { grid-template-columns: repeat(2, 1fr); } .promotion { gap: 8px; } .stat-comparison > div { padding: 6px 2px; } }
 </style>
