@@ -19,31 +19,11 @@ Skaffold builds the image (`docker.io/bevdev1/civdle`), pushes it, and applies
 the Kustomize manifests in `k8s/` (namespace, deployment, service, cert-manager
 certificate and Traefik ingress) to the `civdle` namespace.
 
-### Release from CI
-
-Push a version tag and `.github/workflows/deploy.yml` tests, builds, pushes and
-rolls out that tag:
+To release, tag the commit and deploy it from your machine:
 
 ```bash
 git tag v0.4.0
 git push origin v0.4.0
-```
-
-The workflow needs these repository secrets:
-
-| Secret | Value |
-| --- | --- |
-| `DOCKERHUB_USERNAME` | `bevdev1` |
-| `DOCKERHUB_TOKEN` | Docker Hub access token with write access |
-| `OKE_CLUSTER_OCID` | OKE cluster OCID |
-| `OCI_CLI_USER` | OCI user OCID |
-| `OCI_CLI_TENANCY` | OCI tenancy OCID |
-| `OCI_CLI_FINGERPRINT` | Fingerprint of the API signing key |
-| `OCI_CLI_KEY_CONTENT` | PEM private key of the API signing key |
-
-### Deploy from a laptop
-
-```bash
 skaffold run
 kubectl -n civdle rollout status deployment/civdle --timeout=5m
 ```
