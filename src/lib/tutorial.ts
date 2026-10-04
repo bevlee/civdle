@@ -28,7 +28,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "story-vs-depths",
     title: "Campaign vs The Abyss",
-    body: "The Campaign sends your settlers into 6 wild regions, each guarded by a faction boss. Each win pays Tribute. The Abyss goes forever, scales gently, can Auto, and pays passive Tribute for every 5 cleared.",
+    body: "The Campaign sends your settlers into 6 wild regions, each guarded by a boss. Each win pays Tribute. The Abyss goes forever, scales gently, can Auto, and pays passive Tribute for every 5 cleared.",
   },
 ];
 

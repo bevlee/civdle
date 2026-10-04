@@ -142,7 +142,7 @@
           <span>max {MAX_STARS}★ · <span style:color={color}>{RARITY_NAMES[def.baseStars]}</span></span>
         </p>
         <p class="text-[13px] text-muted-foreground">
-          <span class="font-semibold" style:color={faction.color}>{faction.name}</span> · {type.icon} {type.name}
+          {type.icon} {type.name}
         </p>
       </div>
     </div>
