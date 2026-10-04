@@ -3,6 +3,8 @@
 SvelteKit app, fully client-side (game state lives in localStorage), built with
 `adapter-static` and served by nginx at https://civdle.bevsoft.com.
 
+Current version: **v0.4.0**
+
 ## Development
 
 ```bash
@@ -23,8 +25,8 @@ Push a version tag and `.github/workflows/deploy.yml` tests, builds, pushes and
 rolls out that tag:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.4.0
+git push origin v0.4.0
 ```
 
 The workflow needs these repository secrets:
@@ -46,5 +48,5 @@ skaffold run
 kubectl -n civdle rollout status deployment/civdle --timeout=5m
 ```
 
-The image tag follows `git describe --tags`: `v0.2.0` on a tagged commit,
-`v0.2.0-3-gabc1234` three commits later, plus `-dirty` for uncommitted changes.
+The image tag follows `git describe --tags`: `v0.4.0` on a tagged commit,
+`v0.4.0-3-gabc1234` three commits later, plus `-dirty` for uncommitted changes.
