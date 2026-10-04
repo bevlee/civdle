@@ -1,4 +1,4 @@
-// Achievements for the phone screen: filter chips with counts, and each section sorted by how close you are.
+// The achievements screen: filter chips with counts, and each section sorted by how close you are.
 
 import {
   ACHIEVEMENTS,
