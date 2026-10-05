@@ -2,12 +2,23 @@
   import { onMount } from "svelte";
   import { holdPopups } from "$lib/view/popupHold.svelte";
   import { COMBAT_SLIDES, COMBAT_TOPICS } from "$lib/combatGuide";
+  import { splitGuideText } from "$lib/guideGlossary";
   import CombatGuideVisual from "./CombatGuideVisual.svelte";
+  import GuideText from "./GuideText.svelte";
 
   let { onClose }: { onClose: () => void } = $props();
   let dialog: HTMLDialogElement;
   let step = $state(0);
   let current = $derived(COMBAT_SLIDES[step]);
+  // Keywords become hover cards, underlined once per page in reading order.
+  let text = $derived.by(() => {
+    const seen = new Set<string>();
+    return {
+      intro: splitGuideText(current.intro, seen),
+      points: current.points.map(point => splitGuideText(point.body, seen)),
+      tip: splitGuideText(current.tip, seen),
+    };
+  });
 
   // Only mounted while it is showing.
   $effect(() => holdPopups());
@@ -28,7 +39,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<dialog bind:this={dialog} aria-labelledby="combat-guide-title" onclose={onClose}
+<dialog id="combat-guide" bind:this={dialog} aria-labelledby="combat-guide-title" onclose={onClose}
   onkeydown={(event) => {
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
@@ -48,18 +59,23 @@
   <section aria-live="polite" aria-atomic="true">
     <p class="eyebrow">{current.label} · Page {current.page + 1} of {current.pageCount}</p>
     <h2 id="combat-guide-title">{current.title}</h2>
-    <p class="intro">{current.intro}</p>
+    <!-- Stacked on narrow screens; on wide ones the example sits beside the text so a page fits without scrolling. -->
+    <div class="layout">
+      <p class="intro"><GuideText segments={text.intro} /></p>
 
-    {#key `${current.id}-${current.page}`}
-      <CombatGuideVisual topic={current.id} page={current.page} />
-    {/key}
+      <div class="visual">
+        {#key `${current.id}-${current.page}`}
+          <CombatGuideVisual topic={current.id} page={current.page} />
+        {/key}
+      </div>
 
-    <div class="points">
-      {#each current.points as point}
-        <article><h3>{point.title}</h3><p>{point.body}</p></article>
-      {/each}
+      <div class="points">
+        {#each current.points as point, index}
+          <article><h3>{point.title}</h3><p><GuideText segments={text.points[index]} /></p></article>
+        {/each}
+      </div>
+      <aside><GuideText segments={text.tip} /></aside>
     </div>
-    <aside>{current.tip}</aside>
   </section>
   <footer>
     <button disabled={step === 0} onclick={() => move(-1)}>← Back</button>
@@ -69,31 +85,46 @@
 </dialog>
 
 <style>
-  dialog { margin: auto; padding: 0; width: min(760px, calc(100vw - 24px)); max-height: min(880px, calc(100dvh - 24px)); overflow-y: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--popover); color: var(--popover-foreground); box-shadow: 0 24px 80px #0009; }
+  dialog { margin: auto; padding: 0; width: min(820px, calc(100vw - 24px)); max-height: min(880px, calc(100dvh - 24px)); overflow-y: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--popover); color: var(--popover-foreground); box-shadow: 0 24px 80px #0009; }
   dialog::backdrop { background: #000b; backdrop-filter: blur(4px); }
   header, footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; }
   header { border-bottom: 1px solid var(--border); }
-  .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: #d9b66d; margin-bottom: 4px; }
-  button { cursor: pointer; border: 1px solid var(--border); border-radius: 7px; padding: 8px 12px; font-size: 12px; }
+  .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .16em; color: #d9b66d; margin-bottom: 4px; }
+  button { cursor: pointer; border: 1px solid var(--border); border-radius: 7px; padding: 8px 12px; font-size: 14px; }
   button:hover { background: var(--muted); }
   button:focus-visible { outline: 2px solid #d9b66d; outline-offset: 3px; }
   button:disabled { opacity: .35; cursor: default; }
   .close { border: none; }
   nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 16px 24px 0; }
-  nav button { color: var(--muted-foreground); padding: 6px 9px; }
+  nav button { color: var(--muted-foreground); padding: 6px 10px; font-size: 13px; }
   nav button.active { color: #edcf93; border-color: #d9b66d88; background: #d9b66d15; }
   section { padding: 24px; }
   h2 { font-size: clamp(22px, 4vw, 30px); font-weight: 750; line-height: 1.2; margin-bottom: 12px; }
-  .intro { font-size: 14px; line-height: 1.6; color: var(--muted-foreground); }
+  .intro { font-size: 16px; line-height: 1.6; color: var(--muted-foreground); }
   .points { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
   article { border: 1px solid var(--border); border-radius: 9px; padding: 14px; }
-  h3 { font-size: 13px; font-weight: 650; margin-bottom: 6px; }
-  article p, aside { font-size: 12px; line-height: 1.65; color: var(--muted-foreground); }
+  h3 { font-size: 15px; font-weight: 650; margin-bottom: 6px; }
+  article p, aside { font-size: 15px; line-height: 1.6; color: var(--muted-foreground); }
   aside { margin-top: 16px; padding: 12px 14px; border-left: 2px solid #d9b66d; background: #d9b66d08; }
   footer { position: sticky; bottom: 0; background: var(--popover); border-top: 1px solid var(--border); }
-  footer span { color: var(--muted-foreground); font-size: 11px; }
+  footer span { color: var(--muted-foreground); font-size: 13px; }
   .primary { background: #d9b66d; color: #211c12; font-weight: 650; }
   .primary:hover { background: #edcf93; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 1024px) {
+    dialog { width: min(1120px, calc(100vw - 48px)); }
+    header { padding-block: 12px; }
+    nav { padding-top: 12px; }
+    section { padding-block: 16px; }
+    header .eyebrow { display: none; }
+    article { padding: 12px 14px; }
+    .layout { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: auto auto 1fr; grid-template-areas: "visual intro" "visual points" "visual tip"; column-gap: 32px; }
+    .intro { grid-area: intro; }
+    .visual { grid-area: visual; }
+    .visual > :global(figure) { margin-top: 0; }
+    .points { grid-area: points; grid-template-columns: minmax(0, 1fr); margin-top: 14px; gap: 10px; }
+    aside { grid-area: tip; align-self: start; margin-top: 12px; }
+  }
   @media (max-width: 520px) { .points { grid-template-columns: 1fr; } header, footer, section { padding: 16px; } nav { padding: 12px 16px 0; } }
   /* Phones: 44px tap targets. */
   @media (max-width: 767px) { footer button { min-height: 44px; } .close { min-width: 44px; min-height: 44px; margin-right: -8px; } nav { row-gap: 12px; } }

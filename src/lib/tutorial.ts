@@ -8,7 +8,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "attack-triangle",
     title: "The Attack Triangle",
-    body: "Every unit is ⚔ Melee, 🏹 Ranged, or ✨ Magic. ⚔ beats 🏹, 🏹 beats ✨, ✨ beats ⚔. Strong hits deal ×1.5, weak hits deal ×0.75. Scout the enemy, then counter-pick.",
+    body: "Every unit is 🗡️ Melee, 🏹 Ranged, or ✨ Magic. 🗡️ beats 🏹, 🏹 beats ✨, ✨ beats 🗡️. Strong hits deal ×1.5, weak hits deal ×0.75. Scout the enemy, then counter-pick.",
   },
   {
     id: "positioning",
@@ -18,7 +18,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "ultimates",
     title: "Ultimate Attacks",
-    body: "Every 3rd attack is an Ultimate. ⚔ Melee: 300% to one target. 🏹 Ranged: 200% to the entire back row. ✨ Magic: 125% to ALL enemies. Build your comp around these.",
+    body: "Every 3rd attack is an Ultimate. 🗡️ Melee: 300% to one target. 🏹 Ranged: 200% to the entire back row. ✨ Magic: 125% to ALL enemies. Build your comp around these.",
   },
   {
     id: "synergies",

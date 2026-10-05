@@ -396,9 +396,7 @@
         {/if}
       </div>
       <footer class="battlefield-footer" class:idle-hint={!formationLocked && partyCards.length === 0} aria-live="polite">
-        {#if battleDone && resultReady}
-          <span>{mode === "depths" && gacha.depths.auto ? "Auto continuing…" : game.battlePaused ? "Paused" : "Continuing…"}</span>
-        {:else if isPlaying}<span>{game.battlePaused ? "Battle paused" : "Battle in progress"} · Turn {battle?.turn}</span><span>Formation locked</span>
+        {#if isPlaying}<span>{game.battlePaused ? "Battle paused" : "Battle in progress"} · Turn {battle?.turn}</span><span>Formation locked</span>
         {:else if !formationLocked && partyCards.length === 0}<span><span class="md:hidden">Drag heroes onto a slot · tap one for details</span><span class="max-md:hidden">Drag heroes onto a slot · click one for details</span></span>
         {/if}
       </footer>
@@ -571,9 +569,8 @@
     }
     .battle-sidebar { min-height: 0; overflow-y: auto; }
     .army-dock { flex: none; }
-    /* The placing hint only while the party is empty (as on phones). */
-    .battlefield-footer { min-height: 0; }
-    .battlefield-footer > :global(*) { padding: 4px 0 6px; }
+    /* A fixed height, so the stage (and the units sized from it) never jumps as the footer's text comes and goes. */
+    .battlefield-footer { min-height: 0; height: 32px; }
   }
   /* Short desktop stages (laptop screens): smaller units, so the five slots don't overlap. */
   @container desk-stage (max-height: 400px) {
