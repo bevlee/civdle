@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { ATTACK_TYPES, UNITS, computeCardStats, getPromotionCost, ULTIMATES, type AttackType, type UnitCard as Card, type UnitId } from "$lib/combatData";
+  import { ATTACK_TYPES, DAMAGE_STRONG, DAMAGE_WEAK, UNITS, computeCardStats, getPromotionCost, ULTIMATES, type AttackType, type UnitCard as Card, type UnitId } from "$lib/combatData";
   import { RESOURCES } from "$lib/gameData";
   import { activeTraitsForCard, TRAIT_SYNERGIES, countTraits } from "$lib/traits";
+  import AttackTypeIcon from "./AttackTypeIcon.svelte";
   import UnitCard from "./UnitCard.svelte";
   import HeroStats from "./HeroStats.svelte";
   import Sprite from "./Sprite.svelte";
@@ -26,20 +27,31 @@
 
 <figure aria-label={`${topic} example`}>
   {#if topic === "types"}
+    {#snippet hero(type: AttackType)}
+      <div><Sprite unitId={examples[type]} class="h-16" /><strong><AttackTypeIcon {type} /> {ATTACK_TYPES[type].name}</strong></div>
+    {/snippet}
+    <!-- Each weak matchup sits under the strong one it reverses. -->
     <div class="matchups">
       {#each Object.values(ATTACK_TYPES) as type}
         <div class="matchup">
-          <div><Sprite unitId={examples[type.id]} class="h-16" /><strong>{type.icon} {type.name}</strong></div>
-          <span>×1.5 →<small>beats</small></span>
-          <div><Sprite unitId={examples[type.beats]} class="h-16" /><strong>{ATTACK_TYPES[type.beats].icon} {ATTACK_TYPES[type.beats].name}</strong></div>
+          {@render hero(type.id)}
+          <span>×{DAMAGE_STRONG} →<small>beats</small></span>
+          {@render hero(type.beats)}
+        </div>
+      {/each}
+      {#each Object.values(ATTACK_TYPES) as type}
+        <div class="matchup weak">
+          {@render hero(type.beats)}
+          <span>×{DAMAGE_WEAK} →<small>weak vs</small></span>
+          {@render hero(type.id)}
         </div>
       {/each}
     </div>
-    <figcaption>Reverse an arrow for a weak hit (×0.75). The hero’s type determines the matchup.</figcaption>
+    <figcaption>Same type is ×1. The hero’s type determines the matchup.</figcaption>
   {:else if topic === "positions" || topic === "attacks" || topic === "ready"}
     {#if topic === "attacks"}
       <div class="type-picker" role="group" aria-label="Preview ultimate targeting">
-        {#each Object.values(ATTACK_TYPES) as type}<button class="tap-target" aria-pressed={attackType === type.id} onclick={() => attackType = type.id}>{type.icon} {type.name}</button>{/each}
+        {#each Object.values(ATTACK_TYPES) as type}<button class="tap-target" aria-pressed={attackType === type.id} onclick={() => attackType = type.id}><AttackTypeIcon type={type.id} /> {type.name}</button>{/each}
       </div>
       <p class="visual-heading">{ULTIMATES[attackType].name} · highlighted targets</p>
     {:else}<p class="visual-heading">{topic === "ready" ? "Example five-hero formation" : "Incoming basic attacks"}</p>{/if}
@@ -67,7 +79,7 @@
       <UnitCard unitId="swordsman" stars={5} size="sm" />
       <div class="detail-preview">
         <h3>Swordsman <span>· Hero details</span></h3>
-        <p>⚔ Melee · 5 stars</p>
+        <p><AttackTypeIcon type="melee" /> Melee · 5 stars</p>
         <HeroStats stats={computeCardStats("swordsman", 5)} />
         <div class="annotations">
           {#if page === 0}<p><b>HP</b> is the health pool you protect.</p><p><b>ATK</b> powers each hit.</p>
@@ -120,10 +132,13 @@
   h3 span, .detail-preview > p { font-size: 16px; color: var(--muted-foreground); margin-bottom: 10px; }
   .annotations { margin-top: 12px; font-size: 17px; line-height: 1.8; }
   .annotations b { color: #edcf93; }
-  .matchups { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 16px; }
-  .matchup { display: flex; gap: 8px; align-items: center; }
+  figure:has(.matchups) { container-type: inline-size; }
+  .matchups { display: grid; grid-template-columns: repeat(3, max-content); justify-content: space-between; gap: 20px 8px; }
+  .matchup { display: flex; gap: 6px; align-items: center; justify-content: center; }
   .matchup > div { display: flex; flex-direction: column; align-items: center; font-size: 16px; }
   .matchup > span { color: #edcf93; font-size: 16px; text-align: center; }
+  .matchup.weak > span { color: #f2a7a7; }
+  @container (max-width: 560px) { .matchups { grid-template-columns: max-content; justify-content: center; } }
   small { display: block; font-size: 15px; }
   .visual-heading { text-align: center; }
   .formation { display: grid; grid-template-columns: 1fr minmax(0, 110px) minmax(0, 110px) 1fr; grid-template-rows: auto repeat(6, 58px); column-gap: 10px; }

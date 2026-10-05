@@ -137,16 +137,15 @@ export const FACTIONS: Record<Faction, { name: string; color: string }> = {
 export interface AttackTypeDef {
   id: AttackType;
   name: string;
-  icon: string;
   beats: AttackType;
   weakTo: AttackType;
   blurb: string;
 }
 
 export const ATTACK_TYPES: Record<AttackType, AttackTypeDef> = {
-  melee: { id: "melee", name: "Melee", icon: "⚔", beats: "ranged", weakTo: "magic", blurb: "Closes the gap on ranged units." },
-  ranged: { id: "ranged", name: "Ranged", icon: "🏹", beats: "magic", weakTo: "melee", blurb: "Picks off spellcasters from afar." },
-  magic: { id: "magic", name: "Magic", icon: "✨", beats: "melee", weakTo: "ranged", blurb: "Tears through armoured brutes." },
+  melee: { id: "melee", name: "Melee", beats: "ranged", weakTo: "magic", blurb: "Closes the gap on ranged units." },
+  ranged: { id: "ranged", name: "Ranged", beats: "magic", weakTo: "melee", blurb: "Picks off spellcasters from afar." },
+  magic: { id: "magic", name: "Magic", beats: "melee", weakTo: "ranged", blurb: "Tears through armoured brutes." },
 };
 
 export const DAMAGE_STRONG = 1.5;
