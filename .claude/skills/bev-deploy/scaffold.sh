@@ -557,7 +557,7 @@ Next:
   1. DNS: point $HOSTS at the cluster's Traefik.
   2. Make sure $IMAGE exists on Docker Hub and is public (no imagePullSecrets).
   3. Check: kubectl kustomize k8s >/dev/null && skaffold diagnose
-  4. Release: tag + push, then skaffold run (see release.sh).
+  4. Release: tag + push, then skaffold run (see bev-deploy/release.sh).
 EOF
 [[ $STATIC -eq 0 ]] && echo "  !  No Dockerfile written: yours must listen on $PORT as uid $UID_ with a read-only root (only /tmp writable)."
 exit 0

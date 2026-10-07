@@ -1,9 +1,9 @@
 ---
-name: bevsoft-deploy
+name: bev-deploy
 description: Set up or release a project with the civdle deploy style — Docker image to docker.io/bevdev1/<app>, Skaffold + Kustomize to its own <app> namespace (and <app>-dev for `skaffold dev`), Traefik ingress at <app>.bevsoft.com with a cert-manager cert, released by pushing a git tag and running `skaffold run` from a laptop. Use when asked to deploy, scaffold k8s/skaffold, add a dev environment, or cut a release for a bevsoft project.
 ---
 
-# bevsoft deploy style
+# bev-deploy
 
 One app = one image = one namespace. No CI deploy; releases go out from a
 laptop with Skaffold, and the image tag comes from the git tag.
@@ -39,7 +39,7 @@ Tag policy is `gitCommit: {variant: Tags}`: `v0.4.0` on a tagged commit,
 From the new repo's root:
 
 ```bash
-~/.claude/skills/bevsoft-deploy/scaffold.sh <app> [--static] [--no-dev] \
+~/.claude/skills/bev-deploy/scaffold.sh <app> [--static] [--no-dev] \
   [--host H] [--dev-host H] [--port N] [--uid N] [--dev-port N] [--dev-uid N] [--force]
 ```
 
@@ -68,7 +68,7 @@ Then add a Deployment section to the README like civdle's.
 ## Releasing
 
 ```bash
-~/.claude/skills/bevsoft-deploy/release.sh v0.5.0
+~/.claude/skills/bev-deploy/release.sh v0.5.0
 ```
 
 which does, after checking the tree is clean and HEAD is pushed:
