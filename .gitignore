@@ -7,7 +7,8 @@ node_modules
 /build
 
 # Claude Code local state
-.claude
+.claude/*
+!.claude/skills/
 
 # OS
 .DS_Store
