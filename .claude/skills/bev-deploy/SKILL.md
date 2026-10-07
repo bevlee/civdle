@@ -41,7 +41,7 @@ Tag policy is `gitCommit: {variant: Tags}`: `v0.4.0` on a tagged commit,
 From the new repo's root:
 
 ```bash
-<skill-dir>/scaffold.sh <app> [--static] [--no-dev] \
+bash <skill-dir>/scaffold.sh <app> [--static] [--no-dev] \
   [--host H] [--dev-host H] [--port N] [--uid N] [--dev-port N] [--dev-uid N] [--force]
 ```
 
@@ -70,7 +70,7 @@ Then add a Deployment section to the README like civdle's.
 ## Releasing
 
 ```bash
-<skill-dir>/release.sh v0.5.0
+bash <skill-dir>/release.sh v0.5.0
 ```
 
 which does, after checking the tree is clean and HEAD is pushed:
