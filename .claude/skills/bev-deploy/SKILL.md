@@ -1,6 +1,6 @@
 ---
 name: bev-deploy
-description: Set up or release a project with the civdle deploy style — Docker image to docker.io/bevdev1/<app>, Skaffold + Kustomize to its own <app> namespace (and <app>-dev for `skaffold dev`), Traefik ingress at <app>.bevsoft.com with a cert-manager cert, released by pushing a git tag and running `skaffold run` from a laptop. Use when asked to deploy, scaffold k8s/skaffold, add a dev environment, or cut a release for a bevsoft project.
+description: Set up or release a project with the civdle deploy style — Docker image to docker.io/bevdev1/APP, Skaffold + Kustomize to its own APP namespace (and APP-dev for `skaffold dev`), Traefik ingress at APP.bevsoft.com with a cert-manager cert, released by pushing a git tag and running `skaffold run` from a laptop. Use when asked to deploy, scaffold k8s/skaffold, add a dev environment, or cut a release for a bevsoft project.
 ---
 
 # bev-deploy
@@ -36,10 +36,12 @@ Tag policy is `gitCommit: {variant: Tags}`: `v0.4.0` on a tagged commit,
 
 ## Scaffolding a new project
 
+`<skill-dir>` is the directory this SKILL.md was loaded from; the scripts sit beside it.
+
 From the new repo's root:
 
 ```bash
-~/.claude/skills/bev-deploy/scaffold.sh <app> [--static] [--no-dev] \
+<skill-dir>/scaffold.sh <app> [--static] [--no-dev] \
   [--host H] [--dev-host H] [--port N] [--uid N] [--dev-port N] [--dev-uid N] [--force]
 ```
 
@@ -68,7 +70,7 @@ Then add a Deployment section to the README like civdle's.
 ## Releasing
 
 ```bash
-~/.claude/skills/bev-deploy/release.sh v0.5.0
+<skill-dir>/release.sh v0.5.0
 ```
 
 which does, after checking the tree is clean and HEAD is pushed:
