@@ -9,6 +9,7 @@ node_modules
 # Claude Code local state
 .claude/*
 !.claude/skills/
+.claude/skills/dist/
 
 # OS
 .DS_Store
