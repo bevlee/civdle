@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ATTACK_TYPES, FACTIONS, MAX_STARS, UNITS, type UnitId } from "$lib/combatData";
   import Sprite, { type Pose } from "./Sprite.svelte";
+  import AttackTypeIcon from "./AttackTypeIcon.svelte";
   import { TRAIT_SYNERGIES } from "$lib/traits";
   import { rarityColor, starString } from "$lib/rarity";
   import StarRow from "./StarRow.svelte";
@@ -97,7 +98,7 @@
       class="absolute bottom-0.5 left-0.5 rounded bg-black/60 px-0.5 text-[14px] leading-[18px]"
       title={type.name}
     >
-      {type.icon}
+      <AttackTypeIcon type={type.id} />
     </span>
   {:else}
     <div
@@ -108,7 +109,7 @@
       style:background-color={`color-mix(in oklch, ${color} 35%, transparent)`}
     >
       <span class="truncate">{def.name}</span>
-      <span class="shrink-0 opacity-90" title={type.name}>{type.icon}</span>
+      <span class="flex shrink-0" title={type.name}><AttackTypeIcon type={type.id} /></span>
     </div>
     <div role="img" aria-label={def.name}>
       <Sprite {unitId} {pose} {animate} flip={flipSprite} class="w-full" />

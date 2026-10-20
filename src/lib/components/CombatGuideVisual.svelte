@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { ATTACK_TYPES, UNITS, computeCardStats, getPromotionCost, ULTIMATES, type AttackType, type UnitCard as Card, type UnitId } from "$lib/combatData";
+  import { ATTACK_TYPES, DAMAGE_STRONG, DAMAGE_WEAK, UNITS, computeCardStats, getPromotionCost, ULTIMATES, type AttackType, type UnitCard as Card, type UnitId } from "$lib/combatData";
   import { RESOURCES } from "$lib/gameData";
   import { activeTraitsForCard, TRAIT_SYNERGIES, countTraits } from "$lib/traits";
+  import AttackTypeIcon from "./AttackTypeIcon.svelte";
   import UnitCard from "./UnitCard.svelte";
   import HeroStats from "./HeroStats.svelte";
   import Sprite from "./Sprite.svelte";
@@ -28,16 +29,29 @@
 
 <figure aria-label={`${topic} example`}>
   {#if topic === "types"}
+    {#snippet hero(type: AttackType)}
+      <div><Sprite unitId={examples[type]} class="h-16" /><strong><AttackTypeIcon {type} /> {ATTACK_TYPES[type].name}</strong></div>
+    {/snippet}
+    <!-- Each weak matchup sits under the strong one it reverses; in a narrow space they become two headed columns, then one list. -->
     <div class="matchups">
+      <p class="matchup-head">×{DAMAGE_STRONG} · beats</p>
       {#each Object.values(ATTACK_TYPES) as type}
         <div class="matchup">
-          <div><Sprite unitId={examples[type.id]} class="h-16" /><strong>{type.icon} {type.name}</strong></div>
-          <span>×1.5 →<small>beats</small></span>
-          <div><Sprite unitId={examples[type.beats]} class="h-16" /><strong>{ATTACK_TYPES[type.beats].icon} {ATTACK_TYPES[type.beats].name}</strong></div>
+          {@render hero(type.id)}
+          <span><em>×{DAMAGE_STRONG}</em> →<small>beats</small></span>
+          {@render hero(type.beats)}
+        </div>
+      {/each}
+      <p class="matchup-head weak">×{DAMAGE_WEAK} · weak vs</p>
+      {#each Object.values(ATTACK_TYPES) as type}
+        <div class="matchup weak">
+          {@render hero(type.beats)}
+          <span><em>×{DAMAGE_WEAK}</em> →<small>weak vs</small></span>
+          {@render hero(type.id)}
         </div>
       {/each}
     </div>
-    <figcaption><GuideText text="Reverse an arrow for a weak hit (×0.75). The hero’s type determines the matchup." /></figcaption>
+    <figcaption><GuideText text="Same type is ×1. The hero’s type determines the matchup." /></figcaption>
   {:else if topic === "attacks"}
     <!-- One mini battlefield per hit: everyone the earlier hits defeated is crossed out, the next target is highlighted. -->
     <ol class="sequence">
@@ -62,7 +76,7 @@
   {:else if topic === "positions" || topic === "ultimates" || topic === "ready"}
     {#if topic === "ultimates"}
       <div class="type-picker" role="group" aria-label="Preview ultimate targeting">
-        {#each Object.values(ATTACK_TYPES) as type}<button class="tap-target" aria-pressed={attackType === type.id} onclick={() => attackType = type.id}>{type.icon} {type.name}</button>{/each}
+        {#each Object.values(ATTACK_TYPES) as type}<button class="tap-target" aria-pressed={attackType === type.id} onclick={() => attackType = type.id}><AttackTypeIcon type={type.id} /> {type.name}</button>{/each}
       </div>
       <p class="visual-heading">{ULTIMATES[attackType].name} · highlighted targets</p>
       <p class="visual-detail"><GuideText text={ULTIMATES[attackType].description} /></p>
@@ -88,7 +102,7 @@
       <UnitCard unitId="swordsman" stars={5} size="sm" />
       <div class="detail-preview">
         <h3>Swordsman <span>· Hero details</span></h3>
-        <p>🗡️ Melee · 5 stars</p>
+        <p><AttackTypeIcon type="melee" /> Melee · 5 stars</p>
         <HeroStats stats={computeCardStats("swordsman", 5)} />
         <div class="annotations">
           {#if page === 0}<p><b>HP</b> is the health pool you protect.</p><p><b>ATK</b> powers each hit.</p>
@@ -142,10 +156,34 @@
   h3 span, .detail-preview > p { font-size: 16px; color: var(--muted-foreground); margin-bottom: 10px; }
   .annotations { margin-top: 12px; font-size: 17px; line-height: 1.8; }
   .annotations b { color: #edcf93; }
-  .matchups { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 16px; }
-  .matchup { display: flex; gap: 8px; align-items: center; }
+  figure:has(.matchups) { container-type: inline-size; }
+  .matchups { display: grid; grid-template-columns: repeat(3, max-content); justify-content: space-between; gap: 20px 8px; }
+  .matchup { display: flex; gap: 6px; align-items: center; justify-content: center; }
   .matchup > div { display: flex; flex-direction: column; align-items: center; font-size: 16px; }
   .matchup > span { color: #edcf93; font-size: 16px; text-align: center; }
+  .matchup > span em { font-style: normal; }
+  .matchup.weak > span, .matchup-head.weak { color: #f2a7a7; }
+  .matchup-head { display: none; text-align: center; font-size: 15px; font-weight: 650; color: #edcf93; }
+  /* Three matchups side by side need about 660px. */
+  @container (max-width: 680px) {
+    .matchups { grid-template-columns: repeat(2, max-content); grid-template-rows: repeat(4, auto); grid-auto-flow: column; justify-content: space-evenly; gap: 14px 12px; }
+    .matchup-head { display: block; }
+    .matchup { gap: 4px; }
+    .matchup > div { font-size: 14px; }
+    .matchup :global(.sprite) { height: 2.75rem; }
+    .matchup > span em, .matchup > span small { display: none; }
+  }
+  /* Phones: the type icon moves above its name so both columns still fit side by side. */
+  @container (max-width: 360px) {
+    .matchups { column-gap: 8px; justify-content: space-between; }
+    .matchup { gap: 2px; }
+    .matchup > div { width: 54px; text-align: center; line-height: 1.25; }
+    .matchup > div :global(svg) { display: block; margin: 2px auto 1px; }
+  }
+  /* Two columns don't fit the narrowest phones, so they get one list with weak under strong. */
+  @container (max-width: 259px) {
+    .matchups { grid-template-columns: max-content; grid-template-rows: none; grid-auto-flow: row; justify-content: center; }
+  }
   small { display: block; font-size: 15px; }
   .visual-heading { text-align: center; }
   .visual-detail { max-width: 46ch; margin: -2px auto 6px; text-align: center; font-size: 15px; line-height: 1.5; color: var(--muted-foreground); }

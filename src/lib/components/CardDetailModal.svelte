@@ -18,6 +18,7 @@
   import { MediaQuery } from "svelte/reactivity";
   import { holdPopups } from "$lib/view/popupHold.svelte";
   import { Button } from "$lib/components/ui/button";
+  import AttackTypeIcon from "./AttackTypeIcon.svelte";
   import Hint from "./Hint.svelte";
   import Sprite from "./Sprite.svelte";
   import StarRow from "./StarRow.svelte";
@@ -142,7 +143,7 @@
           <span>max {MAX_STARS}★ · <span style:color={color}>{RARITY_NAMES[def.baseStars]}</span></span>
         </p>
         <p class="text-[13px] text-muted-foreground">
-          {type.icon} {type.name}
+          <AttackTypeIcon type={type.id} /> {type.name}
         </p>
       </div>
     </div>
@@ -177,7 +178,7 @@
         {ULTIMATES[def.attackType].description} Triggers every third personal action, or every second with an army cadence bonus.
       </p>
       <p class="text-muted-foreground">
-        {type.icon} {type.name}: beats {ATTACK_TYPES[type.beats].icon} {ATTACK_TYPES[type.beats].name}, weak to {ATTACK_TYPES[type.weakTo].icon} {ATTACK_TYPES[type.weakTo].name}.
+        <AttackTypeIcon type={type.id} /> {type.name}: beats <AttackTypeIcon type={type.beats} /> {ATTACK_TYPES[type.beats].name}, weak to <AttackTypeIcon type={type.weakTo} /> {ATTACK_TYPES[type.weakTo].name}.
       </p>
     </div>
 
