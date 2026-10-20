@@ -32,7 +32,7 @@
     {#snippet hero(type: AttackType)}
       <div><Sprite unitId={examples[type]} class="h-16" /><strong><AttackTypeIcon {type} /> {ATTACK_TYPES[type].name}</strong></div>
     {/snippet}
-    <!-- Each weak matchup sits under the strong one it reverses; in a narrow space they become two headed columns instead. -->
+    <!-- Each weak matchup sits under the strong one it reverses; in a narrow space they become two headed columns, then one list. -->
     <div class="matchups">
       <p class="matchup-head">×{DAMAGE_STRONG} · beats</p>
       {#each Object.values(ATTACK_TYPES) as type}
@@ -164,7 +164,8 @@
   .matchup > span em { font-style: normal; }
   .matchup.weak > span, .matchup-head.weak { color: #f2a7a7; }
   .matchup-head { display: none; text-align: center; font-size: 15px; font-weight: 650; color: #edcf93; }
-  @container (max-width: 560px) {
+  /* Three matchups side by side need about 660px. */
+  @container (max-width: 680px) {
     .matchups { grid-template-columns: repeat(2, max-content); grid-template-rows: repeat(4, auto); grid-auto-flow: column; justify-content: space-evenly; gap: 14px 12px; }
     .matchup-head { display: block; }
     .matchup { gap: 4px; }
@@ -178,6 +179,10 @@
     .matchup { gap: 2px; }
     .matchup > div { width: 54px; text-align: center; line-height: 1.25; }
     .matchup > div :global(svg) { display: block; margin: 2px auto 1px; }
+  }
+  /* Two columns don't fit the narrowest phones, so they get one list with weak under strong. */
+  @container (max-width: 259px) {
+    .matchups { grid-template-columns: max-content; grid-template-rows: none; grid-auto-flow: row; justify-content: center; }
   }
   small { display: block; font-size: 15px; }
   .visual-heading { text-align: center; }
